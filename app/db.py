@@ -211,7 +211,8 @@ class OrderStat(Base):
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
-class AfdianWebhookLog(Base):    """收到爱发电的回调原始记录,用于「回调测试/哪能看到」调试验证。"""
+class AfdianWebhookLog(Base):
+    """收到爱发电的回调原始记录,用于「回调测试/哪能看到」调试验证。"""
     __tablename__ = "afdian_webhook_logs"
     id = Column(Integer, primary_key=True, autoincrement=True)
     body_text = Column(Text, nullable=False)          # 收到的原始 JSON
@@ -232,8 +233,21 @@ def platform_settings(db) -> PlatformSetting:
 
 
 def init_db() -> None:
-    """启动时幂等建表(也可手工导入 database/schema.sql)"""
-    Base.metadata.create_all(engine)
+    """启动时幂等建表(也可手工导入 database/schema.sql)。
+
+    注意:多 worker(gunicorn/uvicorn --workers)同时启动会并发执行建表,
+    可能撞到 "Table already exists"(1050) / "Duplicate key name"(1061);
+    这属于幂等竞态,应忽略而不是让整个 create_all 中断(否则后续表可能漏建)。
+    """
+    try:
+        Base.metadata.create_all(engine)
+    except Exception as e:  # noqa: BLE001
+        code = getattr(getattr(e, "orig", None), "args", [None])[0]
+        if code in (1050, 1061):  # 表已存在 / 索引已存在
+            import logging
+            logging.getLogger("afdianpu").info("init_db: 表/索引已存在,跳过 (code=%s)", code)
+            return
+        raise
 
 
 def _wh_pairs(value, sep):

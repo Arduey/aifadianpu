@@ -1,0 +1,64 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+  <div>
+    <h1 class="display" style="font-size:20px">新手任务清单</h1>
+    <p class="muted">按清单逐步完成开店准备;完成项自动保存到本机浏览器。</p>
+  </div>
+  <div><span class="badge badge-brand" id="task-progress">0 / 6 已完成</span></div>
+</div>
+
+<div class="card" style="padding:8px 16px">
+  <div id="task-list" style="display:grid;gap:8px"></div>
+</div>
+
+<div class="card" id="task-all" style="display:none;padding:20px;margin-top:14px;background:var(--good);border-color:var(--good);color:#fff">
+  <b style="font-size:13px">🎉 全部完成</b>
+  <p style="margin-top:4px;font-size:12px;opacity:.9">所有任务已完成,可以开始正式经营你的店铺了。</p>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+var ME = {
+  id: {{ me.id }},
+  sn: {{ me.shop_name|tojson|safe }},
+  bio: {{ me.bio|tojson|safe }},
+  qq: {{ me.qq|tojson|safe }},
+  wx: {{ me.wechat|tojson|safe }},
+  aff: {{ me.afdian_user_id|tojson|safe }},
+  wu: {{ me.webhook_url|tojson|safe }},
+  em: {{ 'true' if me.email_notify else 'false' }}
+};
+var PC = {{ product_count }};
+function loc(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+function locset(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+var TASKS = [
+  { id: 'shop', t: '完善店铺信息', d: '设置店铺名、头像/Logo 与店铺介绍(或 QQ/微信)。', href: '/console/account', on: () => !!(ME.sn && (ME.bio || ME.qq || ME.wx)) },
+  { id: 'afdian', t: '绑定爱发电', d: '填写 user_id 与 token,启用商品与收款。', href: '/console/account', on: () => !!ME.aff },
+  { id: 'notify', t: '设置订单通知', d: '配置订单邮件通知或 Webhook 回调。', href: '/console/account', on: () => !!(ME.wu || ME.em) },
+  { id: 'product', t: '发布商品', d: '创建商品标题/SKU/价格。', href: '/console/products', on: () => PC > 0 },
+  { id: 'visit', t: '访问店铺', d: '打开你的前台店铺页面。', href: '', on: () => !!ME.aff && loc('afp_shopvis_'+ME.aff) === '1' },
+  { id: 'fee', t: '了解 API 费用', d: '查看余额与费用流水规则。', href: '/console/fees', on: () => loc('afp_fees') === '1' },
+  { id: 'recharge', t: '充值 API 余额', d: '购买管理员发布的充值商品为余额充值。', href: '/console/account', on: () => loc('afp_recharged') === '1' },
+  { id: 'tour', t: '完成产品导览', d: '了解控制台各功能入口。', href: '#', on: () => loc('afp_tour_'+ME.id) === '1' },
+];
+function redraw(){
+  var done = 0;
+  var box = document.getElementById('task-list');
+  box.innerHTML = TASKS.map(function(t){
+    var on = t.on(); if (on) done++;
+    return '<div style="display:flex;gap:12px;align-items:center;padding:12px 6px;border-bottom:1px solid var(--line)">' +
+      '<span style="width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;' + (on ? 'background:var(--good);color:#fff' : 'border:1.5px solid var(--line-dark);color:var(--ink-300)') + '">' + (on ? '✓' : '') + '</span>' +
+      '<div style="flex:1;min-width:0"><div style="font-weight:700;font-size:13px;' + (on ? 'color:var(--good)' : '') + '">' + t.t + '</div><div class="muted" style="font-size:11px">' + t.d + '</div></div>' +
+      (t.href ? '<a href="' + t.href + '" class="btn btn-outline btn-sm" style="' + (on ? 'opacity:.5' : '') + '">前往</a>' : '') +
+    '</div>';
+  }).join('');
+  document.getElementById('task-progress').textContent = done + ' / ' + TASKS.length + ' 已完成';
+  var all = document.getElementById('task-all');
+  if (all) { all.style.display = done === TASKS.length ? '' : 'none'; }
+  var btn = document.getElementById('task-menu-btn');
+  if (btn) btn.className = done === TASKS.length ? 'btn btn-outline btn-sm all-done' : 'btn btn-outline btn-sm';
+}
+redraw();
+</script>
+{% endblock %}

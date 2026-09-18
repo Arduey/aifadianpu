@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}安装向导 · 爱发电铺{% endblock %}
+{% block body %}
+<div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px">
+  <div style="width:100%;max-width:520px">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:700;margin-bottom:20px">
+      <span class="logo-box" style="width:36px;height:36px"><morph-icon data-name="zap" size="17"></morph-icon></span> 爱发电铺 · 安装向导
+    </div>
+
+    {% if step == 'step2' %}
+    <div class="card fade-up" style="padding:24px">
+      <div style="display:flex;align-items:center;gap:8px;font-size:17px;margin-bottom:4px"><span class="badge badge-good"><morph-icon data-name="check" size="12"></morph-icon></span> 1/2 数据库已配置</div>
+      <p class="muted" style="margin:4px 0 16px">数据库连接成功。现在创建<b>管理员账号</b>并填写可选业务配置(可在后台「平台配置」修改)。</p>
+      <form method="post" action="/install/finish">
+        <div class="field" style="margin-bottom:12px">
+          <label>管理员邮箱(唯一,仅 QQ / 163)</label>
+          <input name="admin_email" type="email" placeholder="admin@qq.com" value="{{ form.email }}" required>
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>管理员店铺名(≤12 中文/字母/数字)</label>
+          <input name="admin_shop" value="{{ form.shop_name }}" maxlength="12" placeholder="例如:爱发电铺官方" required>
+        </div>
+        <div class="grid g2" style="gap:12px;margin-bottom:14px">
+          <div class="field"><label>管理员密码(至少 8 位)</label><input name="admin_pwd" type="password" required></div>
+          <div class="field"><label>确认密码</label><input name="admin_confirm" type="password" required></div>
+        </div>
+
+        {% if error %}<div class="field-error" style="margin-bottom:12px">{{ error }}</div>{% endif %}
+
+        <div style="font-size:12px;font-weight:700;color:var(--ink-700);margin:6px 0 10px">可选 · 平台配置(可后台修改)</div>
+        <div class="field" style="margin-bottom:12px">
+          <label>对外访问地址 <span class="hint">重置邮件链接前缀</span></label>
+          <input name="app_base_url" value="{{ form.app_base_url }}" placeholder="https://你的域名">
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>平台 Logo 链接</label>
+          <input name="platform_logo_url" value="{{ form.platform_logo_url }}" placeholder="https://…/logo.png">
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>爱发电(消费者)账号 <span class="hint">不配则全站无法下单</span></label>
+          <input name="consumer_account" value="{{ form.consumer_account }}" placeholder="爱发电账号">
+        </div>
+        <div class="field" style="margin-bottom:12px">
+          <label>爱发电(消费者)密码</label>
+          <input name="consumer_password" type="password" placeholder="消费者账号密码">
+        </div>
+
+        <div style="font-size:12px;font-weight:700;color:var(--ink-700);margin:6px 0 10px">可选 · SMTP 邮件</div>
+        <div class="grid g2" style="gap:12px;margin-bottom:12px">
+          <div class="field"><label>SMTP 主机</label><input name="smtp_host" value="{{ form.smtp_host }}" placeholder="smtp.qq.com"></div>
+          <div class="field"><label>端口</label><input name="smtp_port" value="{{ form.smtp_port or '465' }}" placeholder="465"></div>
+        </div>
+
+        <button class="btn btn-primary btn-lg btn-block" type="submit">创建管理员并完成</button>
+      </form>
+    </div>
+
+    {% elif step == 'restart' %}
+    <div class="card fade-up" style="padding:24px;text-align:center">
+      <div class="display" style="font-size:17px;margin-bottom:8px">数据库配置已保存</div>
+      <p class="muted" style="margin-bottom:14px">请在<b>宝塔 Python 项目管理器</b>点「重启」让数据库配置生效,再刷新本页继续第 2 步。</p>
+      <a class="btn btn-primary btn-lg btn-block" href="/install">我已重启,继续 →</a>
+    </div>
+
+    {% else %}
+    <div class="card fade-up" style="padding:24px">
+      <div class="display" style="font-size:17px;margin-bottom:4px">1/2 · 配置数据库</div>
+      <p class="muted" style="margin:4px 0 16px">填写你的 MySQL 连接信息(<b>会话密钥将自动生成</b>)。提交前会先测试连接。</p>
+      <form method="post" action="/install">
+        <div class="field" style="margin-bottom:12px"><label>数据库主机</label><input name="DB_HOST" value="{{ form.DB_HOST or '127.0.0.1' }}" placeholder="127.0.0.1" required></div>
+        <div class="grid g2" style="gap:12px;margin-bottom:12px">
+          <div class="field"><label>端口</label><input name="DB_PORT" value="{{ form.DB_PORT or '3306' }}" placeholder="3306"></div>
+          <div class="field"><label>数据库名</label><input name="DB_NAME" value="{{ form.DB_NAME or 'afdianpu' }}" required></div>
+        </div>
+        <div class="field" style="margin-bottom:12px"><label>数据库用户名</label><input name="DB_USER" value="{{ form.DB_USER }}" required></div>
+        <div class="field" style="margin-bottom:14px"><label>数据库密码</label><input name="DB_PASSWORD" type="password" required></div>
+
+        {% if error %}<div class="field-error" style="margin-bottom:12px">{{ error }}</div>{% endif %}
+
+        <button class="btn btn-primary btn-lg btn-block" type="submit">测试并保存配置</button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

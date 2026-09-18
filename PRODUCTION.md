@@ -1,7 +1,12 @@
 # 爱发电铺 · 生产功能说明
 
 > 本文描述 fastapi 版**当前已实现并部署**的生产行为,供开发者/运营快速对齐「系统到底怎么工作」。
-> 部署步骤见 `README.md` / `RE-DEPLOY.md` / `BT-PANEL-STEP.md`;接口细节见开放接口页(`/api-docs`)。
+
+---
+
+> 📚 **文档导航**：[README](README.md) · [全新部署](RE-DEPLOY.md) · [宝塔手把手](BT-PANEL-STEP.md) · [部署教程](DEPLOY-TUTORIAL.md) · [生产功能](PRODUCTION.md)
+> 当前页：**生产功能说明**（PRODUCTION.md）
+> 接口细节见站内「开放接口」页（`/api-docs`）。
 
 ---
 

@@ -1,0 +1,281 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+  <div style="flex:1;min-width:260px">
+    <h1 class="display" style="font-size:20px">商品管理</h1>
+    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类可复用(同名分类可放多个商品) · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额) · 同标题多档规格用「+ SKU」 · 「API充值」分类仅管理员可创建</p>
+  </div>
+  <button class="btn btn-primary" onclick="openForm()" {% if not configured %}disabled{% endif %} style="flex:none;margin-left:auto">＋ 新增商品</button>
+</div>
+<script>setTimeout(function(){ if(window.toast) toast('warn','请勿创建违法商品,轻则删除商品,重则关闭账户。','爱发电平台规范'); }, 900);</script>
+{% if not configured %}
+<div class="card fade-up" style="padding:12px 16px;background:var(--warn-100);border-color:rgba(180,83,9,.25);font-size:12px;font-weight:600;color:var(--warn);margin-bottom:14px">
+  <morph-icon data-name="alertTriangle" size="13"></morph-icon> 尚未绑定爱发电 user_id 与 token,无法创建和销售商品。<a href="/console/account{{ qs }}" style="text-decoration:underline">前往个人中心绑定</a>
+</div>
+{% endif %}
+
+<div class="card">
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+    <morph-icon data-name="filter" size="13"></morph-icon>
+    <div style="position:relative">
+      <button type="button" class="btn btn-outline btn-sm" id="cat-btn" onclick="toggleCatMenu(event)">分类(多选)<span id="cat-selcount" class="badge badge-brand" style="display:none;margin-left:6px"></span></button>
+      <div id="cat-menu" style="display:none;position:absolute;left:0;top:32px;z-index:40;min-width:230px;max-height:260px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.14);padding:8px">
+        <div style="display:flex;gap:6px;padding:2px 4px 8px;border-bottom:1px solid var(--line);margin-bottom:6px">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="selAllCat(true)">全选</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="selAllCat(false)">清空</button>
+        </div>
+        <div id="cat-options"></div>
+      </div>
+    </div>
+    <span class="muted" id="filter-count" style="font-size:11px"></span>
+  </div>
+  <style>
+    #cat-blocks{padding:10px 12px 12px}
+    .cat-block{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--card)}
+    .cat-block:last-child{margin-bottom:0}
+    .cat-block-head{display:flex;align-items:center;gap:9px;width:100%;padding:11px 14px;background:var(--paper);border:0;cursor:pointer;font-family:inherit;font-size:13px;color:var(--ink-900);text-align:left;transition:background .2s}
+    .cat-block-head:hover{background:var(--brand-50)}
+    .cat-ico{width:18px;height:18px;object-fit:contain;border-radius:5px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
+    .cat-ico-empty{background:var(--line);color:var(--ink-400)}
+    .chev{transition:transform .22s;color:var(--ink-400);font-size:12px;line-height:1;margin-left:10px}
+    .cat-mv{display:inline-flex;gap:4px;margin-left:auto}
+    .cat-mv .btn{padding:2px 8px;line-height:1.5}
+    .cat-block.collapsed .chev{transform:rotate(-90deg)}
+    .cat-block-body{display:block}
+    .cat-block.collapsed .cat-block-body{display:none}
+    .cat-block-body table{width:100%}
+    /* 问号悬浮提示(JS 定位的 fixed 气泡,不受 .modal-body 裁剪) */
+    .hint-icon{cursor:help;display:inline-flex;vertical-align:middle}
+    .hint-tip{position:fixed;max-width:min(280px,80vw);background:var(--ink-900);color:var(--paper);font-size:11.5px;font-weight:400;line-height:1.7;text-align:left;padding:8px 11px;border-radius:9px;box-shadow:0 10px 26px rgba(0,0,0,.24);white-space:normal;pointer-events:none;z-index:200;opacity:0;transition:opacity .16s;font-family:inherit}
+    .hint-tip.on{opacity:1}
+    .hint-tip::after{content:"";position:absolute;left:var(--ax,50%);top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--ink-900)}
+    .hint-tip.up::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--ink-900)}
+  </style>
+  {% if not products %}
+  <div style="text-align:center;padding:48px;color:var(--ink-400)"><morph-icon data-name="package" size="26"></morph-icon> 还没有商品,点击右上角「新增商品」创建</div>
+  {% else %}
+  <div id="cat-blocks">
+    {% for cat, rows in products|groupby('category') %}
+    {% set cat_icon = (rows|map(attribute='category_icon_url')|select|first) or '' %}
+    <div class="cat-block" data-cat="{{ cat }}">
+      <button type="button" class="cat-block-head" onclick="toggleCat(this)">
+        {% if cat_icon or platformLogo %}<img src="{{ cat_icon or platformLogo }}" alt="" class="cat-ico" loading="lazy" onerror="this.remove()">{% else %}<span class="cat-ico cat-ico-empty"><morph-icon data-name="package" size="12"></morph-icon></span>{% endif %}
+        <b>{{ cat }}</b>
+        <span class="badge badge-neutral">{{ rows|length }} 个商品</span>
+        <span class="cat-mv" title="调整分类顺序（影响前台店铺分类目录）">
+          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'>↑</span>
+          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'>↓</span>
+        </span>
+        <span class="chev">▾</span>
+      </button>
+      <div class="cat-block-body">
+        <table>
+          <thead><tr><th>标题</th><th>SKU 名</th><th style="text-align:right">价格</th><th style="text-align:right">操作</th></tr></thead>
+          <tbody>
+          {% for p in rows %}
+          <tr data-cat="{{ p.category }}" data-id="{{ p.id }}" class="prow">
+            <td><b>{{ p.title }}</b> {% if p.is_recharge %}<span class="badge badge-warn">充值</span>{% endif %}</td>
+            <td>{{ p.sku_name }}</td>
+            <td class="money" style="text-align:right">¥{{ p.price }}</td>
+            <td style="text-align:right;white-space:nowrap">
+              <button class="btn btn-ghost btn-sm" title="上移" onclick='moveRow(this,"up")'>↑</button>
+              <button class="btn btn-ghost btn-sm" title="下移" onclick='moveRow(this,"down")'>↓</button>
+              <button class="btn btn-outline btn-sm" onclick='addSku({{ p|tojson }})'>+ SKU</button>
+              <button class="btn btn-ghost btn-sm" onclick='openForm({{ p|tojson }})'><morph-icon data-name="pencil" size="13"></morph-icon> 编辑</button>
+              <button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="del({{ p.id }})"><morph-icon data-name="trash" size="13"></morph-icon></button>
+            </td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- 新增/编辑弹窗 -->
+<div class="modal-mask" id="form-modal" data-lock-close-outside style="display:none">
+  <div class="modal">
+    <div class="modal-head"><span id="form-title">新增商品</span><button data-close-modal="form-modal" style="color:var(--ink-400)"><morph-icon data-name="x" size="13"></morph-icon></button></div>
+    <div class="modal-body">
+      <form id="p-form">
+        <input type="hidden" name="id" value="0">
+        <div class="field"><label>分类(≤16 字,禁&)</label><input name="category" maxlength="16" placeholder="如:图标素材" required></div>
+        <div class="field">
+          <label>分类图标链接 <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400);vertical-align:middle"
+            data-tip="可选 · 同一分类共用一个图标，此处修改即改整个分类；未设置时前台回退平台 LOGO"></morph-icon></label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input name="category_icon_url" id="cf_icon_url" placeholder="https://…" autocomplete="off" style="flex:1;min-width:0">
+            <span title="分类图标预览" id="cf_icon_prev" style="flex:none;width:36px;height:36px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper)">
+              <b id="cf_icon_hint" style="grid-area:1/1;font-size:10px;font-weight:400;color:var(--ink-300)">预览</b>
+              <img id="cf_icon_img" src="" alt="" style="grid-area:1/1;width:100%;height:100%;object-fit:contain;padding:2px;display:none">
+            </span>
+          </div>
+        </div>
+        <div class="field"><label>商品标题(≤24 字,禁 &amp;)</label><input name="title" maxlength="24" placeholder="如:Morph 线性图标包" required></div>
+        <div class="grid g2">
+          <div class="field" style="margin:0"><label>SKU 名(≤12 字,禁&)</label><input name="sku_name" maxlength="12" placeholder="如:SVG全量版" required></div>
+          <div class="field" style="margin:0"><label>价格(元,正整数)</label><input name="price" type="number" min="5" step="1" required></div>
+        </div>
+        {% if is_admin %}
+        <div id="recharge-tip" style="display:none;background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:12px;margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:var(--brand-700)"><morph-icon data-name="zap" size="13"></morph-icon> 自动识别为「API 充值商品」</div>
+          <div class="muted" style="font-size:11px;margin:4px 0 8px">管理员创建且分类为「API充值」的商品永不进入前台店铺,商户购买支付成功后余额直接到账。</div>
+          <div class="field" style="margin:0"><label>支付成功到账金额(元)</label><input name="recharge_grant" type="number" min="0" step="0.5" placeholder="留空按售价 1:1"></div>
+        </div>
+        {% endif %}
+        <div style="display:flex;justify-content:flex-end;gap:8px">
+          <button type="button" class="btn btn-ghost" data-close-modal="form-modal">取消</button>
+          <button type="submit" class="btn btn-primary" id="form-save">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+/* 问号悬浮提示:fixed 气泡(不受 .modal-body overflow 裁剪) */
+(function(){
+  var tip=null, cur=null;
+  function ensure(){ if(!tip){ tip=document.createElement('div'); tip.className='hint-tip'; document.body.appendChild(tip); } return tip; }
+  function show(el){
+    var txt=el.getAttribute('data-tip'); if(!txt){ return; }
+    var t=ensure(); t.textContent=txt; t.style.visibility='hidden'; t.classList.add('on');
+    var r=el.getBoundingClientRect(), tr=t.getBoundingClientRect();
+    var left=r.left + r.width/2 - tr.width/2;
+    left=Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+    var top=r.top - tr.height - 12;
+    if(top<8){ top=r.bottom + 12; t.classList.add('up'); } else { t.classList.remove('up'); }
+    t.style.left=left+'px'; t.style.top=top+'px';
+    var ax=(r.left + r.width/2) - left; ax=Math.max(10, Math.min(ax, tr.width-10));
+    t.style.setProperty('--ax', ax+'px');
+    t.style.visibility=''; cur=el;
+  }
+  function hide(){ if(tip){ tip.classList.remove('on'); } cur=null; }
+  document.addEventListener('mouseover', function(e){ var el=e.target&&e.target.closest?e.target.closest('.hint-icon[data-tip]'):null; if(el){ if(el!==cur){ show(el); } } else if(cur && !(e.target&&e.target.closest&&e.target.closest('.hint-icon[data-tip]'))){ hide(); } });
+  document.addEventListener('mouseout', function(e){ var el=e.target&&e.target.closest?e.target.closest('.hint-icon[data-tip]'):null; if(el && !(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('.hint-icon[data-tip]'))){ hide(); } });
+  document.addEventListener('scroll', function(){ if(cur){ hide(); } }, true);
+  window.addEventListener('resize', function(){ if(cur){ hide(); } });
+})();
+var PCAT_KEY='afp_pcat';
+window.moveCat = function(ev, dir){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  var head=(ev&&ev.currentTarget)||null; var block=head?head.closest('.cat-block'):null;
+  if(!block){ return; }
+  var wrap=block.parentNode; var all=Array.prototype.slice.call(wrap.querySelectorAll('.cat-block'));
+  var idx=all.indexOf(block); if(idx<0){ return; }
+  var tgt = dir==='up' ? all[idx-1] : all[idx+1];
+  if(!tgt){ if(window.toast) toast('info', dir==='up'?'已是第一个分类':'已是最后一个分类'); return; }
+  if(dir==='up'){ wrap.insertBefore(block, tgt); } else { wrap.insertBefore(tgt, block); }
+  var cats=Array.prototype.slice.call(wrap.querySelectorAll('.cat-block')).map(function(b){ return b.getAttribute('data-cat')||''; });
+  if(window.toast) toast('success', dir==='up'?'分类已上移':'分类已下移');
+  api('/console/api/category/sort',{method:'POST',body:JSON.stringify({cats:cats})})
+    .then(function(){ if(window.toast) toast('success','分类顺序已保存（前台店铺同步生效）'); })
+    .catch(function(e){ if(window.toast) toast('error','分类排序保存失败',e&&e.message); });
+};
+function toggleCat(head){
+  var block=head.closest?head.closest('.cat-block'):null; if(!block){ return; }
+  block.classList.toggle('collapsed');
+  try{ var st=JSON.parse(localStorage.getItem(PCAT_KEY)||'{}'); st[block.getAttribute('data-cat')||'']=block.classList.contains('collapsed'); localStorage.setItem(PCAT_KEY, JSON.stringify(st)); }catch(e){}
+}
+(function(){
+  var st={}; try{ st=JSON.parse(localStorage.getItem(PCAT_KEY)||'{}'); }catch(e){ st={}; }
+  var blocks=document.querySelectorAll('.cat-block');
+  for(var i=0;i<blocks.length;i++){ var c=blocks[i].getAttribute('data-cat')||''; if(st[c]){ blocks[i].classList.add('collapsed'); } }
+})();
+if ({{ products|length }} > 0) { try { localStorage.setItem('afp_hasprod','1'); } catch(e){} }
+(function(){
+  function buildFilter(){
+    var box=document.getElementById('cat-options'); if(!box){ return; }
+    var cats={}; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ var c=tr.getAttribute('data-cat'); if(c) cats[c]=1; });
+    box.innerHTML=Object.keys(cats).map(function(c){ return '<label style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:13px;box-sizing:border-box">'+
+      '<input type="checkbox" class="cat-it" style="width:16px;height:16px;flex:none;margin:0" value="'+c.replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/&/g,'&amp;')+'" onchange="applyFilter()"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c+'</span></label>'; }).join('');
+    refreshCount();
+  }
+  window.toggleCatMenu=function(e){ if(e) e.stopPropagation(); var m=document.getElementById('cat-menu'); if(!m) return; m.style.display = m.style.display==='block' ? 'none' : 'block'; };
+  window.selAllCat=function(on){ document.querySelectorAll('#cat-options .cat-it').forEach(function(cb){ cb.checked=on; }); applyFilter(); };
+  document.addEventListener('click', function(e){ var m=document.getElementById('cat-menu'); if(m && !e.target.closest('#cat-btn') && !e.target.closest('#cat-menu')) m.style.display='none'; });
+  function refreshCount(){ var n=document.querySelectorAll('#cat-options .cat-it:checked').length; var s=document.getElementById('cat-selcount'); if(s){ if(n){ s.style.display='inline-block'; s.textContent=n; } else { s.style.display='none'; } } }
+  window.clearFilter=function(){ selAllCat(false); };
+  function applyFilter(){
+    var chosen={}; document.querySelectorAll('#cat-options .cat-it:checked').forEach(function(cb){ chosen[cb.value]=1; });
+    var rows=document.querySelectorAll('tbody tr.prow');
+    rows.forEach(function(tr){ tr.style.display = Object.keys(chosen).length ? (chosen[tr.getAttribute('data-cat')]?'':'none') : ''; });
+    refreshCount();
+    var cnt=document.getElementById('filter-count');
+    if(cnt){ var shown=Array.from(rows).filter(function(r){ return r.style.display!=='none'; }).length; cnt.textContent=shown+' / '+rows.length; }
+  }
+  window.applyFilter=applyFilter;
+  function saveOrder(){ var ids=[]; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ ids.push(tr.getAttribute('data-id')); }); localStorage.setItem('afp_porder', JSON.stringify(ids)); }
+  function loadOrder(){ try{ var ord=JSON.parse(localStorage.getItem('afp_porder')||'[]'); if(!ord.length) return; var map={}; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ map[tr.getAttribute('data-id')]=tr; }); var frag=document.createDocumentFragment(); ord.forEach(function(id){ if(map[id]){ frag.appendChild(map[id]); delete map[id]; } }); Object.keys(map).forEach(function(id){ frag.appendChild(map[id]); }); var tb=document.querySelector('tbody'); if(tb) tb.appendChild(frag); }catch(e){} }
+var _sall_t = null;
+  window.saveAll = function(){ var ids=[]; document.querySelectorAll('tbody tr.prow').forEach(function(r){ if(r.style.display!=='none') ids.push(r.getAttribute('data-id')); }); if(_sall_t) clearTimeout(_sall_t); _sall_t = setTimeout(function(){ try{ api('/console/api/product/sort',{method:'POST',body:JSON.stringify({ids:ids})}).then(function(){ if(window.toast) toast('success','已调整商品顺序','排序已保存'); }).catch(function(){ if(window.toast) toast('error','排序保存失败'); }); }catch(_){ if(window.toast) toast('error','排序保存失败'); } }, 260); };
+  var _mvBusy=false;
+  window.moveRow = function(btn, dir){
+    var tr=btn.closest('tr.prow'); if(!tr) return;
+    if(_mvBusy) return; _mvBusy=true; setTimeout(function(){ _mvBusy=false; }, 500);
+    var rows=Array.prototype.slice.call(document.querySelectorAll('tbody tr.prow')).filter(function(r){ return r.style.display!=='none'; });
+    var idx=rows.indexOf(tr); if(idx<0) return;
+    var swap = dir==='up' ? rows[idx-1] : rows[idx+1];
+    if(!swap){ if(window.toast) toast('info', dir==='up'?'已到最顶部':'已到最底部'); return; }
+    var from={}; from[tr.getAttribute('data-id')]=tr.offsetTop; from[swap.getAttribute('data-id')]=swap.offsetTop;
+    if(dir==='up'){ tr.parentNode.insertBefore(tr, swap); }
+    else { tr.parentNode.insertBefore(swap, tr); }
+    var dyT=from[tr.getAttribute('data-id')]-tr.offsetTop;
+    var dyS=from[swap.getAttribute('data-id')]-swap.offsetTop;
+    tr.style.transition='none'; tr.style.transform='translateY('+dyT+'px)';
+    swap.style.transition='none'; swap.style.transform='translateY('+dyS+'px)';
+    void tr.offsetHeight;
+    requestAnimationFrame(function(){
+      tr.style.transition='transform .3s cubic-bezier(.22,.9,.3,1)';
+      swap.style.transition='transform .3s cubic-bezier(.22,.9,.3,1)';
+      requestAnimationFrame(function(){
+        tr.style.transform=''; swap.style.transform='';
+        setTimeout(function(){ tr.style.transition=''; tr.style.transform=''; swap.style.transition=''; swap.style.transform=''; }, 360);
+      });
+    });
+    if(window.toast) toast('success', dir==='up'?'已上移':'已下移');
+    window.saveAll();
+  }
+  function init(){ buildFilter(); applyFilter(); }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
+})();
+const isAdmin = {{ 'true' if is_admin else 'false' }};
+const form = document.getElementById('p-form');
+function openForm(p){
+  form.reset(); form.id.value = p?p.id:0;
+  document.getElementById('form-title').textContent = p?'编辑商品':'新增商品';
+  if(p){ form.category.value=p.category; form.category_icon_url.value=p.category_icon_url; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  updateTip(); if(window.cfPrev) cfPrev(); openModal('form-modal');
+}
+function addSku(p){
+  openForm(null);
+  form.category.value=p.category; form.category_icon_url.value=p.category_icon_url; form.title.value=p.title;
+  updateTip(); if(window.cfPrev) cfPrev();
+  toast('info','正在为「'+p.title+'」添加新 SKU','同一标题可挂多个 SKU 规格');
+}
+function updateTip(){
+  const tip=document.getElementById('recharge-tip');
+  if(tip) tip.style.display=(isAdmin&&form.category.value.trim()==='API充值')?'block':'none';
+}
+function cfPrev(){ var u=document.getElementById('cf_icon_url'); var i=document.getElementById('cf_icon_img'); var h=document.getElementById('cf_icon_hint'); if(!u||!i||!h) return; var v=(u.value||'').trim(); if(!v){ i.style.display='none'; i.removeAttribute('src'); h.style.display='inline'; return; } h.style.display='none'; i.style.display='block'; i.onerror=function(){ i.style.display='none'; h.style.display='inline'; }; i.src=v; }
+form.category.addEventListener('input',updateTip);
+(function(){ var u=document.getElementById('cf_icon_url'); if(u){ u.addEventListener('input',cfPrev); } cfPrev(); })();
+form.addEventListener('submit',async e=>{
+  e.preventDefault();
+  const btn=document.getElementById('form-save'); btn.disabled=true; btn.textContent='保存中…';
+  try{
+    const d=await api('/console/api/product/save',{method:'POST',body:JSON.stringify(Object.fromEntries(new FormData(form)))});
+    toast('success',d.message); closeModal('form-modal'); setTimeout(()=>location.reload(),600);
+  }catch(err){ toast('error','保存失败',err.message); btn.disabled=false; btn.textContent='保存'; }
+});
+async function del(id){
+  if(!confirm('确定删除该商品吗?历史订单数据不受影响。')) return;
+  try{ await api('/console/api/product/delete',{method:'POST',body:JSON.stringify({id})}); toast('success','商品已删除'); setTimeout(()=>location.reload(),600); }
+  catch(e){ toast('error','删除失败',e.message); }
+}
+</script>
+{% endblock %}

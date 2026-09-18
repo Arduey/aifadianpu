@@ -53,6 +53,14 @@
       <li><b>LOGO / 简介</b>：在个人中心设置。未设 LOGO 时会回退平台默认 LOGO。简介支持多行。</li>
       <li><b>店铺链接</b>：<code class="code">/shop/{你的爱发电 user_id}</code>。可在个人中心查看复制，也是分享给顾客的地址。</li>
       <li><b>前台长什么样</b>：左侧分类目录、右侧商品卡（只显示 SKU 文本），顶部店铺信息与客服联系方式。</li>
+      <li><b>已完整适配手机 / 平板 / PC</b>：前台店铺对<b>三种设备都已做响应式适配</b>，顾客用手机、平板还是电脑打开，都能正常浏览商品并顺畅下单——你无需为不同设备做任何额外设置。
+        <ul class="doc-sub">
+          <li><b>手机（≤640px）</b>：分类目录收起为<b>下拉选择</b>，商品改为<b>单列大卡</b>，店铺信息与商品区纵向排列，付款弹窗自适应铺满宽度；</li>
+          <li><b>平板 / 窄屏（641–767px）</b>：商品<b>两列</b>展示，分类目录仍在左侧；</li>
+          <li><b>PC（≥768px）</b>：商品<b>三列</b>、分类目录在左侧常驻，内容居中限宽，长列表在商品区内滚动；</li>
+          <li>图片与付款二维码均等比缩放不溢出，滚动条已美化，点击区域按手指 / 鼠标分别留足。</li>
+        </ul>
+      </li>
     </ul>
     <p class="doc-p" id="doc-preview" style="margin-top:10px{% if not previewShopUid %};display:none{% endif %}">预览前台店铺（管理员示例）：<a id="doc-preview-a" href="/shop/{{ previewShopUid }}" target="_blank" rel="noopener" style="color:var(--brand);word-break:break-all">/shop/{{ previewShopUid }}</a></p>
   </section>
@@ -211,6 +219,8 @@ Content-Type: application/json
 .doc-steps{margin:0;padding-left:20px;color:var(--ink-600);font-size:13px;line-height:2}
 .doc-list{margin:0;padding-left:20px;color:var(--ink-600);font-size:13px;line-height:2}
 .doc-list li,.doc-steps li{margin-bottom:4px}
+.doc-sub{margin:6px 0 2px;padding-left:18px;list-style:circle}
+.doc-sub li{color:var(--ink-500);font-size:12.5px;line-height:1.9;margin-bottom:2px}
 .doc-tip{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--brand-50);color:var(--brand);font-size:12.5px;line-height:1.85;word-break:break-word}
 .doc-tip>morph-icon{flex:0 0 auto;margin-top:2px}
 .doc-tip>span{flex:1 1 auto;min-width:0}

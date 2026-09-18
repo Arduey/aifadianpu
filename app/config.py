@@ -26,6 +26,8 @@ SESSION_SECRET = os.getenv("SESSION_SECRET", "afdianpu-dev-secret-key")
 APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000").rstrip("/")
 APP_SECURE = _bool("APP_SECURE", True)
 
+# ⚠️ 遗留配置:当前业务代码已不读取(下单/查单固定走 app/services/afd_live.py 的真实接口)。
+# 保留仅为兼容旧 .env 与旧数据库列,新部署无需设置。
 AFDIAN_LIVE = _bool("AFDIAN_LIVE", False)
 ENABLE_PREVIEW_LOGIN = _bool("ENABLE_PREVIEW_LOGIN", True)
 

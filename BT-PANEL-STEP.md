@@ -5,6 +5,11 @@
 
 ---
 
+> 📚 **文档导航**：[README](README.md) · [全新部署](RE-DEPLOY.md) · [宝塔手把手](BT-PANEL-STEP.md) · [部署教程](DEPLOY-TUTORIAL.md) · [生产功能](PRODUCTION.md)
+> 当前页：**宝塔面板手把手（逐框填写版）**（BT-PANEL-STEP.md）
+
+---
+
 ## 第 0 步 · 登录宝塔面板
 
 浏览器打开宝塔安装完给的地址（形如 `http://服务器IP:8888/xxxx`），输入用户名密码登录。

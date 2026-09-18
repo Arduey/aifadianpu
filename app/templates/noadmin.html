@@ -1,0 +1,9 @@
+{% extends "console.html" %}
+{% block content %}
+<div class="card fade-up" style="max-width:440px;margin:60px auto;padding:40px;text-align:center">
+  <div style="width:56px;height:56px;border-radius:50%;background:var(--bad-100);color:var(--bad);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><morph-icon data-name="shield" size="24"></morph-icon></div>
+  <div style="font-size:16px;font-weight:700">非管理员,无法访问</div>
+  <p class="muted" style="margin-top:8px">当前页面为管理员专属功能。请使用管理员账号登录,或联系平台管理员(首位注册者)。</p>
+  <a href="/console/dashboard{{ qs }}" class="btn btn-dark" style="margin-top:16px">返回数据预览</a>
+</div>
+{% endblock %}

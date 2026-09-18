@@ -1,0 +1,38 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+  <div>
+    <h1 class="display" style="font-size:20px">{{ title }}</h1>
+    <p class="muted" style="font-size:11px">「回调测试在哪里看」：爱发电后台点发送测试后，有推送就会出现在这里（最近 60 条）。<span class="badge badge-neutral">原始 JSON</span> 可展开；命中 = 是否能对上我们库内订单。</p>
+  </div>
+  <button class="btn btn-outline btn-sm" onclick="loadAfdLogs()">刷新</button>
+</div>
+<div id="afd-log-msg" class="muted" style="font-size:12px;margin-bottom:8px"></div>
+<table style="min-width:760px">
+  <thead><tr><th style="text-align:right">时间</th><th>订单号</th><th>命中</th><th>原始回调(展开)</th></tr></thead>
+  <tbody id="afd-log-rows"><tr><td colspan="4" style="padding:30px;text-align:center;color:var(--ink-400)">加载中…</td></tr></tbody>
+</table>
+{% endblock %}
+{% block script %}
+<script>
+function afdEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+async function loadAfdLogs(){
+  var msg=document.getElementById('afd-log-msg'), rows=document.getElementById('afd-log-rows');
+  msg.textContent='读取中…';
+  try{
+    var d=await api('/console/api/afdian-callback-logs');
+    var list=(d&&d.items)||[];
+    msg.textContent = list.length? ('以上次收到 '+list.length+' 条'):'暂无收到爱发电回调——请先在爱发电后台点「发送测试」';
+    rows.innerHTML = list.length ? list.map(x=>'<tr>'+
+      '<td class="muted" style="white-space:nowrap">'+afdEsc(x.created_at)+'</td>'+
+      '<td class="code">'+afdEsc(x.order_no||'-')+'</td>'+
+      '<td>'+ (x.matched?'<span class="badge badge-good">命中</span>':'<span class="badge badge-bad">未命中</span>') +'</td>'+
+      '<td style="max-width:520px"><details><summary>展开原始 JSON</summary><pre style="max-height:220px;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:10px;font-family:ui-monospace,monospace;font-size:11px;white-space:pre-wrap;word-break:break-all">'+afdEsc(x.body_text)+'</pre></details></td>'+
+    '</tr>').join('') : '<tr><td colspan="4" style="padding:26px;text-align:center;color:var(--ink-400)">空</td></tr>';
+  }catch(e){
+    msg.textContent=(e&&e.message)||'读取失败'; rows.innerHTML='';
+  }
+}
+if (document.readyState==='loading') document.addEventListener('DOMContentLoaded', loadAfdLogs); else loadAfdLogs();
+</script>
+{% endblock %}

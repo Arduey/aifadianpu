@@ -22,7 +22,7 @@
       <tbody>
       {% for m in merchants %}
       <tr data-name="{{ m.shop_name|lower }}" data-email="{{ m.email|lower }}" data-prod="{{ m.product_count }}" data-paid="{{ m.paid_order_count }}" data-bal="{{ m.api_balance_cents }}" data-st="{{ m.status }}" {% if m.status == 'disabled' %}style="opacity:.6"{% endif %}>
-        <td>{% if m.afdian_user_id %}<a href="/shop/{{ m.afdian_user_id }}" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700;text-decoration:none" title="打开前台店铺">{{ m.shop_name }} <morph-icon data-name="externalLink" size="12"></morph-icon></a>{% else %}<b>{{ m.shop_name }}</b>{% endif %} {% if m.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}<div class="muted">{{ m.email }}</div></td>
+        <td>{% if m.afdian_user_id %}<a href="/shop/{{ m.afdian_user_id }}" target="_blank" rel="noopener" class="mch-link" title="点击进入该商户的前台店铺">{{ m.shop_name }} <morph-icon data-name="externalLink" size="12"></morph-icon></a>{% else %}<b>{{ m.shop_name }}</b>{% endif %} {% if m.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}<div class="muted">{{ m.email }}</div></td>
         <td class="code">{{ m.afdian_user_id or '-' }}</td>
         <td style="text-align:right;font-weight:700">{{ m.product_count }}</td>
         <td style="text-align:right;font-weight:700">{{ m.paid_order_count }}</td>
@@ -30,7 +30,6 @@
         <td>{% if m.status == 'active' %}<span class="badge badge-good">正常</span>{% else %}<span class="badge badge-bad">已停用</span>{% endif %}</td>
         <td style="text-align:right;white-space:nowrap">
           <button class="btn btn-outline btn-sm" onclick='adjust({{ m.id }},"{{ m.shop_name }}")'><morph-icon data-name="wallet" size="13"></morph-icon> 充值/调整</button>
-          {% if m.afdian_user_id %}<a class="btn btn-outline btn-sm" href="/shop/{{ m.afdian_user_id }}" target="_blank" rel="noopener"><morph-icon data-name="externalLink" size="13"></morph-icon> 访问店铺</a>{% endif %}
           {% if m.role != 'admin' %}
             {% if m.status == 'active' %}
             <button class="btn btn-danger btn-sm" onclick="setStatus({{ m.id }},'disabled')">停用</button>
@@ -52,12 +51,32 @@
     <input id="goods-filter" placeholder="按商品 / 商家邮箱 / 店铺名筛选" style="flex:1;min-width:220px" oninput="filterGoods()">
     <span class="muted" id="goods-count" style="font-size:11px"></span>
   </div>
-  <div style="overflow-x:auto">
-    <table style="min-width:720px" id="goods-table">
-      <thead><tr><th>商品</th><th>商家(邮箱 + 店铺名)</th><th style="text-align:right">价格</th><th style="text-align:right">操作</th></tr></thead>
-      <tbody id="goods"><tr><td colspan="4" style="padding:30px;text-align:center;color:var(--ink-400)">加载中…</td></tr></tbody>
-    </table>
-  </div>
+  <div id="goods" style="padding:10px 12px 12px"><div style="padding:30px;text-align:center;color:var(--ink-400)">加载中…</div></div>
+  <style>
+    /* 商户卡片(一级) */
+    .mch-block{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--card)}
+    .mch-block:last-child{margin-bottom:0}
+    .mch-head{display:flex;align-items:center;gap:9px;width:100%;padding:12px 14px;background:var(--paper);border:0;cursor:pointer;font-family:inherit;font-size:13px;color:var(--ink-900);text-align:left;transition:background .2s}
+    .mch-head:hover{background:var(--brand-50)}
+    .mch-head .chev{margin-left:auto}
+    .mch-body{display:block;padding:10px 12px 12px}
+    .mch-block.collapsed .chev{transform:rotate(-90deg)}
+    .mch-block.collapsed .mch-body{display:none}
+    /* 分类卡片(二级) */
+    .c-block{border:1px solid var(--line);border-radius:10px;margin-bottom:8px;overflow:hidden;background:var(--card)}
+    .c-block:last-child{margin-bottom:0}
+    .c-head{display:flex;align-items:center;gap:8px;width:100%;padding:9px 12px;background:var(--paper);border:0;cursor:pointer;font-family:inherit;font-size:12.5px;color:var(--ink-800);text-align:left;transition:background .2s}
+    .c-head:hover{background:var(--brand-50)}
+    .c-head .chev{margin-left:auto}
+    .c-body{display:block}
+    .c-block.collapsed .chev{transform:rotate(-90deg)}
+    .c-block.collapsed .c-body{display:none}
+    .c-body table{width:100%}
+    .chev{transition:transform .22s;color:var(--ink-400);font-size:12px;line-height:1;margin-left:10px}
+    /* 商户名:点击进入前台店铺 */
+    .mch-link{color:var(--brand);font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+    .mch-link:hover{text-decoration:underline}
+  </style>
 </div>
 
 <!-- 余额调整弹窗 -->
@@ -123,18 +142,30 @@ function sortM(key){
 }
 function filterGoods(){
   var q = (document.getElementById('goods-filter').value || '').trim().toLowerCase();
-  var rows = document.querySelectorAll('#goods-table tbody tr');
+  var rows = document.querySelectorAll('#goods tr[data-hay]');
   var shown = 0;
   rows.forEach(function(r){
-    if (r.getAttribute('data-title') === 'empty') { r.style.display=''; return; }
     var hay = (r.getAttribute('data-hay') || '').toLowerCase();
     var ok = !q || hay.indexOf(q) !== -1;
     r.style.display = ok ? '' : 'none';
-    if (ok && q) shown++;
+    if (ok) shown++;
+  });
+  // 分类块:无可见行则隐藏;有命中时自动展开
+  document.querySelectorAll('#goods .c-block').forEach(function(cb){
+    var visible = Array.prototype.some.call(cb.querySelectorAll('tr[data-hay]'), function(r){ return r.style.display !== 'none'; });
+    cb.style.display = visible ? '' : 'none';
+    if (q && visible) cb.classList.remove('collapsed');
+  });
+  // 商户块:无可见分类则隐藏;有命中时自动展开
+  document.querySelectorAll('#goods .mch-block').forEach(function(mb){
+    var visible = Array.prototype.some.call(mb.querySelectorAll('.c-block'), function(cb){ return cb.style.display !== 'none'; });
+    mb.style.display = visible ? '' : 'none';
+    if (q && visible) mb.classList.remove('collapsed');
   });
   var cnt = document.getElementById('goods-count');
-  if (cnt){ var total = Array.from(rows).filter(function(r){ return r.getAttribute('data-title')!=='empty'; }).length; cnt.textContent = (q ? shown + ' / ' : '') + total + ' 件'; }
+  if (cnt){ cnt.textContent = (q ? shown + ' / ' : '') + rows.length + ' 件'; }
 }
+window.applyGoodsFilter = function(){ /* 折叠后重算隐藏态 */ filterGoods(); };
 function tab(t){
   document.getElementById('pane-m').style.display=t==='m'?'':'none';
   document.getElementById('pane-p').style.display=t==='p'?'':'none';
@@ -143,16 +174,70 @@ function tab(t){
   if(t==='p') loadGoods();
 }
 let goodsLoaded=false;
+function escA(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* 折叠切换:通用的 head → 最近祖先块 */
+function toggleBlock(head, cls){
+  var b=head.closest('.'+cls); if(!b) return;
+  b.classList.toggle('collapsed');
+  var key='afp_admin_'+cls+'_'+(b.getAttribute('data-key')||'');
+  try{ var st=JSON.parse(localStorage.getItem(key)||'{}'); var v=b.classList.contains('collapsed'); var o={}; o[b.getAttribute('data-key')||'']=v; localStorage.setItem(key,JSON.stringify(o)); }catch(e){}
+  if(window.applyGoodsFilter) window.applyGoodsFilter();
+}
+function restoreCollapsed(cls){
+  document.querySelectorAll('.'+cls).forEach(function(b){
+    var key='afp_admin_'+cls+'_'+(b.getAttribute('data-key')||'');
+    try{ var st=JSON.parse(localStorage.getItem(key)||'{}'); if(st[b.getAttribute('data-key')||'']) b.classList.add('collapsed'); }catch(e){}
+  });
+}
 async function loadGoods(){
   if(goodsLoaded) return; goodsLoaded=true;
   try{
     const d=await api('/console/api/admin/products');
-    document.getElementById('goods').innerHTML=d.products.length?d.products.map(p=>`<tr data-hay="${(p.title+' '+(p.merchant_shop||'')+' '+(p.merchant_email||'')).toLowerCase()}" data-title="${p.title||''}">
-      <td><b>${p.title}</b> ${p.is_recharge?'<span class="badge badge-warn">充值</span>':''}<div class="muted">${p.category} · ${p.sku_name}</div></td>
-      <td><b>${p.merchant_shop||'-'}</b><div class="muted">${p.merchant_email||''}</div></td>
-      <td class="money" style="text-align:right">¥${p.price}</td>
-      <td style="text-align:right"><button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="delGoods(${p.id})"><morph-icon data-name="trash" size="13"></morph-icon> 删除</button></td>
-    </tr>`).join(''):'<tr data-title="empty"><td colspan="4" style="padding:30px;text-align:center;color:var(--ink-400)">暂无商品</td></tr>';
+    const box=document.getElementById('goods');
+    if(!d.products.length){ box.innerHTML='<div style="padding:30px;text-align:center;color:var(--ink-400)">暂无商品</div>'; return; }
+    // 分组:商户 → 分类
+    const byMch=new Map();
+    for(const p of d.products){
+      const mk=(p.merchant_email||'')+'|'+(p.merchant_shop||'');
+      if(!byMch.has(mk)) byMch.set(mk,{shop:p.merchant_shop||'-',email:p.merchant_email||'',cats:new Map()});
+      const m=byMch.get(mk);
+      if(!m.cats.has(p.category)) m.cats.set(p.category,[]);
+      m.cats.get(p.category).push(p);
+    }
+    let html='';
+    for(const [mk,m] of byMch){
+      const mkey=escA(mk), total=[...m.cats.values()].reduce((a,b)=>a+b.length,0);
+      html+='<div class="mch-block" data-key="'+mkey+'">'
+        +'<div class="mch-head" role="button" onclick="toggleBlock(this,\'mch-block\')">'
+        +'<morph-icon data-name="store" size="14"></morph-icon>'
+        +'<b>'+escA(m.shop)+'</b>'
+        +'<span class="muted" style="font-size:11px">'+escA(m.email)+'</span>'
+        +'<span class="badge badge-neutral">'+m.cats.size+' 个分类 · '+total+' 个商品</span>'
+        +'<span class="chev">▾</span></div>'
+        +'<div class="mch-body">';
+      for(const [cat,items] of m.cats){
+        const ckey=escA(mk+'||'+cat);
+        html+='<div class="c-block" data-key="'+ckey+'">'
+          +'<div class="c-head" role="button" onclick="toggleBlock(this,\'c-block\')">'
+          +'<morph-icon data-name="package" size="12"></morph-icon>'
+          +'<b>'+escA(cat)+'</b>'
+          +'<span class="badge badge-neutral">'+items.length+' 个</span>'
+          +'<span class="chev">▾</span></div>'
+          +'<div class="c-body"><table><tbody>';
+        for(const p of items){
+          const hay=(p.title+' '+(p.sku_name||'')+' '+cat+' '+(p.merchant_shop||'')+' '+(p.merchant_email||'')).toLowerCase();
+          html+='<tr data-hay="'+escA(hay)+'">'
+            +'<td><b>'+escA(p.title)+'</b>'+(p.is_recharge?' <span class="badge badge-warn">充值</span>':'')+'<div class="muted">'+escA(p.sku_name||'')+'</div></td>'
+            +'<td class="money" style="text-align:right;white-space:nowrap">¥'+escA(p.price)+'</td>'
+            +'<td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="delGoods('+p.id+')"><morph-icon data-name="trash" size="13"></morph-icon> 删除</button></td>'
+            +'</tr>';
+        }
+        html+='</tbody></table></div></div>';
+      }
+      html+='</div></div>';
+    }
+    box.innerHTML=html;
+    restoreCollapsed('mch-block'); restoreCollapsed('c-block');
     filterGoods();
   }catch(e){ toast('error','加载失败',e.message); }
 }

@@ -1,6 +1,10 @@
 fastapi>=0.115
-uvicorn[standard]>=0.30
-gunicorn>=21.2        # 宝塔「gunicorn」启动方式需要(asgi + uvicorn worker);命令行启动方式可留
+# uvicorn 锁 <0.35:0.30 起弃用、0.34 起移除 uvicorn.workers,
+# 而宝塔「gunicorn」启动方式依赖它(uvicorn.workers.UvicornWorker)。
+# 若日后改用独立包 uvicorn-worker,可解除此上限。
+uvicorn[standard]>=0.30,<0.35
+# gunicorn 启动方式:需配合上面的 uvicorn<0.35;命令行启动方式可忽略本行。
+gunicorn>=21.2
 sqlalchemy>=2.0
 pymysql>=1.1
 cryptography>=42.0

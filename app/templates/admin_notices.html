@@ -1,0 +1,56 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+  <div>
+    <h1 class="display" style="font-size:20px">平台通知</h1>
+    <p class="muted">发布平台通知;商户访问控制台时会逐个弹出,也可在右上角铃铛查看。</p>
+  </div>
+  <span class="badge badge-brand" id="n-count">0 条</span>
+</div>
+
+<div class="card" style="padding:20px;margin-bottom:16px">
+  <b style="font-size:13px">发布新通知</b>
+  <div class="field" style="margin:12px 0 10px"><label>通知标题</label><input id="n-title" placeholder="例如:平台维护通知" maxlength="200"></div>
+  <div class="field" style="margin:0 0 12px"><label>通知内容</label><textarea id="n-content" rows="3" maxlength="2000" placeholder="通知详细内容(时间以发布时刻为准)"></textarea></div>
+  <div style="text-align:right"><button class="btn btn-primary" onclick="pubNotice()">发布</button></div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table style="min-width:640px">
+      <thead><tr><th>发布时间</th><th>标题</th><th>内容</th><th style="text-align:right">操作</th></tr></thead>
+      <tbody id="n-rows"><tr><td colspan="4" style="padding:32px;text-align:center;color:var(--ink-400)">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+async function loadNotices(){
+  try{
+    const d=await api('/console/api/admin/notices');
+    document.getElementById('n-count').textContent=d.notices.length+' 条';
+    const t=document.getElementById('n-rows');
+    if(!d.notices.length){ t.innerHTML='<tr><td colspan="4" style="padding:32px;text-align:center;color:var(--ink-400)">暂无通知</td></tr>'; return; }
+    t.innerHTML=d.notices.map(n=>'<tr>'+
+      '<td class="muted">'+n.created_at+'</td>'+
+      '<td><b>'+n.title+'</b></td>'+
+      '<td style="max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+n.content+'</td>'+
+      '<td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="delNotice('+n.id+',this)">删除</button></td>'+
+      '</tr>').join('');
+  }catch(e){ toast('error','加载失败',e.message); }
+}
+async function pubNotice(){
+  var title=document.getElementById('n-title').value.trim(), content=document.getElementById('n-content').value.trim();
+  if(!title){ toast('warn','请填写通知标题'); return; }
+  try{ const d=await api('/console/api/admin/notices',{method:'POST',body:JSON.stringify({title,content})}); toast('success',d.message||'已发布'); document.getElementById('n-title').value=''; document.getElementById('n-content').value=''; loadNotices(); }
+  catch(e){ toast('error','发布失败',e.message); }
+}
+async function delNotice(id,btn){
+  btn.disabled=true;
+  try{ const d=await api('/console/api/admin/notices/delete',{method:'POST',body:JSON.stringify({id})}); toast('success',d.message||'已删除'); loadNotices(); }
+  catch(e){ toast('error','删除失败',e.message); btn.disabled=false; }
+}
+loadNotices();
+</script>
+{% endblock %}

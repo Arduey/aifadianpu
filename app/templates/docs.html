@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% block title %}使用说明 · 爱发电铺{% endblock %}
+{% block body %}
+<header class="topbar">
+  <a href="/" style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="logo-box" style="width:30px;height:30px"><morph-icon data-name="zap" size="15"></morph-icon></span> 爱发电铺 · 使用说明</a>
+  <nav style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="/api-docs" class="btn btn-outline btn-sm">开放接口</a>
+    <a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>
+    <a href="/#register" class="btn btn-dark btn-sm">开店</a>
+  </nav>
+</header>
+<div class="docs-wrap">
+
+  <aside class="docs-nav">
+    <div class="docs-nav-t">目录</div>
+    <a href="#start">1 · 快速开始</a>
+    <a href="#shop">2 · 店铺设置</a>
+    <a href="#product">3 · 商品管理</a>
+    <a href="#bind">4 · 绑定爱发电</a>
+    <a href="#pay">5 · 收款与到账</a>
+    <a href="#webhook">6 · 自动发货（Webhook）</a>
+    <a href="#mail">7 · 邮件通知</a>
+    <a href="#balance">8 · API 余额与充值</a>
+    <a href="#orders">9 · 订单管理</a>
+    <a href="#faq">10 · 常见问题</a>
+    <a href="#contact">11 · 联系与支持</a>
+  </aside>
+
+  <main class="docs-main">
+
+  <section class="card fade-up" style="padding:24px;margin-bottom:18px">
+    <h2 class="display" style="font-size:18px;margin-bottom:10px"><morph-icon data-name="bookOpen" size="15"></morph-icon> 商户使用说明</h2>
+    <p style="color:var(--ink-500);font-size:13px;line-height:1.9">爱发电铺帮你把虚拟商品（卡密、授权、素材、教程…）挂到<b>你自己的爱发电账号</b>下销售。消费者<b>无需注册</b>，在你店铺页选商品、扫码付款；<b>钱直达你的爱发电，平台不经手资金</b>。支付成功后平台会自动通知你（Webhook / 邮件），你能据此自动发货。</p>
+  </section>
+
+  <!-- 1 -->
+  <section class="card fade-up doc-sec" id="start">
+    <h2 class="doc-h"><morph-icon data-name="zap" size="15"></morph-icon> 1 · 快速开始（三分钟开店）</h2>
+    <ol class="doc-steps">
+      <li><b>注册</b>：用 {% if allow_email_domains %}{{ allow_email_domains | join(' / ') }}{% else %}任意{% endif %} 邮箱注册，起一个唯一店铺名（首位注册者即管理员）。注册即送 <b>¥{{ '%.2f'|format(api_fee) }}</b> 体验额度。</li>
+      <li><b>绑定爱发电</b>：在控制台个人中心填写爱发电 <code class="code">user_id</code> 与 <code class="code">token</code>（<u>必填</u>，否则无法创建和销售商品）。详见 <a href="#bind">第 4 节</a>。</li>
+      <li><b>上架商品</b>：填 分类 / 标题 / SKU / 价格（规则见 <a href="#product">第 3 节</a>）。</li>
+      <li><b>拿到店铺链接</b>：形如 <code class="code">/shop/你的爱发电user_id</code>，复制后分享给顾客。</li>
+      <li><b>顾客下单</b>：顾客选商品 → 扫码付款 → 平台每 5 秒确认到账 → 支付成功通知你，你发货。</li>
+    </ol>
+  </section>
+
+  <!-- 2 -->
+  <section class="card fade-up doc-sec" id="shop">
+    <h2 class="doc-h"><morph-icon data-name="store" size="15"></morph-icon> 2 · 店铺设置</h2>
+    <ul class="doc-list">
+      <li><b>店铺名</b>：注册时确定，需全平台唯一。</li>
+      <li><b>LOGO / 简介</b>：在个人中心设置。未设 LOGO 时会回退平台默认 LOGO。简介支持多行。</li>
+      <li><b>店铺链接</b>：<code class="code">/shop/{你的爱发电 user_id}</code>。可在个人中心查看复制，也是分享给顾客的地址。</li>
+      <li><b>前台长什么样</b>：左侧分类目录、右侧商品卡（只显示 SKU 文本），顶部店铺信息与客服联系方式。</li>
+    </ul>
+    <p class="doc-p" id="doc-preview" style="margin-top:10px{% if not previewShopUid %};display:none{% endif %}">预览前台店铺（管理员示例）：<a id="doc-preview-a" href="/shop/{{ previewShopUid }}" target="_blank" rel="noopener" style="color:var(--brand);word-break:break-all">/shop/{{ previewShopUid }}</a></p>
+  </section>
+
+  <!-- 3 -->
+  <section class="card fade-up doc-sec" id="product">
+    <h2 class="doc-h"><morph-icon data-name="package" size="15"></morph-icon> 3 · 商品管理</h2>
+    <ul class="doc-list">
+      <li><b>字段</b>：分类、分类图标、标题、SKU 名、价格。</li>
+      <li><b>价格</b>：整数，<b>≥ 5 元</b>（5 元是爱发电「自选发电」的最低限额，平台据此设定最低价）。</li>
+      <li><b>判重</b>：同一店铺内，<b>分类 + 标题 + SKU</b> 三字段完全相同即视为重复，不能保存。</li>
+      <li><b>禁止字符</b>：<b>分类 / 标题 / SKU</b> 中都不能含 <code class="code">&amp;</code>（会导致下单参数解析异常）。</li>
+      <li><b>排序 / 编辑 / 删除</b>：控制台商品页用 <b>↑ / ↓</b> 按钮上移、下移调整顺序（改完自动保存），并可编辑、删除。</li>
+      <li><b>上架后</b>：按分类分组展示在店铺页。</li>
+      <li><b>「API充值」分类</b>：<b>仅管理员可创建</b>。管理员在该分类下建的商品会自动成为充值项（不在顾客店铺页显示）；普通商户即使建同名分类，也只当普通商品处理。</li>
+    </ul>
+  </section>
+
+  <!-- 4 -->
+  <section class="card fade-up doc-sec" id="bind">
+    <h2 class="doc-h"><morph-icon data-name="link" size="15"></morph-icon> 4 · 绑定爱发电（必读）</h2>
+    <ul class="doc-list">
+      <li><b>在哪获取</b>：登录爱发电 → 开发者页面 <a href="https://ifdian.net/dashboard/dev" target="_blank" rel="noopener" style="color:var(--brand);font-weight:600">https://ifdian.net/dashboard/dev</a>，<b>user_id</b> 与 <b>token</b> 都在这里查看 / 生成。</li>
+      <li><b>user_id</b>：你的爱发电用户 id，用来定位店铺页（前台地址即 <code class="code">/shop/你的user_id</code>）。</li>
+      <li><b>token</b>：开放平台给你的商户凭证，用于<b>查询订单的付款状态与信息</b>（<u>不是用来下单的</u>）。实际下单由平台管理员配置的「消费者账号」完成。</li>
+      <li><b>不绑定的后果</b>：无法创建商品、无法销售。</li>
+      <li><b>绑定失败常见原因</b>：id / token 填反或多了空格；爱发电侧未开通开放平台。</li>
+      <li><b>绑定后的状态</b>：控制台个人中心会显示绑定徽标；可点「连接测试」验证是否可用。</li>
+    </ul>
+    <div class="doc-tip"><morph-icon data-name="alertTriangle" size="13"></morph-icon><span><b>下单</b>由平台管理员配置的「消费者账号」完成；平台会自动维护它的登录，过期自动重登。你的 <b>token</b> 只用于<b>查询该账号在你店铺下的订单状态 / 信息</b>。</span></div>
+  </section>
+
+  <!-- 5 -->
+  <section class="card fade-up doc-sec" id="pay">
+    <h2 class="doc-h"><morph-icon data-name="creditCard" size="15"></morph-icon> 5 · 收款与到账</h2>
+    <ul class="doc-list">
+      <li><b>资金流向</b>：顾客付款 → <b>直达你的爱发电账号</b>，平台不经手、不托管资金。</li>
+      <li><b>付款方式</b>：微信 / 支付宝；若某方式被平台暂时关闭，店铺页会显示不可用并给出说明。</li>
+      <li><b>订单流转</b>：待支付 → 已支付。顾客扫码后，店铺页每 <b>5 秒</b>轮询确认；确认到账后触发通知（Webhook + 邮件）。</li>
+    </ul>
+  </section>
+
+  <!-- 6 -->
+  <section class="card fade-up doc-sec" id="webhook">
+    <h2 class="doc-h"><morph-icon data-name="inbox" size="15"></morph-icon> 6 · 自动发货（Webhook）</h2>
+    <p class="doc-p">订单<b>支付成功后</b>，平台会主动向你填写的回调地址发一次请求，把订单数据推给你——收到即可<b>自动发卡 / 发权益</b>，无需轮询。</p>
+    <ul class="doc-list">
+      <li><b>在哪配置</b>：控制台 →「个人中心 / 平台配置」→ Webhook 区域。可设回调地址、请求方法、编码、请求头、查询参数、正文模板；填好可点「发送测试」验证。</li>
+      <li><b>何时触发</b>：订单由「待支付」变「已支付」时触发一次（同订单只推一次）。</li>
+      <li><b>编码可选</b>：JSON / form-urlencoded / 文件(二进制) / RAW 文本。</li>
+      <li><b>可用变量</b>（正文模板里写 <code class="code">@变量</code> 会被替换为真实值）：
+        <table class="doc-table"><tr><th>变量</th><th>含义</th></tr>
+        <tr><td>@order_id</td><td>订单号（用它去重 / 查单）</td></tr>
+        <tr><td>@creat_time</td><td>下单时间</td></tr>
+        <tr><td>@type</td><td>商品分类</td></tr>
+        <tr><td>@title</td><td>商品标题</td></tr>
+        <tr><td>@sku</td><td>SKU 名称</td></tr>
+        <tr><td>@total</td><td>金额（元）</td></tr>
+        <tr><td>@seller</td><td>商户标识（爱发电 user_id）</td></tr></table>
+      </li>
+      <li><b>你该返回什么</b>：HTTP <b>2xx</b> 视为成功；失败可在后台「Webhook 历史」查看原因并重试。</li>
+    </ul>
+    <pre class="code code-block">POST /webhook            # 你实现的接收端点
+Content-Type: application/json
+
+{
+  "order_id":   "AFD2026021400001",
+  "creat_time": "2026-02-14 15:30:00",
+  "type":       "图标素材",
+  "title":      "Morph 线性图标包",
+  "sku":        "SVG全量版",
+  "total":      18,
+  "seller":     "afdian_pixellab_88"
+}
+
+# 建议：用 order_id 去重后发货 / 记单，返回 {"ok": true}</pre>
+  </section>
+
+  <!-- 7 -->
+  <section class="card fade-up doc-sec" id="mail">
+    <h2 class="doc-h"><morph-icon data-name="mail" size="15"></morph-icon> 7 · 邮件通知</h2>
+    <ul class="doc-list">
+      <li><b>订单通知邮件</b>：每笔支付成功给你发一封（可在个人中心开关、预览、发测试，测试每日 1 次）。</li>
+      <li><b>API 余额不足提醒</b>：余额低于阈值时提醒你充值（同样支持开关 / 预览 / 测试）。</li>
+      <li>邮件与 Webhook 相互独立，可只开其一，也可都开。</li>
+    </ul>
+  </section>
+
+  <!-- 8 -->
+  <section class="card fade-up doc-sec" id="balance">
+    <h2 class="doc-h"><morph-icon data-name="wallet" size="15"></morph-icon> 8 · API 余额与充值</h2>
+    <ul class="doc-list">
+      <li><b>为什么会扣费</b>：每笔成功订单，平台收取 <b>¥{{ '%.2f'|format(api_fee) }}</b> 服务费（平台对接爱发电接口的服务开销）。</li>
+      <li><b>余额从哪来</b>：注册赠送 + 你自己充值。</li>
+      <li><b>余额不足</b>：会拦下新订单，并给你发余额不足邮件；请及时充值。</li>
+      <li><b>怎么充值</b>：控制台「充值」→ 选充值商品与付款方式 → 扫码 → 支付成功后即时到账。</li>
+    </ul>
+  </section>
+
+  <!-- 9 -->
+  <section class="card fade-up doc-sec" id="orders">
+    <h2 class="doc-h"><morph-icon data-name="receiptText" size="15"></morph-icon> 9 · 订单管理</h2>
+    <ul class="doc-list">
+      <li><b>订单列表</b>：显示<b>已付款</b>与<b>待支付</b>订单，支持按关键词 / 付款方式筛选；<b>待支付超过 3 小时</b>的订单会被自动清理，不再保留。</li>
+      <li><b>字段含义</b>：订单号、下单时间、商品分类 / 标题 / SKU、金额、付款方式、卖家（商户 user_id）。</li>
+      <li><b>与通知的关系</b>：订单支付成功时，同时触发 Webhook 与订单邮件；订单列表是历史留档。</li>
+    </ul>
+  </section>
+
+  <!-- 10 -->
+  <section class="card fade-up doc-sec" id="faq">
+    <h2 class="doc-h"><morph-icon data-name="lifeBuoy" size="15"></morph-icon> 10 · 常见问题</h2>
+    <dl class="doc-faq">
+      <dt>下单提示“店铺余额不足”？</dt><dd>你账户余额<b>低于单次服务费</b>时会被拦下、无法下单，请到控制台充值；余额<b>低于你设置的提醒阈值</b>时会收到余额不足提醒（不拦单）。</dd>
+      <dt>顾客扫码后一直“等待支付”？</dt><dd>多为未真正完成付款；页面会每 5 秒自动确认，付款成功后自动转为已支付。</dd>
+      <dt>没收到 Webhook？</dt><dd>到「Webhook 历史」看投递结果与原因；确认地址可公网访问、返回 2xx。</dd>
+      <dt>忘记密码怎么办？</dt><dd>登录页「忘记密码」，用注册邮箱收重置链接（10 分钟内有效）。</dd>
+      <dt>店铺没出现在店铺广场？</dt><dd>需满足：店铺状态正常且已绑定爱发电 user_id。</dd>
+      <dt>注销账号会怎样？</dt><dd>账号停用、数据保留；仅管理员可重新启用。</dd>
+    </dl>
+  </section>
+
+  <!-- 11 -->
+  <section class="card fade-up doc-sec" id="contact">
+    <h2 class="doc-h"><morph-icon data-name="phone" size="15"></morph-icon> 11 · 联系与支持</h2>
+    <p class="doc-p">遇到问题请联系平台客服邮箱：</p>
+    <div class="doc-contact">
+      <morph-icon data-name="mail" size="15"></morph-icon>
+      <a id="doc-contact-mail" href="mailto:{{ adminEmail }}">{{ adminEmail }}</a>
+      <button type="button" class="doc-copybtn" id="doc-contact-copy" style="display:none" onclick="copyContact(this, document.getElementById('doc-contact-mail').textContent)">复制</button>
+    </div>
+  </section>
+
+  <div style="text-align:center;padding:8px 0;color:var(--ink-400);font-size:11px">内容以实际部署为准 · <a href="/api-docs" style="color:var(--brand)">开放接口文档</a></div>
+  </main>
+</div>
+{% endblock %}
+{% block style %}
+<style>
+.docs-wrap{max-width:1100px;margin:0 auto;padding:24px 16px 80px;display:flex;gap:22px;align-items:flex-start}
+.docs-nav{position:sticky;top:72px;flex:0 0 212px;max-height:calc(100vh - 96px);overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:12px}
+.docs-nav-t{font-size:11px;font-weight:800;color:var(--ink-400);text-transform:uppercase;letter-spacing:.04em;padding:4px 10px 8px}
+.docs-nav a{display:block;padding:7px 10px;border-radius:8px;font-size:12.5px;color:var(--ink-600);text-decoration:none;line-height:1.5}
+.docs-nav a:hover{background:var(--paper)}
+.docs-nav a.is-on{background:var(--brand-50);color:var(--brand);font-weight:700}
+.docs-main{flex:1;min-width:0}
+.code-block{font-family:ui-monospace,monospace;font-size:12px;background:var(--ink-950);color:var(--brand-200);padding:14px 16px;border-radius:10px;overflow:auto;line-height:1.8;margin:12px 0 0}
+@media(max-width:820px){
+  .docs-wrap{flex-direction:column}
+  .docs-nav{position:static;width:100%;max-height:none;flex:none}
+}
+.doc-sec{padding:24px;margin-bottom:18px;scroll-margin-top:76px}
+.doc-sec:last-of-type{margin-bottom:0}
+.doc-h{font-size:16px;font-weight:800;color:var(--ink-900);margin:0 0 12px;display:flex;align-items:center;gap:8px;padding-left:10px;border-left:3px solid var(--brand)}
+.doc-p{color:var(--ink-500);font-size:13px;line-height:1.9;margin:0 0 10px}
+.doc-steps{margin:0;padding-left:20px;color:var(--ink-600);font-size:13px;line-height:2}
+.doc-list{margin:0;padding-left:20px;color:var(--ink-600);font-size:13px;line-height:2}
+.doc-list li,.doc-steps li{margin-bottom:4px}
+.doc-tip{display:flex;align-items:flex-start;gap:9px;margin-top:12px;padding:12px 14px;border-radius:10px;background:var(--brand-50);color:var(--brand);font-size:12.5px;line-height:1.85;word-break:break-word}
+.doc-tip>morph-icon{flex:0 0 auto;margin-top:2px}
+.doc-tip>span{flex:1 1 auto;min-width:0}
+.doc-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+.doc-table th,.doc-table td{border:1px solid var(--line);padding:6px 9px;text-align:left;color:var(--ink-700)}
+.doc-table th{background:var(--paper);font-weight:700;color:var(--ink-800)}
+.doc-faq{margin:0}
+.doc-faq dt{font-weight:700;color:var(--ink-800);font-size:13px;margin-top:10px}
+.doc-faq dd{margin:4px 0 0;color:var(--ink-500);font-size:13px;line-height:1.9}
+.doc-contact{display:inline-flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-700);border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--paper);margin-top:4px}
+.doc-contact a{color:var(--brand);font-weight:600;text-decoration:none}
+.doc-copybtn{border:1px solid var(--line);background:var(--card);color:var(--ink-600);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s}
+.doc-copybtn:hover{border-color:var(--brand);color:var(--brand)}
+</style>
+{% endblock %}
+{% block script %}
+<script>
+(function(){
+  var links=[].slice.call(document.querySelectorAll('.docs-nav a'));
+  if(!links.length){ return; }
+  var secs=links.map(function(a){ var h=a.getAttribute('href')||''; return h.charAt(0)==='#'?document.getElementById(h.slice(1)):null; });
+  function on(){
+    var y=window.scrollY+120, cur=-1;
+    for(var i=0;i<secs.length;i++){ if(secs[i]&&(secs[i].getBoundingClientRect().top+window.scrollY)<=y){ cur=i; } }
+    for(var k=0;k<links.length;k++){ links[k].classList.toggle('is-on', k===cur); }
+  }
+  window.addEventListener('scroll',on,{passive:true});
+  window.addEventListener('resize',on);
+  on();
+})();
+function copyContact(btn,t){ function done(){ var o=btn.getAttribute('data-o')||btn.textContent; btn.setAttribute('data-o',o); btn.textContent='已复制'; setTimeout(function(){ btn.textContent=o; },1200); } try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(done); } else { var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); } }catch(e){} }
+(function(){
+  var a=document.getElementById('doc-contact-mail'); var c=document.getElementById('doc-contact-copy');
+  if(!a){ return; }
+  var cur=(a.textContent||'').trim();
+  if(cur){ a.href='mailto:'+cur; if(c){ c.style.display=''; } return; }
+  fetch('/api/support').then(function(r){ return r.json(); }).then(function(d){ var e=(d&&d.email)||''; if(e){ a.textContent=e; a.href='mailto:'+e; if(c){ c.style.display=''; } } else { a.textContent='暂未设置'; a.style.color='var(--ink-400)'; } }).catch(function(){ a.textContent='暂未设置'; a.style.color='var(--ink-400)'; });
+})();
+(function(){
+  var box=document.getElementById('doc-preview'); var a=document.getElementById('doc-preview-a');
+  if(!box||!a){ return; }
+  var cur=(a.getAttribute('href')||'').replace('/shop/','').trim();
+  if(cur){ return; }
+  fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){ var s=(d&&d.shops&&d.shops[0])||null; var uid=s&&s.afdian_user_id; if(!uid){ return; } a.setAttribute('href','/shop/'+uid); a.textContent='/shop/'+uid; box.style.display=''; }).catch(function(){});
+})();
+</script>
+{% endblock %}

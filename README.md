@@ -7,20 +7,21 @@
 ```
 fastapi/
 ├── main.py               # 入口(main:app),启动时幂等建表
-├── requirements.txt      # 依赖(9 个包,含 uvicorn 与 gunicorn)
-├── .env.example          # 环境变量模板
+├── requirements.txt      # 依赖(uvicorn 锁 <0.35,见下方说明)
+├── .env.example          # 环境变量模板(仅参考,配置由安装向导生成)
 ├── database/schema.sql   # MySQL 表结构(可选手工导入,程序也会自动建表)
 └── app/
-    ├── config.py         # 环境变量读取
-    ├── db.py             # SQLAlchemy 引擎 + 7 张表模型
-    ├── auth.py           # PBKDF2 密码 / JWT 会话(Cookie+Bearer)/ 登录锁定 / 预览通行证
-    ├── utils.py          # 校验助手
-    ├── render.py         # Jinja2 渲染(自动注入 me/qs)
-    ├── routes_public.py  # 主页注册/登录/忘记重置/店铺页/下单轮询/公开接口
-    ├── routes_console.py # 控制台页面 + 全部 JSON 接口
-    ├── services/         # afdian(演示模拟) mailer(smtplib) pipeline(支付流水线) email_templates
-    ├── templates/        # 15 个页面模板
-    └── static/           # app.css / app.js(与其他版本同一套设计系统)
+    ├── config.py         # 环境变量读取(.env 优先)
+    ├── settings.py       # 平台可调设置(读写 platform_settings 表)
+    ├── db.py             # SQLAlchemy 引擎 + 12 张表模型
+    ├── auth.py           # PBKDF2 密码 / JWT 会话(Cookie+Bearer)/ 登录锁定
+    ├── utils.py          # 校验助手(邮箱、店铺名等)
+    ├── render.py         # Jinja2 渲染(自动注入 me/qs/api_fee 等)
+    ├── routes_public.py  # 公开路由 24 个:安装向导/注册登录/店铺页/下单轮询/开放接口
+    ├── routes_console.py # 控制台路由 44 个:页面 + 全部 JSON 接口
+    ├── services/         # 业务服务(见「开发者指南 · 服务层」)
+    ├── templates/        # 21 个 Jinja2 页面模板
+    └── static/           # app.css / app.js / morphicons / qrcode.js 等
 ```
 
 ## 宝塔部署(6 步)
@@ -89,3 +90,82 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 ## 与其他版本的差异
 
 业务规则、数据表、Webhook JSON、邮件卡片与 Next.js/ThinkPHP 版完全一致;密码哈希算法为 PBKDF2(与其他版本不同,用户数据不互通迁移,需重新注册)。无 morphicons 形变动画,交互反馈用 toast/弹窗实现。
+
+## 开发者指南
+
+### 本地运行
+
+```bash
+python3 -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+
+# 方式一(推荐):不写任何配置,直接起,浏览器访问 http://127.0.0.1:8000 会自动进安装向导
+uvicorn main:app --reload
+
+# 方式二:手工建 .env(需自行准备 MySQL 库并先建好表)
+cp .env.example .env   # 填 DB_* / SESSION_SECRET / APP_SECURE=false(本地 http 调试)
+uvicorn main:app --reload
+```
+
+> 本地 http 调试务必把 `APP_SECURE=false`,否则 Secure Cookie 在 http 下无法写入,登录会「看似成功但立刻掉线」。
+
+### 请求生命周期
+
+1. `main.py` 的 HTTP 中间件对每个请求解析登录态 → `request.state.me`,并注入 `request.state.qs`(预览通行证参数);
+2. 未完成安装时,除 `/install`、`/static` 外一律 302 到安装向导;
+3. 页面路由统一走 `app/render.py` 的 `render()` — 它自动向模板注入 `me / qs / api_fee / allow_email_domains` 等公共变量,新增页面直接用即可;
+4. 控制台页面路由用 `_need(request)` 守卫,返回 `(me, resp)`;`resp` 非空时直接 return 它(未登录 → 302 `/login`;非管理员 → `noadmin.html`)。
+
+### 服务层(`app/services/`)
+
+| 模块 | 职责 |
+|---|---|
+| `pipeline.py` | **支付流水线**:`mark_order_paid()` 幂等标记已付并执行「加充值余额 → 扣服务费写流水 → 发 Webhook → 发邮件」;另含 Webhook 模板渲染(`@变量`)、发送历史修剪、`gc_stale_pending()` 清理过期未付单、`bump_order_stat()` 订单计数 |
+| `afdian.py` | 爱发电对接(含演示模拟分支) |
+| `afd_live.py` | 真实下单/查单:优先用 `curl_cffi` 伪装浏览器指纹绕过 Cloudflare,未安装则回退 urllib;含 `live_create_auto / live_check_auto`(token 失效自动重登再试) |
+| `afd_login.py` | 消费者账号登录、`auth_token` 持久化与失效判断(`consumer_ensure_token`) |
+| `mailer.py` | SMTP 发信(smtplib),未配置时降级为仅记日志 |
+| `email_templates.py` | 订单/余额提醒邮件模板 |
+| `verification.py` | 邮箱验证码的生成、发送与校验 |
+
+### 数据层
+
+- 12 张表模型集中在 `app/db.py`;建表由 `main.py` 启动时 `Base.metadata.create_all()` 幂等完成,新增模型**无需手工 ALTER**(新增表同理);
+- ⚠️ 给**已有表新增列**时,`create_all` 不会改已存在的表,需自行 `ALTER TABLE` 后再重启;
+- 平台级可调配置都在 `platform_settings` 表,通过 `app/settings.py` 读取(如 `api_fee_cents()`),**不要**在代码里写死。
+
+### 鉴权
+
+- 密码:`PBKDF2`(见 `app/auth.py`);会话:JWT,同时支持 **Cookie**(浏览器)与 **Bearer**(API 调用);
+- 登录失败按 IP 锁定(5 分钟内 5 次),状态存 `login_locks` 表;
+- 调试用预览通行证 `?preview=admin|merchant`(受 `ENABLE_PREVIEW_LOGIN` 控制,**生产必须为 false**)。
+
+### 前端约定
+
+- **无构建链**:原生 JS + Jinja2 服务端渲染,改完刷新即生效;
+- 图标统一用 `<morph-icon data-name="…">`(`app/static/morphicons/morph-icons.js`),**不使用 emoji**;新增图标在该文件 `ICONS` 里加一条即可;
+- 静态资源在 `app/templates/base.html` 里带版本号引用(`app.css?v=N`、`app.js?v=N`),**改了 CSS/JS 记得把版本号 +1**,否则浏览器/CDN 会继续用旧缓存;
+- 公共样式放 `app/static/app.css`;页面专属样式写在对应模板的 `{% block style %}` 或 `{% block contentcss %}`。
+
+### 扩展点
+
+- **新增公开接口**:在 `app/routes_public.py` 加 `@router.get/post`,错误统一用 `err(msg, status)`;
+- **新增控制台接口**:在 `app/routes_console.py` 加路由,页面路由记得用 `_need()` 守卫,JSON 接口用 `_me()` 判空返回 401;
+- **新增配置项**:`platform_settings` 加列 + `app/settings.py` 加读取函数 + 控制台「平台配置」页面加表单字段;
+- **对接支付/发货**:改 `pipeline.mark_order_paid()` 的流水线步骤顺序即可。
+
+### 依赖与版本约束
+
+- `requirements.txt` 里 **`uvicorn[standard]` 锁定 `<0.35`**:宝塔「gunicorn」启动方式依赖 `uvicorn.workers.UvicornWorker`,该模块在 uvicorn 0.34+ 已被移除;若改用独立包 `uvicorn-worker` 可解除上限。**命令行 A 方案(`uvicorn main:app`)不受此限制**。
+- `curl_cffi` 为**可选依赖**:不装也能运行(回退 urllib),但对接真实爱发电时可能因 Cloudflare 指纹校验失败,建议生产安装。
+
+### 自检脚本
+
+```bash
+python deploy_check.py   # 部署前环境检查
+```
+
+### 已知边界(不要当 bug)
+
+- **真实收款未接通**:`afdian.create_order / order_paid` 的 live 分支目前是占位实现,请勿当作已可真实收款;
+- 未支付订单**超过 3 小时会被物理清除**(`gc_stale_pending`),因此「创建订单数」由独立的 `order_stats` 表累计保障,不受清理影响。

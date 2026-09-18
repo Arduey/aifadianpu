@@ -1,0 +1,39 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+  <div>
+    <h1 class="display" style="font-size:20px">Webhook 记录</h1>
+    <p class="muted">每笔订单支付成功后,平台按你配置的方式向你回调地址发送的请求与接收端响应</p>
+  </div>
+  <a href="/console/account{{ qs }}" class="btn btn-outline btn-sm"><morph-icon data-name="slidersHorizontal" size="13"></morph-icon> 去配置 Webhook</a>
+</div>
+
+{% if not records %}
+<div class="card" style="padding:28px;text-align:center;color:var(--ink-400);font-size:13px">暂无回调记录(订单支付成功后会在此显示)</div>
+{% else %}
+<div style="display:flex;flex-direction:column;gap:10px">
+  {% for r in records %}
+  <div class="card" style="padding:14px">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <b style="font-size:12px;color:{{ 'var(--good)' if r.ok else 'var(--bad)' }}">HTTP {{ r.status_code or '—' }}</b>
+      <span class="badge {{ 'badge-good' if r.ok else 'badge-bad' }}">{{ '成功' if r.ok else '失败' }}</span>
+      <span class="code" style="font-size:11px">{{ r.method }}</span>
+      {% if r.is_test %}<span class="badge badge-neutral">测试</span>{% else %}<span class="muted" style="font-size:11px">订单 {{ r.order_no or '-' }}</span>{% endif %}
+      <span style="flex:1"></span>
+      <span class="muted" style="font-size:11px">{{ r.created_at }}</span>
+    </div>
+    <div class="muted" style="font-size:11px;margin-top:6px;word-break:break-all">{{ r.url }}</div>
+    <details style="margin-top:8px">
+      <summary style="cursor:pointer;font-size:11px;color:var(--ink-500)">查看响应详情</summary>
+      <div style="font-size:11px;margin-top:6px">
+        <div style="color:var(--ink-500);margin-bottom:2px">响应头</div>
+        <pre style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px;overflow:auto;max-height:160px;white-space:pre-wrap;word-break:break-all;font-size:11px;font-family:ui-monospace,monospace;margin:0">{{ r.resp_head or '(无)' }}</pre>
+        <div style="color:var(--ink-500);margin:8px 0 2px">响应体</div>
+        <pre style="background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px;overflow:auto;max-height:220px;white-space:pre-wrap;word-break:break-all;font-size:11px;font-family:ui-monospace,monospace;margin:0">{{ r.resp_body or '(空)' }}</pre>
+      </div>
+    </details>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,59 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+  <div>
+    <h1 class="display" style="font-size:20px">API 费用</h1>
+    <p class="muted">余额变动的每一笔流水:支出 / 充值 / 退费等,含变动后余额</p>
+  </div>
+  <a href="/console/account{{ qs }}" class="btn btn-outline btn-sm"><morph-icon data-name="wallet" size="13"></morph-icon> 去充值</a>
+</div>
+
+<div class="grid g3" style="margin-bottom:16px">
+  <div class="card" style="padding:16px;display:flex;gap:12px;align-items:center">
+    <span style="font-size:26px"><morph-icon data-name="wallet" size="24"></morph-icon></span>
+    <div><div class="muted" style="font-size:11px;font-weight:700">当前余额</div><div class="display" style="font-size:20px">¥{{ "%.2f"|format(balance/100) }}</div></div>
+  </div>
+  <div class="card" style="padding:16px;display:flex;gap:12px;align-items:center">
+    <span style="font-size:26px"><morph-icon data-name="trendingUp" size="24"></morph-icon></span>
+    <div><div class="muted" style="font-size:11px;font-weight:700">累计入账(充值/退费/赠送)</div><div class="display" style="font-size:20px;color:var(--good)">+¥{{ "%.2f"|format(income/100) }}</div></div>
+  </div>
+  <div class="card" style="padding:16px;display:flex;gap:12px;align-items:center">
+    <span style="font-size:26px"><morph-icon data-name="trendingDown" size="24"></morph-icon></span>
+    <div><div class="muted" style="font-size:11px;font-weight:700">累计支出(订单服务费)</div><div class="display" style="font-size:20px;color:var(--bad)">-¥{{ "%.2f"|format(expense/100) }}</div></div>
+  </div>
+</div>
+
+<div class="card">
+  <div style="overflow-x:auto">
+    <table style="min-width:640px">
+      <thead><tr><th>时间</th><th>类型</th><th>说明</th><th style="text-align:right">费用</th><th style="text-align:right">变动后余额</th></tr></thead>
+      <tbody>
+      {% if not rows %}
+        <tr><td colspan="5" style="padding:40px;text-align:center;color:var(--ink-400)"><morph-icon data-name="wallet" size="15"></morph-icon> 暂无费用流水</td></tr>
+      {% else %}
+        {% for r in rows %}
+        <tr>
+          <td class="muted" style="white-space:nowrap">{{ r.created_at }}</td>
+          <td>
+            {% if r.reason == 'order_fee' %}<span class="badge badge-bad">订单服务费支出</span>
+            {% elif r.reason == 'recharge' %}<span class="badge badge-good">充值到账</span>
+            {% elif r.reason == 'admin_adjust' %}<span class="badge badge-warn">管理员调整/退费</span>
+            {% else %}<span class="badge badge-neutral">初始赠送</span>{% endif %}
+          </td>
+          <td class="muted" style="max-width:280px">{{ r.note }}</td>
+          <td style="text-align:right;font-weight:700;white-space:nowrap;{% if r.delta_cents < 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">
+            {{ '-' if r.delta_cents < 0 else '+' }}¥{{ "%.2f"|format((r.delta_cents|abs)/100) }}
+          </td>
+          <td style="text-align:right;font-weight:700;white-space:nowrap">¥{{ "%.2f"|format(r.balance_after_cents/100) }}</td>
+        </tr>
+        {% endfor %}
+      {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+<p class="muted" style="margin-top:12px;line-height:1.8">规则:每笔订单支付成功扣 ¥{{ '%.2f'|format(api_fee) }} 服务费(单次费用由平台管理员配置);充值购买管理员「API充值」商品支付成功后即时到账;剩余余额支持联系平台管理员手动退费,退费以「管理员调整/退费」入账。</p>
+{% endblock %}
+{% block script %}
+<script>try { localStorage.setItem('afp_fees','1'); } catch(e){}</script>
+{% endblock %}

@@ -73,46 +73,30 @@
 
 ---
 
-## 4. 配置 .env(关键,10 分钟)
+## 4. 配置(全自动,无需改文件)
 
-**不需要手动创建或编辑 `.env`**：数据库、会话密钥等配置全部由**网页安装向导**填写并自动写入 `.env`（见下文「首次使用」）。项目在未配置时也能启动，会自动把你引导到 `/install`。
+**你不需要创建或编辑任何文件,包括 `.env`。**
 
-> 仅当你偏好手工配置时，才需要执行下面的步骤：
+所有配置(数据库连接、会话密钥、SMTP、平台账号、对外域名等)都在**网页安装向导**里填写:
 
-复制模板并编辑:
+- **数据库连接**在向导「第 1 步」填写 → 系统**当场测试连接**,成功后**自动生成 `.env`**(其中 `SESSION_SECRET` 由程序用 `secrets.token_hex(32)` 随机生成,无需你自己算);
+- **会话密钥 / APP_BASE_URL / SMTP / 爱发电消费者账号 / 平台 LOGO** 等在向导「第 2 步」或之后的「个人中心 → 平台配置」里填写,存入数据库,随时可改;
+- 项目在**尚未配置时也能正常启动**(建表失败只记日志),访问域名会自动把你引导到 `/install`,所以你可以先启动、后配置。
 
-```bash
-cd /www/wwwroot/afdianpu
-cp .env.example .env
-```
+> 下面这张表**仅供理解各配置项的含义**,实际填写都在网页上完成,不需要手改文件。
 
-然后在宝塔「文件」里双击 `.env` 编辑,逐个填:
+| 配置项 | 说明 |
+|---|---|
+| `DB_HOST` / `DB_PORT` | 数据库地址与端口(本机 `127.0.0.1` / `3306`) |
+| `DB_USER` / `DB_PASSWORD` / `DB_NAME` | 数据库账号、密码、库名(如 `afdianpu`) |
+| `SESSION_SECRET` | 会话(JWT)签名密钥,**由向导自动生成** |
+| `APP_BASE_URL` | 对外访问域名(不带末尾斜杠),用于邮件里的链接 |
+| `APP_SECURE` | 生产 = `true`(需 HTTPS);本地 http 调试 = `false` |
+| `AFDIAN_LIVE` | 接真实爱发电 = `true`;先用演示 = `false`(订单约 12 秒自动成功) |
+| `ENABLE_PREVIEW_LOGIN` | 生产一定设 `false`(关掉预览通行证后门) |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | 发邮件用(QQ/163 用授权码);不配 = 仅写日志 |
 
-| 配置项 | 填什么 | 示例 |
-|---|---|---|
-| `DB_HOST` | 数据库地址,本机填 `127.0.0.1` | |
-| `DB_PORT` | MySQL 端口,默认 `3306` | |
-| `DB_USER` | 第 2 步建的数据库用户名 | |
-| `DB_PASSWORD` | 第 2 步设的密码 | |
-| `DB_NAME` | 库名 `afdianpu` | |
-| `SESSION_SECRET` | 会话(JWT)签名密钥,**随机长串** | 用命令 `openssl rand -hex 32` 生成 |
-| `APP_BASE_URL` | 对外访问的域名,不能带末尾斜杠 | `https://你的域名` |
-| `APP_SECURE` | 生产 = `true`(需 HTTPS);本地 http 调试 = `false` | `true` |
-| `AFDIAN_LIVE` | 接真实爱发电 = `true`;先用演示 = `false`(订单约 12 秒自动成功) | `false` |
-| `ENABLE_PREVIEW_LOGIN` | 生产一定设 `false`(关掉一键体验与 `?preview=` 后门) | `false` |
-| `SMTP_*` | 发邮件用(QQ/163 授权码);不配 = 演示模式仅写日志 | 见下 |
-
-**SMTP 配置(发支付通知邮件,可选)**:
-
-QQ 邮箱示例:
-
-```
-SMTP_HOST=smtp.qq.com
-SMTP_PORT=465
-SMTP_USER=你的QQ邮箱
-SMTP_PASS=QQ邮箱的SMTP授权码    # 不是登录密码!在QQ邮箱「设置-账户」里开 SMTP 生成
-SMTP_FROM=爱发电铺
-```
+**SMTP 说明(发支付通知邮件,可选)**:QQ 邮箱为例 —— 主机 `smtp.qq.com`、端口 `465`、用户名你的 QQ 邮箱、密码填**SMTP 授权码**(在 QQ 邮箱「设置-账户」里开启 SMTP 后生成,**不是登录密码**);这些都在网页「平台配置 → SMTP」里填。
 
 ---
 

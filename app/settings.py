@@ -33,6 +33,10 @@ def app_base_url() -> str:
 
 
 def afdian_live() -> bool:
+    """⚠️ 遗留函数:当前无任何业务调用方(下单/查单固定走 afd_live.py 的真实接口)。
+
+    保留仅为兼容旧配置读取;新代码请勿使用。
+    """
     try:
         r = _row()
         if r is not None and r.afdian_live is not None:

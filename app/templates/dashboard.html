@@ -1,0 +1,192 @@
+{% extends "console.html" %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+  <div>
+    <h1 class="display" style="font-size:20px">{{ title }}</h1>
+    <p class="muted">预设按钮快速填充时间,实际查询以日期选择器为准 · 切换即动态查询</p>
+  </div>
+  {% if badge %}<span class="badge badge-brand">{{ badge }}</span>{% endif %}
+</div>
+
+<div class="card" style="padding:12px;margin-bottom:16px">
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <div class="chips" id="presets"></div>
+    <span class="muted" style="font-size:11px">预设按钮仅快速填充,实际查询以日期选择为准</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+    <div class="date-seg" id="segFrom">
+      <span class="seg-label">开始</span>
+      <button type="button" class="seg" data-part="y"></button>
+      <button type="button" class="seg" data-part="m"></button>
+      <button type="button" class="seg" data-part="d"></button>
+    </div>
+    <span class="muted">至</span>
+    <div class="date-seg" id="segTo">
+      <span class="seg-label">结束</span>
+      <button type="button" class="seg" data-part="y"></button>
+      <button type="button" class="seg" data-part="m"></button>
+      <button type="button" class="seg" data-part="d"></button>
+    </div>
+    <button type="button" id="btnQuery" class="btn btn-primary btn-sm"><morph-icon data-name="search" size="14"></morph-icon> 查询</button>
+  </div>
+</div>
+
+<div class="grid g4" id="kpis"></div>
+
+<div class="card" style="padding:16px;margin-top:16px">
+  <b style="font-size:13px">商品销量及金额(已支付)</b>
+  <div style="max-height:300px;overflow:auto;margin-top:8px"><table id="prod-table"></table></div>
+</div>
+<style>@media(max-width:900px){ /* 单卡已是全宽 */ }</style>
+{% endblock %}
+{% block script %}
+<script>
+const SCOPE = '{{ scope }}';
+const presets = [
+  ['today','今天'],['yesterday','昨天'],['thisWeek','本周'],['last7','近7天'],['lastWeek','上周'],
+  ['thisMonth','本月'],['last30','近30天'],['lastMonth','上月'],['all','全部']
+];
+function fmt(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function presetDates(k){
+  const now=new Date(), t=fmt(now);
+  const sow=addDays(now,-((now.getDay()+6)%7));
+  switch(k){
+    case 'today': return [t,t];
+    case 'yesterday': return [fmt(addDays(now,-1)),fmt(addDays(now,-1))];
+    case 'thisWeek': return [fmt(sow),t];
+    case 'last7': return [fmt(addDays(now,-6)),t];
+    case 'lastWeek': { const s=addDays(sow,-7); return [fmt(s),fmt(addDays(s,6))]; }
+    case 'thisMonth': return [fmt(new Date(now.getFullYear(),now.getMonth(),1)),t];
+    case 'last30': return [fmt(addDays(now,-29)),t];
+    case 'lastMonth': return [fmt(new Date(now.getFullYear(),now.getMonth()-1,1)),fmt(new Date(now.getFullYear(),now.getMonth(),0))];
+    case 'all': return ['2020-01-01',t];
+  }
+}
+const box=document.getElementById('presets');
+box.innerHTML=presets.map(([k,l])=>`<button class="chip" data-k="${k}">${l}</button>`).join('');
+box.addEventListener('click',e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  box.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  b.classList.add('active');
+  const [f,t]=presetDates(b.dataset.k);
+  setDate('from',f); setDate('to',t); renderSegs();
+});
+
+async function load(){
+  const f=st.from,t=st.to;
+  if(!f||!t) return;
+  try{
+    // 结束日期须包含当天(=到当天24点):按本地日历把结束日加一天后作为"次日00:00:00"的不含时区上界,
+    // 不要再用 .toISOString()(会把次日00:00 偏移成当天16:00Z,从而截掉结束日下午的数据)。
+    const endIncl=new Date(t+'T00:00:00'); endIncl.setDate(endIncl.getDate()+1);
+    const toLocal=endIncl.getFullYear()+'-'+String(endIncl.getMonth()+1).padStart(2,'0')+'-'+String(endIncl.getDate()).padStart(2,'0');
+    const sp=new URLSearchParams({scope:SCOPE, from: f+'T00:00:00', to: toLocal+'T00:00:00'});
+    const d=await api('/console/api/stats?'+sp.toString());
+    render(d);
+  }catch(e){ toast('error','加载失败',e.message); }
+}
+
+/* ═══ 年月日分段日期选择器(年份不设上限,‹ › 每批 12 年无限翻) ═══ */
+const st={from:'',to:''};
+let openPart=null, openType=null, yrStart=2020;   // 当前批次起始年,可任意往前/往后
+
+function parseDate(s){ const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(s||''); if(!m) return null; return [Number(m[1]),Number(m[2]),Number(m[3])]; }
+function pad(n){return String(n).padStart(2,'0')}
+function dim(y,m){return new Date(y,m,0).getDate()}
+function clampDay(y,m,d){return Math.min(d,dim(y,m))}
+function valid(y,m,d){return m>=1&&m<=12&&d>=1&&d<=31}
+function setDate(type,s){ const p=parseDate(s); st[type]=s; if(p) st[type+'_part']={y:p[0],m:p[1],d:p[2]}; else st[type+'_part']={y:new Date().getFullYear(),m:1,d:1}; }
+
+function segBtn(seg,type,part){ return seg.querySelector(`[data-part="${part}"]`); }
+function renderSegs(){
+  ['from','to'].forEach(type=>{
+    const seg=document.getElementById(type==='from'?'segFrom':'segTo');
+    const p=st[type+'_part']||{y:new Date().getFullYear(),m:1,d:1};
+    segBtn(seg,type,'y').textContent=p.y;
+    segBtn(seg,type,'m').textContent=String(p.m).padStart(2,'0');
+    segBtn(seg,type,'d').textContent=clampDay(p.y,p.m,p.d);
+    segBtn(seg,type,'y').classList.toggle('open',openType===type&&openPart==='y');
+    segBtn(seg,type,'m').classList.toggle('open',openType===type&&openPart==='m');
+    segBtn(seg,type,'d').classList.toggle('open',openType===type&&openPart==='d');
+  });
+  renderPanel();
+}
+function closeAll(){ openType=null; openPart=null; renderSegs(); }
+function renderPanel(){
+  document.querySelectorAll('.date-panel').forEach(el=>el.remove());
+  if(!openType||!openPart) return;
+  const seg=document.getElementById(openType==='from'?'segFrom':'segTo');
+  const p=st[openType+'_part'];
+  const panel=document.createElement('div'); panel.className='date-panel';
+  const btn=(label,on)=>{const b=document.createElement('button');b.type='button';b.className='date-cell';b.textContent=label;b.addEventListener('click',e=>{e.stopPropagation();on();});return b;};
+  if(openPart==='y'){
+    const yy=Array.from({length:12},(_,i)=>yrStart+i);
+    const head=document.createElement('div'); head.className='date-panel-head';
+    const prev=document.createElement('button'); prev.type='button'; prev.className='date-panel-nav'; prev.textContent='‹'; prev.addEventListener('click',e=>{e.stopPropagation();yrStart-=12;renderPanel();});
+    const range=document.createElement('span'); range.className='date-panel-range'; range.textContent=yy[0]+' ~ '+yy[yy.length-1];
+    const next=document.createElement('button'); next.type='button'; next.className='date-panel-nav'; next.textContent='›'; next.addEventListener('click',e=>{e.stopPropagation();yrStart+=12;renderPanel();});
+    head.append(prev,range,next); panel.appendChild(head);
+    const grid=document.createElement('div'); grid.className='date-grid date-grid-4';
+    yy.forEach(yy2=>{const c=btn(yy2,()=>{setDate(openType,`${yy2}-${pad(p.m)}-${pad(clampDay(yy2,p.m,p.d))}`);openPart='m';renderSegs();}); if(yy2===p.y)c.classList.add('on'); grid.appendChild(c);});
+    panel.appendChild(grid);
+  } else if(openPart==='m'){
+    const grid=document.createElement('div'); grid.className='date-grid date-grid-4';
+    for(let mm=1;mm<=12;mm++){const c=btn(mm,()=>{setDate(openType,`${p.y}-${pad(mm)}-${pad(clampDay(p.y,mm,p.d))}`);openPart='d';renderSegs();}); if(mm===p.m)c.classList.add('on'); grid.appendChild(c);}
+    panel.appendChild(grid);
+  } else {
+    const row=document.createElement('div'); row.style.cssText='display:flex;align-items:center;justify-content:space-between;padding:0 2px 8px';
+    const title=document.createElement('span'); title.className='date-panel-range'; title.textContent=p.y+' 年 '+p.m+' 月 · 共 '+dim(p.y,p.m)+' 天';
+    const back=document.createElement('button'); back.type='button'; back.className='date-panel-nav'; back.textContent='‹ 月份'; back.addEventListener('click',e=>{e.stopPropagation();openPart='m';renderSegs();});
+    row.append(title,back); panel.appendChild(row);
+    const grid=document.createElement('div'); grid.className='date-grid date-grid-7';
+    for(let dd=1;dd<=dim(p.y,p.m);dd++){const c=btn(dd,()=>{setDate(openType,`${p.y}-${pad(p.m)}-${pad(dd)}`);openPart='d';closeAll();}); if(dd===clampDay(p.y,p.m,p.d))c.classList.add('on'); grid.appendChild(c);}
+    panel.appendChild(grid);
+  }
+  seg.appendChild(panel);
+}
+/* 查询:点击「查询」按钮时统一校验(结束不得早于开始)并加载 */
+function commit(){
+  box.querySelectorAll('.chip').forEach(c=>c.classList.remove('active'));
+  if(st.from && st.to && st.to < st.from){
+    setDate('to', st.from);
+    renderSegs();
+    toast('warn', '结束时间不能早于开始时间', '已自动将结束时间调整为开始时间');
+  }
+  load();
+}
+document.getElementById('btnQuery').addEventListener('click', commit);
+/* 事件委托:点击年月日段按钮(面板内日期按钮走各自 onclick,不在此处理) */
+document.querySelectorAll('.date-seg').forEach(container=>{
+  container.addEventListener('click', e=>{
+    const segBtnEl = e.target.closest('.seg');
+    if(!segBtnEl) return;                        // 点面板内按钮由它自带 onclick 处理
+    const type = container.id === 'segFrom' ? 'from' : 'to';
+    const part = segBtnEl.dataset.part;
+    if(openType===type && openPart===part){ closeAll(); return; }
+    openType=type; openPart=part;
+    { const y=(st[type+'_part']||{y:new Date().getFullYear()}).y; yrStart = Math.floor(y/12)*12; }
+    renderSegs();
+  });
+});
+/* 点击面板外部自动关闭(panel 是 .date-seg 子元素,点其内部不会误关) */
+document.addEventListener('click', e=>{
+  if(!openType) return;
+  if(e.target.closest('.date-seg')) return;
+  closeAll();
+});
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeAll(); });
+
+/* 初始化 */
+const [f0,t0]=presetDates('today'); setDate('from',f0); setDate('to',t0);
+renderSegs();
+box.querySelector('[data-k=today]').classList.add('active');
+load();
+function render(d){
+  const kpis=[['创建订单数',d.createdCount,'含未支付'],['支付订单数',d.paidCount,'支付成功'],['付款总金额','¥'+d.paidAmount.toFixed(2),'元'],['订单平均金额','¥'+d.avgAmount.toFixed(2),'按支付订单']];
+  document.getElementById('kpis').innerHTML=kpis.map(([l,v,s])=>`<div class="card fade-up" style="padding:16px"><div class="muted" style="font-size:12px;font-weight:700">${l}</div><div class="display" style="font-size:26px;margin-top:6px">${v}</div><div style="font-size:11px;color:var(--ink-300);margin-top:4px">${s}</div></div>`).join('');
+  const rows=d.products.map(p=>`<tr><td><b>${p.title}</b><div class="muted">${p.category} · ${p.sku}</div>${SCOPE==='all'?`<div class="muted">商家:${p.merchantShop||'-'}(${p.merchantEmail||''})</div>`:''}</td><td style="text-align:right;font-weight:700">×${p.count}</td><td class="money" style="text-align:right">¥${p.amount.toFixed(2)}</td></tr>`).join('');
+  document.getElementById('prod-table').innerHTML=d.products.length?'<thead><tr><th>商品</th><th style="text-align:right">销量</th><th style="text-align:right">金额</th></tr></thead><tbody>'+rows+'</tbody>':'<div style="text-align:center;padding:36px;color:var(--ink-400);font-size:12px">暂无销量数据</div>';
+}
+</script>
+{% endblock %}

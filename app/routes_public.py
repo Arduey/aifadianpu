@@ -326,7 +326,7 @@ async def install_finish(request: Request):
                     ps = platform_settings(db)
                     ps.installed = True
                     ps.app_base_url = str(f.get("app_base_url", "")).strip()
-                    ps.afdian_live = _bool3(f.get("afdian_live"))
+                    ps.afdian_live = _bool3(f.get("afdian_live"))  # ⚠️遗留字段:当前代码不读取,恒为 None
                     ps.consumer_account = str(f.get("consumer_account", "")).strip()
                     ps.consumer_password = str(f.get("consumer_password", "")).strip()
                     ps.platform_logo_url = str(f.get("platform_logo_url", "")).strip()

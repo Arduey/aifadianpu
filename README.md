@@ -10,7 +10,7 @@
 | [**RE-DEPLOY.md**](RE-DEPLOY.md) | **全新服务器从零部署**：完全没有代码/数据库/`.env` 的空机器，一路到网站可访问、管理员创建完成（最完整，推荐首次部署看这份） |
 | [**BT-PANEL-STEP.md**](BT-PANEL-STEP.md) | **宝塔面板手把手**（逐框填写版）：每步告诉你点哪个菜单、出现哪个框、填什么，适合不熟悉命令行的人 |
 | [**DEPLOY-TUTORIAL.md**](DEPLOY-TUTORIAL.md) | **宝塔部署教程**（从零到上线）：含启动方式选择（命令行 / gunicorn）、Nginx 反代与 SSL、常见问题排查 |
-| [**PRODUCTION.md**](PRODUCTION.md) | **生产功能说明**：注册/登录/订单/Webhook/邮件/计费/管理台等功能到底怎么工作，以及**哪些仍是演示未接入** |
+| [**PRODUCTION.md**](PRODUCTION.md) | **生产功能说明**：注册/登录/订单/Webhook/邮件/计费/管理台等**各功能的真实行为**，以及第三方对接的当前状态 |
 
 > 补充：接口细节见站内「开放接口」页（`/api-docs`）；面向商户的功能讲解见站内「使用说明」页（`/guide`）。
 > 当前页：**README.md**（项目总览）
@@ -87,9 +87,9 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 | `SESSION_SECRET` | JWT 密钥(`openssl rand -hex 32`) |
 | `APP_BASE_URL` | 对外域名(重置邮件链接) |
 | `APP_SECURE` | Cookie Secure;生产 true(需 HTTPS),本地 http 调试 false |
-| `AFDIAN_LIVE` | `true`=真实爱发电接口(默认演示模拟,订单约 12 秒自动成功) |
-| `ENABLE_PREVIEW_LOGIN` | 生产设 `false`(关闭一键体验与 `?preview=` 通行证) |
-| `SMTP_HOST/PORT/USER/PASS/FROM` | 邮件(QQ/163 用授权码);不配=演示模式仅写日志 |
+| `AFDIAN_LIVE` | 历史遗留开关：**当前业务代码不再读取**（下单/查单固定走 `afd_live.py` 的真实接口） |
+| `ENABLE_PREVIEW_LOGIN` | 生产设 `false`(关闭 `?preview=admin\|merchant` 免密预览通行证) |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | 邮件(QQ/163 用授权码);不配 SMTP 时邮件不发、仅记日志 |
 
 ## 日常运维(全图形化)
 
@@ -129,7 +129,7 @@ uvicorn main:app --reload
 | 模块 | 职责 |
 |---|---|
 | `pipeline.py` | **支付流水线**:`mark_order_paid()` 幂等标记已付并执行「加充值余额 → 扣服务费写流水 → 发 Webhook → 发邮件」;另含 Webhook 模板渲染(`@变量`)、发送历史修剪、`gc_stale_pending()` 清理过期未付单、`bump_order_stat()` 订单计数 |
-| `afdian.py` | 爱发电对接(含演示模拟分支) |
+| `afdian.py` | 爱发电对接(仅只读的商户绑定校验 test_connection) |
 | `afd_live.py` | 真实下单/查单:优先用 `curl_cffi` 伪装浏览器指纹绕过 Cloudflare,未安装则回退 urllib;含 `live_create_auto / live_check_auto`(token 失效自动重登再试) |
 | `afd_login.py` | 消费者账号登录、`auth_token` 持久化与失效判断(`consumer_ensure_token`) |
 | `mailer.py` | SMTP 发信(smtplib),未配置时降级为仅记日志 |

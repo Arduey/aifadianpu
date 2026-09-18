@@ -1,8 +1,12 @@
 """爱发电开放平台封装
-真实模式:.env AFDIAN_LIVE=true
-  创建订单 POST https://afdian.com/api/open/create-order
-  sign = md5( json.dumps(params) + user_id + token + str(tn) )
-演示模式(默认):创建即返回收款码,约 12 秒后轮询为已支付
+
+本模块当前只保留**商户绑定校验**(只读):`test_connection()` — 用商户的
+user_id + token 真请求一次订单查询,`ec=200` 即判定能连通并读取。
+
+注意:真实的「下单 / 查单」链路**不在本模块**,而在 `afd_live.py`
+(经 curl_cffi 伪装指纹调用 /api/order/create-order、/api/order/check)。
+历史上本文件曾有一个演示用的 `create_order` / `order_paid` 占位实现,
+已无任何调用方,已删除。
 """
 import hashlib
 import json
@@ -10,28 +14,6 @@ import ssl
 import time
 import urllib.error
 import urllib.request
-from datetime import datetime
-
-from .. import config, settings
-
-
-def create_order(merchant_afdian_id: str, remark: str, price_yuan: int, channel: str):
-    """返回 (订单号, 收款码内容)"""
-    order_no = f"AFD{time.strftime('%Y%m%d%H%M%S')}{int(time.time()*1000) % 1000}"
-    if settings.afdian_live():
-        # 落地接入示例:
-        # params = {"out_trade_no": order_no, "remark": remark, "buy_count": 1}
-        # tn = int(time.time()); sign = md5(json.dumps(params)+user_id+token+str(tn))
-        # POST https://afdian.com/api/open/create-order {"user_id","sign","params","tn"}
-        raise RuntimeError("AFDIAN_LIVE 模式需完成真实接口对接(见本文件注释)")
-    return order_no, f"{channel}://{merchant_afdian_id}/{order_no}?amt={price_yuan}"
-
-
-def order_paid(created_at: datetime) -> bool:
-    if settings.afdian_live():
-        # 真实调用:/api/open/query-order,order.status == 2 为已支付
-        return False
-    return (datetime.now() - created_at).total_seconds() > 12
 
 
 _AFD_API_BASES = (

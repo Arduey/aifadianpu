@@ -1,0 +1,23 @@
+# ── 环境与密钥 ──
+.env
+*.env
+!.env.example
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# ── 会话/工具产物 ──
+.reasonix/
+.tmp_gh/
+.tmp_*/
+.afd_admin_init.json
+
+# ── 编辑器/系统 ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

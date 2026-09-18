@@ -93,4 +93,4 @@
 
 - **必须由 `.env` 提供**(运维级,网页不可改):`DB_*`、`SESSION_SECRET`、`APP_SECURE`。
 - 可由安装向导 / 平台配置覆盖的业务项(留空则用 `.env` 兜底):`SMTP_*`、`APP_BASE_URL`、`AFDIAN_LIVE`、`ENABLE_PREVIEW_LOGIN`。
-- `.env` 由安装向导自动生成,**不要手工编辑**(手工方式见 README)。
+- `.env` 由安装向导自动生成,**不要手动编辑**。

@@ -30,10 +30,7 @@ fastapi/
 2. **建库**:数据库 → 添加数据库 `afdianpu`(utf8mb4),记下账号密码。
 3. **上传代码**到站点目录,如 `/www/wwwroot/afdianpu`。
 
-   > ✅ **不需要手动创建或编辑任何文件**(包括 `.env`)。数据库/会话密钥等配置全部由**网页安装向导**填写并自动写入 `.env`;项目在未配置时也能正常启动,会自动引导你进向导。
-   > (`.env.example` 仅是「可能出现的键」参考清单,可忽略。)
-   >
-   > 仅当你偏好手工配置时才需要:`cp .env.example .env` 后自行填写 `DB_*`、`SESSION_SECRET`、`APP_BASE_URL`、`SMTP_*`。
+   > ✅ **不需要手动创建或编辑任何文件**(包括 `.env`)。数据库、会话密钥等配置全部由**网页安装向导**填写并自动写入 `.env`;项目未配置时也能正常启动,会自动把你引导进向导。`.env.example` 仅是「可能出现的键」参考清单,可忽略。
 4. **Python 项目管理器 → 添加项目**:
    - 项目路径:`/www/wwwroot/afdianpu`
    - Python 版本:3.10+(如 3.12.8);框架:FastAPI;端口:`8000`
@@ -85,7 +82,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 
 - **更新**:覆盖代码 → 项目管理器点「重启」即生效(无构建步骤);表结构变更由启动时自动同步。
 - **备份**:计划任务 → 备份数据库(每天)+ 备份项目目录;日志在项目管理器「日志」页(邮件/回调失败可查)。
-- **本地调试**:`uvicorn main:app --reload`(`.env` 中 `APP_SECURE=false` 便于 http 下测试登录)。
+- **本地调试**:`uvicorn main:app --reload`(注意 http 下的 `APP_SECURE` 用法,见「开发者指南 · 本地运行」)。
 
 ## 与其他版本的差异
 
@@ -99,15 +96,13 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 python3 -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 方式一(推荐):不写任何配置,直接起,浏览器访问 http://127.0.0.1:8000 会自动进安装向导
-uvicorn main:app --reload
-
-# 方式二:手工建 .env(需自行准备 MySQL 库并先建好表)
-cp .env.example .env   # 填 DB_* / SESSION_SECRET / APP_SECURE=false(本地 http 调试)
+# 不写任何配置，直接起；浏览器访问 http://127.0.0.1:8000 会自动进安装向导
 uvicorn main:app --reload
 ```
 
-> 本地 http 调试务必把 `APP_SECURE=false`,否则 Secure Cookie 在 http 下无法写入,登录会「看似成功但立刻掉线」。
+> 首次进入向导后再填数据库连接即可（配置由向导自动写入 `.env`）。
+>
+> ⚠️ 向导写入的 `APP_SECURE` 默认为 `true`(生产值)。**本地用 http 调试时需把 `.env` 里的 `APP_SECURE` 改为 `false`**,否则 Secure Cookie 写不进去,登录会「看似成功却立刻掉线」。
 
 ### 请求生命周期
 

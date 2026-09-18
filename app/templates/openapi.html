@@ -1,0 +1,231 @@
+{% extends "base.html" %}
+{% block title %}开放接口 · 爱发电铺{% endblock %}
+{% block body %}
+<header class="topbar">
+  <a href="/" style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="logo-box" style="width:30px;height:30px"><morph-icon data-name="zap" size="15"></morph-icon></span> 爱发电铺 · 开放接口</a>
+  <nav style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="/guide" class="btn btn-outline btn-sm">使用说明</a>
+    <a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>
+  </nav>
+</header>
+
+<div class="apidoc">
+
+  <aside class="apidoc-nav">
+    <div class="api-search-wrap"><morph-icon data-name="search" size="14"></morph-icon><input id="api-search" placeholder="搜索接口…" oninput="apiFilter(this.value)"></div>
+    <nav id="api-nav">
+      <div class="nav-group">
+        <div class="nav-g-title">店铺信息 · 公开</div>
+        <a class="nav-item" href="#e-shops" data-k="get /api/shops 店铺列表 广场">店铺列表</a>
+        <a class="nav-item" href="#e-support" data-k="get /api/support 客服邮箱">平台客服邮箱</a>
+        <a class="nav-item" href="#e-products" data-k="get /api/products 商品列表 product_id">商品列表（拿 product_id）</a>
+      </div>
+      <div class="nav-group">
+        <div class="nav-g-title">下单与支付 · 公开</div>
+        <a class="nav-item" href="#e-buy" data-k="post /shop/buy 下单 支付">创建订单（下单）</a>
+        <a class="nav-item" href="#e-poll" data-k="get /shop/poll/{order_no} 轮询 支付状态">查询支付状态（轮询）</a>
+        <a class="nav-item" href="#e-query" data-k="get /api/order/query 查单 核单">核对订单（是否已支付）</a>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="apidoc-main">
+
+    <section class="api-hero">
+      <h1 class="display" style="font-size:22px;margin-bottom:8px">开放接口</h1>
+      <p class="muted" style="line-height:1.8">面向<b style="color:var(--ink-700)">商家与第三方接入</b>的公开业务接口：店铺信息、商品列表、下单、支付轮询与订单查询。所有返回统一为 JSON；错误时 HTTP 状态码非 2xx，body 带 <code class="code">{"ok": false, "message": "…"}</code>。</p>
+      <div style="margin-top:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="muted" style="font-size:12px;font-weight:700">基础地址</span>
+        <code id="api-base" class="code" style="font-size:12.5px;background:var(--brand-50);color:var(--brand);border-radius:8px;padding:5px 10px">…</code>
+        <button type="button" class="btn btn-outline btn-sm" onclick="copyBase(this)">复制</button>
+      </div>
+    </section>
+
+    <section class="api-sec" id="sec-shop">
+      <h2 class="sec-title">一、店铺信息（公开）</h2>
+
+      <article class="api-item" id="e-shops">
+        <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/shops"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
+        <p class="desc">平台已开店商户列表（状态正常且已绑定爱发电）。用它找到你自己店铺的 <code class="code">afdian_user_id</code>，再拿去查商品 / 下单。</p>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/shops"></span></pre></div>
+        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{
+  "ok": true,
+  "shops": [
+    {
+      "shop_name": "PixelLab",
+      "shop_logo_url": "/static/…",
+      "bio": "图标素材与设计资源",
+      "afdian_user_id": "afdian_pixellab_88",
+      "product_count": 12
+    }
+  ]
+}</pre></div>
+      </article>
+
+      <article class="api-item" id="e-support">
+        <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/support"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
+        <p class="desc">平台客服邮箱。买家遇到问题时，可展示此联系方式。</p>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/support"></span></pre></div>
+        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{ "ok": true, "email": "admin@example.com" }</pre></div>
+      </article>
+
+      <article class="api-item" id="e-products">
+        <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/products"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
+        <p class="desc">获取店铺在售商品列表——这就是下单要用的 <code class="code">product_id</code> 的来源。先调它拿到 id，再传给 <code class="code">/shop/buy</code>。</p>
+        <div class="api-params"><div class="pp-t">查询参数（uid / shop / email 三选一）</div>
+          <table class="pp"><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+          <tr><td>uid</td><td>string</td><td>三选一</td><td>商户的爱发电 user_id（取 /api/shops 返回的 afdian_user_id）</td></tr>
+          <tr><td>shop</td><td>string</td><td>三选一</td><td>店铺名</td></tr>
+          <tr><td>email</td><td>string</td><td>三选一</td><td>商户邮箱（商户注册/登录用的邮箱）</td></tr></table>
+        </div>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/products"></span>?email=merchant@example.com</pre></div>
+        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{
+  "ok": true,
+  "shop_name": "PixelLab",
+  "afdian_user_id": "afdian_pixellab_88",
+  "products": [
+    { "id": 1, "category": "图标素材", "title": "Morph 线性图标包", "sku_name": "SVG全量版", "price": 18 }
+  ]
+}</pre></div>
+      </article>
+    </section>
+
+    <section class="api-sec" id="sec-order">
+      <h2 class="sec-title">二、下单与支付（公开）</h2>
+
+      <article class="api-item" id="e-buy">
+        <div class="api-head"><span class="mth post">POST</span><code class="path" data-p="/shop/buy"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
+        <p class="desc">为买家创建订单。先用 <code class="code">GET /api/products</code> 拿到 <code class="code">product_id</code>，再调本接口下单；返回的 <code class="code">qrPayload</code> 用来生成收款二维码给买家扫。</p>
+        <div class="api-params"><div class="pp-t">请求体（JSON）</div>
+          <table class="pp"><tr><th>字段</th><th>类型</th><th>必填</th><th>说明</th></tr>
+          <tr><td>product_id</td><td>int</td><td>是</td><td>商品 ID，取值见 <b>GET /api/products</b> 返回的 products[].id</td></tr>
+          <tr><td>channel</td><td>string</td><td>是</td><td>wechat | alipay</td></tr></table>
+        </div>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">POST <span data-exbase="/shop/buy"></span>
+Content-Type: application/json
+
+{ "product_id": 1, "channel": "wechat" }</pre></div>
+        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{ "orderNo": "AFD2026021400001", "qrPayload": "weixin://…", "total": 18 }</pre></div>
+      </article>
+
+      <article class="api-item" id="e-poll">
+        <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/shop/poll/{order_no}"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
+        <p class="desc">买家扫码付款后，轮询此接口确认是否到账（建议每 5 秒一次）。返回 <code class="code">status=paid</code> 即已支付，此时可发货 / 发权益。</p>
+        <div class="api-params"><div class="pp-t">路径参数</div>
+          <table class="pp"><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+          <tr><td>order_no</td><td>string</td><td>是</td><td>下单返回的订单号</td></tr></table>
+        </div>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/shop/poll/"></span>AFD2026021400001</pre></div>
+        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{
+  "status": "pending"   // pending | paid
+}</pre></div>
+      </article>
+
+      <article class="api-item" id="e-query">
+        <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/order/query"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
+        <p class="desc">凭商户邮箱 + 订单号核对这笔订单是否已支付（发货前核验、售后对账用）。仅返回已支付订单。</p>
+        <div class="api-params"><div class="pp-t">查询参数</div>
+          <table class="pp"><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
+          <tr><td>email</td><td>string</td><td>是</td><td>商户邮箱（商户注册/登录用的邮箱）</td></tr>
+          <tr><td>order_no</td><td>string</td><td>是</td><td>订单号</td></tr></table>
+        </div>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/order/query"></span>?email=merchant@example.com&amp;order_no=AFD2026021400001</pre></div>
+        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{
+  "ok": true,
+  "data": {
+    "order_id":   "AFD2026021400001",
+    "creat_time": "2026-02-14 15:30:00",
+    "type":       "图标素材",
+    "title":      "Morph 线性图标包",
+    "sku":        "SVG全量版",
+    "total":      18,
+    "seller":     "afdian_pixellab_88"
+  }
+}</pre></div>
+      </article>
+    </section>
+
+    <div style="text-align:center;padding:20px 0 8px;color:var(--ink-400);font-size:11px">接口与业务规则以实际部署为准 · <a href="/guide" style="color:var(--brand)">使用说明</a></div>
+
+  </main>
+</div>
+{% endblock %}
+{% block style %}
+<style>
+.apidoc{max-width:1120px;margin:0 auto;padding:24px 16px 80px;display:flex;gap:22px;align-items:flex-start}
+
+/* 左侧目录 */
+.apidoc-nav{position:sticky;top:72px;flex:0 0 250px;max-height:calc(100vh - 96px);overflow:auto;border:1px solid var(--line);border-radius:12px;background:var(--card);padding:10px}
+.api-search-wrap{display:flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:10px;background:var(--paper);color:var(--ink-400)}
+.api-search-wrap input{border:0;background:transparent;outline:none;font-size:12px;color:var(--ink-900);width:100%;padding:0}
+.nav-group{margin-bottom:10px}
+.nav-g-title{font-size:11px;font-weight:800;color:var(--ink-400);text-transform:uppercase;letter-spacing:.04em;padding:6px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;text-decoration:none;color:var(--ink-800);font-size:12.5px;font-weight:400;line-height:1.4}
+.nav-item:hover{background:var(--paper)}
+.nav-item.is-on{background:var(--brand-50)}
+.nav-path{font-family:ui-monospace,monospace;font-size:11px;font-weight:600;color:var(--ink-800);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* 右侧内容 */
+.apidoc-main{flex:1;min-width:0}
+.api-hero{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:18px}
+.api-sec{margin-bottom:22px}
+.sec-title{font-size:16px;font-weight:800;color:var(--ink-900);margin:0 0 12px;padding-left:10px;border-left:3px solid var(--brand)}
+.api-item{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;scroll-margin-top:72px}
+.api-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+.mth{display:inline-block;text-align:center;border-radius:6px;padding:3px 9px;font-size:11px;font-weight:800;color:#fff}
+.mth.get{background:#1aad19}
+.mth.post{background:var(--brand)}
+.path{font-family:ui-monospace,monospace;font-size:12.5px;font-weight:700;color:var(--ink-900);word-break:break-all}
+.tag{font-size:10px;font-weight:700;color:var(--ink-400);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+.api-copy{margin-left:auto;border:1px solid var(--line);background:var(--card);color:var(--ink-600);border-radius:7px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .2s}
+.api-copy:hover{border-color:var(--brand);color:var(--brand)}
+.api-copy:active{transform:scale(.96)}
+.desc{color:var(--ink-500);font-size:12.5px;line-height:1.8;margin:0}
+.api-params,.api-ex{margin-top:10px}
+.pp-t,.ex-t{font-size:11px;font-weight:800;color:var(--ink-400);margin-bottom:6px}
+table.pp{width:100%;border-collapse:collapse;font-size:12px}
+table.pp th,table.pp td{border:1px solid var(--line);padding:7px 9px;text-align:left;color:var(--ink-700)}
+table.pp th{background:var(--paper);font-weight:700;color:var(--ink-800)}
+pre.code{background:var(--ink-950);color:var(--brand-200);padding:14px 16px;border-radius:10px;overflow:auto;line-height:1.8;font-size:12px;margin:0}
+
+@media(max-width:820px){
+  .apidoc{flex-direction:column}
+  .apidoc-nav{position:static;width:100%;max-height:none;flex:none}
+  .api-copy{margin-left:0}
+}
+</style>
+{% endblock %}
+{% block script %}
+<script>
+var API_BASE = {{ (api_base or '')|tojson }} || (location.origin + (location.pathname.indexOf('/api-docs')===0 ? '' : ''));
+function fillBase(){
+  var els=document.querySelectorAll('.path[data-p]');
+  for(var i=0;i<els.length;i++){ els[i].textContent = API_BASE + els[i].getAttribute('data-p'); }
+  var ex=document.querySelectorAll('[data-exbase]');
+  for(var j=0;j<ex.length;j++){ ex[j].textContent = API_BASE + ex[j].getAttribute('data-exbase'); }
+  var b=document.getElementById('api-base'); if(b){ b.textContent = API_BASE; }
+}
+function _flash(btn,msg){ if(!btn){ return; } var o=btn.getAttribute('data-o')||btn.textContent; btn.setAttribute('data-o',o); btn.textContent=msg; setTimeout(function(){ btn.textContent=o; },1200); }
+function copyText(t,btn){ try{ if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ _flash(btn,'已复制'); }); } else { var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); _flash(btn,'已复制'); } }catch(e){ _flash(btn,'复制失败'); } }
+function copyBase(btn){ copyText(API_BASE,btn); }
+function copyApi(btn){ var item=(btn&&btn.closest)?btn.closest('.api-item'):null; var p=item?item.querySelector('.path[data-p]'):null; if(!p){ return; } copyText(API_BASE + p.getAttribute('data-p'), btn); }
+
+function showApi(id){
+  var items=document.querySelectorAll('.api-item');
+  for(var i=0;i<items.length;i++){ items[i].style.display=(items[i].id===id)?'':'none'; }
+  var secs=document.querySelectorAll('.api-sec');
+  for(var j=0;j<secs.length;j++){ var any=secs[j].querySelector('.api-item:not([style*="display: none"])'); secs[j].style.display=any?'':'none'; }
+  var links=document.querySelectorAll('#api-nav .nav-item');
+  for(var k=0;k<links.length;k++){ links[k].classList.toggle('is-on', links[k].getAttribute('href')==='#'+id); }
+  try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); }
+}
+function apiFilter(q){ q=(q||'').trim().toLowerCase(); var items=document.querySelectorAll('#api-nav .nav-item'); for(var i=0;i<items.length;i++){ var it=items[i]; var k=(it.getAttribute('data-k')||'')+' '+(it.textContent||''); it.style.display=(!q||k.toLowerCase().indexOf(q)>=0)?'':'none'; }
+  var gs=document.querySelectorAll('#api-nav .nav-group'); for(var j=0;j<gs.length;j++){ var vis=gs[j].querySelectorAll('.nav-item:not([style*="display: none"])'); var t=gs[j].querySelector('.nav-g-title'); if(t){ t.style.display=vis.length?'':'none'; } gs[j].style.display=vis.length?'':'none'; } }
+(function(){
+  fillBase();
+  var nav=document.getElementById('api-nav');
+  if(nav){ nav.addEventListener('click', function(e){ var a=(e.target&&e.target.closest)?e.target.closest('.nav-item'):null; if(!a){ return; } e.preventDefault(); showApi(a.getAttribute('href').slice(1)); }); }
+  var first=document.querySelector('.api-item'); if(first){ showApi(first.id); }
+})();
+</script>
+{% endblock %}

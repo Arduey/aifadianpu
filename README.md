@@ -46,7 +46,8 @@ fastapi/
    >   uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
    >   ```
    >   `uvicorn` 已包含在 requirements.txt,勾选「安装模块依赖」后直接可用。
-   > - **B. gunicorn 启动**:通讯协议选 **asgi**(⚠️ 不是 wsgi,否则 FastAPI 起不来),启动文件/应用填 `main:app`。面板以 `uvicorn.workers.UvicornWorker` 方式托管进程,依赖已加入 requirements.txt。
+   > - **B. gunicorn 启动**:通讯协议选 **asgi**(⚠️ 不是 wsgi,否则 FastAPI 起不来),启动文件/应用填 `main:app`。面板以 `uvicorn.workers.UvicornWorker` 方式托管进程。
+   >   ⚠️ 该 worker 在 uvicorn 0.34+ 已被移除,故 `requirements.txt` 已锁 `uvicorn<0.35`;若你想用新版 uvicorn,请改装独立包 `uvicorn-worker` 并改启动配置(否则会 ImportError 起不来)。**推荐直接用上面的 A 方案,不受此限制。**
    >
    > 不要选 uwsgi:uwsgi 只支持 wsgi 同步协议,不适合 FastAPI(asgi)。无论哪种方式,「项目端口」填 `8000`,且与启动命令里的端口一致。
 5. **绑域名**:项目管理器 → 映射到站点域名,或 网站 → 添加站点 → 反向代理到 `127.0.0.1:8000`;申请 SSL 证书并**强制 HTTPS**(生产 Cookie 为 Secure,必须 HTTPS)。

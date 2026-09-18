@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}忘记密码 · 爱发电铺{% endblock %}
+{% block body %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 16px">
+  <div style="width:100%;max-width:400px">
+    <a href="/" style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:700;margin-bottom:20px">
+      <span class="logo-box" style="width:36px;height:36px"><morph-icon data-name="zap" size="17"></morph-icon></span> 爱发电铺
+    </a>
+    <div class="card fade-up" style="padding:24px">
+      {% if sent %}
+      <div style="text-align:center">
+        <div style="width:48px;height:48px;border-radius:50%;background:var(--good-100);color:var(--good);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><morph-icon data-name="mail" size="20"></morph-icon></div>
+        <div style="font-weight:700">链接已发送至 {{ email }}</div>
+        <p class="muted" style="margin:8px auto;max-width:280px"><morph-icon data-name="clock" size="12"></morph-icon> 有效期 10 分钟,请尽快重置;再次申请会生成新链接。</p>
+        {% if demoUrl %}
+        <div style="border:1px dashed var(--brand-200);background:var(--brand-50);border-radius:8px;padding:12px;margin-top:14px;text-align:left">
+          <div style="font-size:11px;font-weight:700;color:var(--brand-700);margin-bottom:8px">演示模式:未配置 SMTP,链接未真实发送</div>
+          <a class="btn btn-primary btn-block btn-sm" href="{{ demoUrl }}">直接打开重置页 →</a>
+        </div>
+        {% endif %}
+        <a href="/forgot" class="btn btn-ghost btn-sm" style="margin-top:12px">换个邮箱 / 重新发送</a>
+      </div>
+      {% else %}
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px"><morph-icon data-name="mail" size="15"></morph-icon> 忘记密码</div>
+      <p class="muted" style="margin-bottom:16px">输入注册邮箱,生成 <b>10 分钟有效</b> 的专属重置链接。每次申请刷新,旧链接立即失效。</p>
+      <form method="post">
+        <div class="field">
+          <label>注册邮箱(仅 QQ / 163)</label>
+          <input name="email" type="email" placeholder="you@qq.com" value="{{ email }}" required autofocus>
+          {% if error %}<div class="field-error">{{ error }}</div>{% endif %}
+        </div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit">发送重置链接</button>
+        <div style="text-align:center;margin-top:12px;font-size:12px"><a href="/login" style="color:var(--ink-400)">← 返回登录</a></div>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

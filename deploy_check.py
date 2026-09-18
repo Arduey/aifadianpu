@@ -1,7 +1,7 @@
 """爱发电铺 · 部署自检(新服务器装完代码第一步跑它)
-用法:
-  cd /www/wwwroot/afd
-  /www/server/pyporject_evn/afd_venv/bin/python deploy_check.py
+用法(把路径换成你的实际项目目录与虚拟环境 Python):
+  cd /www/wwwroot/<你的项目目录>
+  <你的虚拟环境>/bin/python deploy_check.py
 
 检查:Python 版本、依赖是否装好、.env 数据库配置、能否连上 MySQL、
 平台是否已安装(未安装会提示走 /install 安装向导)。

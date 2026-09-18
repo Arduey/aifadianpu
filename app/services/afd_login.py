@@ -85,15 +85,6 @@ def save_consumer_token(token: str, at: datetime | None = None) -> None:
         db.commit()
 
 
-def consumer_cached() -> dict:
-    """返回库里存好的 auth_token/时间(不登录)。无则 token=''。"""
-    with SessionLocal() as db:
-        row = platform_settings(db)
-        token = str(getattr(row, "consumer_auth_token", "") or "").strip()
-        token_at = getattr(row, "consumer_token_at", None)
-        return {"token": token, "at": token_at, "account": str(row.consumer_account or "")}
-
-
 def consumer_token_expired(token_at, max_age_seconds: int = _DEFAULT_MAX_AGE) -> bool:
     """判断一个「存库时间(tok_at)」对应的 auth_token 是否已失效(纯粹时间阀)。
 

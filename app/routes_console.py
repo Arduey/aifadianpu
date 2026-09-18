@@ -216,7 +216,8 @@ def stats(request: Request):
             key = r.created_at.strftime("%Y-%m" if long_range else "%Y-%m-%d")
             d = daily.setdefault(key, {"date": key, "created": 0, "paid": 0, "amount": 0})
             d["created"] += 1
-            if r.status == "paid":                paid_count += 1
+            if r.status == "paid":
+                paid_count += 1
                 paid_amount += r.total
                 d["paid"] += 1
                 d["amount"] += r.total

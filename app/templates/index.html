@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% block body %}
+<header class="topbar">
+  <div style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px">
+    <span class="logo-box"><morph-icon data-name="zap" size="15"></morph-icon></span> 爱发电铺
+    <span class="badge badge-neutral" style="margin-left:4px">AFDIAN STORE</span>
+  </div>
+  <nav style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <a href="/guide" class="btn btn-outline btn-sm">使用说明</a>
+    <a href="/api-docs" class="btn btn-outline btn-sm">开放接口</a>
+    {% if not me %}
+    <a href="/login" class="btn btn-outline btn-sm">登录</a>
+    <a href="#register" class="btn btn-dark btn-sm">开店</a>
+    {% else %}
+    <a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>
+    {% endif %}
+  </nav>
+</header>
+
+<section style="max-width:1080px;margin:0 auto;padding:48px 16px;display:grid;gap:40px" id="top">
+  <div style="display:grid;gap:32px;grid-template-columns:1.15fr .85fr" class="hero-grid">
+    <div class="fade-up">
+      <span class="badge badge-brand"><morph-icon data-name="check" size="11"></morph-icon> 微信 / 支付宝扫码收款 · 货款直达你的爱发电</span>
+      <h1 class="display" style="font-size:44px;line-height:1.15;margin:18px 0">上架商品，<br>收款自动到位。</h1>
+      <p style="color:var(--ink-500);max-width:460px">把卡密、授权、素材、教程这类虚拟商品，挂到<b>你自己的爱发电账号</b>下卖。顾客进你的专属店铺页选品、扫码付款，<b>钱直达你的爱发电，平台不经手货款</b>；付款成功自动通知你发货——不用发货后台、不用对账。</p>
+      <div class="grid g2" style="margin-top:26px">
+        <div class="card" style="padding:16px"><div><morph-icon data-name="store" size="18"></morph-icon></div><b style="font-size:13px">注册即开店</b><div class="muted" style="margin-top:4px">一个邮箱就能开店，自动生成以你爱发电 user_id 定位的店铺链接，复制即分享。</div></div>
+        <div class="card" style="padding:16px"><div><morph-icon data-name="creditCard" size="18"></morph-icon></div><b style="font-size:13px">微信 / 支付宝收款</b><div class="muted" style="margin-top:4px">顾客扫码即付，无需注册账号；平台自动确认到账，你只管卖。</div></div>
+        <div class="card" style="padding:16px"><div><morph-icon data-name="inbox" size="18"></morph-icon></div><b style="font-size:13px">自动发货通知</b><div class="muted" style="margin-top:4px">每笔付款成功，立刻回调你的服务器（Webhook）并发邮件，据此自动发卡、发权益。</div></div>
+        <div class="card" style="padding:16px"><div><morph-icon data-name="wallet" size="18"></morph-icon></div><b style="font-size:13px">货款直达，平台不碰钱</b><div class="muted" style="margin-top:4px">顾客付的钱直接进你的爱发电账号，平台只按成功订单收服务费。</div></div>
+      </div>
+    </div>
+
+    <!-- 注册卡片 -->
+    <div class="card fade-up" style="padding:24px;height:fit-content" id="register">
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px"><morph-icon data-name="user" size="15"></morph-icon> 注册开店</div>
+      <p class="muted" style="margin-bottom:10px">注册即成为商户。<b style="color:var(--brand-700)">管理员由安装向导创建</b>;注册即送 ¥{{ '%.2f'|format(api_fee) }} API 费用。</p>
+      <div style="background:var(--good-100);border:1px solid rgba(23,138,80,.2);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;color:var(--good);margin-bottom:12px"><morph-icon data-name="gift" size="12"></morph-icon> 注册即送 ¥{{ '%.2f'|format(api_fee) }} API 费用,恰好覆盖首笔订单服务费</div>
+      <div id="support-line" class="muted" style="margin-bottom:12px"></div>
+      <form method="post" id="reg-form" novalidate>
+        <div class="field">
+          <label>邮箱 <span class="hint">{% if allow_email_domains %}支持 {{ allow_email_domains|join(' / ') }}{% else %}QQ / 163 邮箱{% endif %}</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input name="email" id="reg-email" value="{{ form.email }}" placeholder="you@qq.com" autocomplete="off" style="flex:1">
+            <button type="button" class="btn btn-outline btn-sm" id="reg-sendcode" onclick="sendCode()" style="flex-shrink:0;box-sizing:border-box" tabindex="-1">获取验证码</button>
+          </div>
+          <div class="muted" id="reg-email-hint" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div class="field">
+          <label>邮箱验证码</label>
+          <input name="code" id="reg-code" placeholder="6位数字验证码" maxlength="6" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>店铺名 <span class="hint">汉字算2字符 · 上限折合12字符</span></label>
+          <input name="shop_name" id="reg-shop" value="{{ form.shop_name }}" placeholder="例如:像素工坊" autocomplete="off">
+          <div class="muted" id="reg-shop-hint" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div class="field">
+          <label>密码 <span class="hint">8~20 位</span></label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input name="password" id="reg-pwd" type="password" autocomplete="new-password" style="flex:1">
+          </div>
+          <div class="muted" id="reg-pwd-hint" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div class="field">
+          <label>确认密码</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input name="confirm" id="reg-pwd2" type="password" autocomplete="new-password" style="flex:1">
+          </div>
+          <div class="muted" id="reg-pwd2-hint" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div id="reg-error" class="field-error" style="margin-bottom:10px;display:none"></div>
+        <button class="btn btn-primary btn-lg btn-block" type="submit" id="reg-submit" tabindex="-1">立即注册开店</button>
+        <div style="text-align:center;font-size:12px;margin-top:10px;color:var(--ink-400)">已有店铺?<a href="/login" style="color:var(--brand-700);font-weight:700">直接登录</a></div>
+      </form>
+      <script>
+      var EYE_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path></svg>';
+      var EYEOFF_SVG='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"></path><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"></path><path d="m1 1 22 22"></path></svg>';
+      var allowDomains = {{ (allow_email_domains if allow_email_domains is defined else [])|tojson }};
+      function domHint(){ return (allowDomains && allowDomains.length) ? allowDomains.join(' / ') : 'QQ / 163'; }
+      /* 获取验证码按钮与邮箱输入框同高 */
+      function alignCodeBtn(){ var i=document.getElementById('reg-email'), b=document.getElementById('reg-sendcode'); if(!i||!b){ return; } var h=i.offsetHeight; if(h>0){ b.style.height=h+'px'; } }
+      if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', alignCodeBtn); } else { alignCodeBtn(); }
+      window.addEventListener('resize', alignCodeBtn);
+      function emailOK(e){ var v=(e||'').trim(); if(!v) return false; var domain=v.split('@').pop().toLowerCase(); if(!allowDomains || !allowDomains.length){ return /^[0-9a-z]+@(?:qq\.com|163\.com)$/i.test(v); } return allowDomains.indexOf(domain)!==-1 && /^[a-z0-9]+$/.test(domain.split('.')[0]||''); }
+      function shopWeight(n){ var w=0; for(var k=0;k<n.length;k++){ w+= n.charCodeAt(k)>=0x4E00?2:1; } return w; }
+      function showRegError(m){ var el=document.getElementById('reg-error'); el.textContent=m; el.style.display='block'; }
+      document.getElementById('reg-email').addEventListener('input', function(){ var v=this.value.trim(); var h=document.getElementById('reg-email-hint'); if(!v){h.textContent='';return;} h.textContent = emailOK(v)?'':'邮箱格式不正确,请检查'; h.style.color = emailOK(v)?'var(--good)':'var(--bad)'; });
+      document.getElementById('reg-shop').addEventListener('input', function(){ var v=this.value.trim(); var h=document.getElementById('reg-shop-hint'); if(!v){h.textContent='';return;} var w=shopWeight(v); h.textContent = w<=12?'已用 '+w+'/12 字符':'超出上限(汉字算2字符,当前'+w+')'; h.style.color = w<=12?'var(--ink-300)':'var(--bad)'; });
+      document.getElementById('reg-pwd').addEventListener('input', function(){ var v=this.value; var h=document.getElementById('reg-pwd-hint'); h.textContent=(v.length>=8&&v.length<=20)?'':'密码长度需 8~20 位'; h.style.color = (v.length>=8&&v.length<=20)?'var(--good)':'var(--bad)'; });
+      document.getElementById('reg-pwd2').addEventListener('input', function(){ var h=document.getElementById('reg-pwd2-hint'); if(!this.value){h.textContent='';return;} h.textContent=(this.value===document.getElementById('reg-pwd').value)?'':'与密码不一致'; h.style.color = (this.value===document.getElementById('reg-pwd').value)?'var(--good)':'var(--bad)'; });
+      var codeCooldown=0;
+      function sendCode(){
+        var e=document.getElementById('reg-email').value.trim();
+        if(!emailOK(e)){ showRegError('请先填写正确的邮箱（支持 '+domHint()+'）'); return; }
+        var btn=document.getElementById('reg-sendcode');
+        if(codeCooldown>0){ showRegError('请 '+codeCooldown+' 秒后再试'); return; }
+        btn.disabled=true; btn.textContent='发送中…';
+        api('/api/verification/send',{method:'POST',body:JSON.stringify({email:e})})
+          .then(function(d){ toast('success', d.message||'验证码已发送'); codeCooldown=60; tick(); })
+          .catch(function(err){ showRegError(err.message); btn.disabled=false; btn.textContent='获取验证码'; });
+        function tick(){ btn.textContent='重新获取('+codeCooldown+')'; var t=setInterval(function(){ codeCooldown--; btn.textContent=codeCooldown>0?('重新获取('+codeCooldown+')'):'获取验证码'; if(codeCooldown<=0){ btn.disabled=false; clearInterval(t); } },1000); }
+      }
+      document.getElementById('reg-form').addEventListener('submit', function(ev){
+        ev.preventDefault();
+        var e=document.getElementById('reg-email').value.trim(), code=document.getElementById('reg-code').value.trim(),
+            shop=document.getElementById('reg-shop').value.trim(), p1=document.getElementById('reg-pwd').value, p2=document.getElementById('reg-pwd2').value;
+        if(!emailOK(e)) { showRegError('邮箱不合法，仅支持 '+domHint()); return; }
+        if(shopWeight(shop)>12 || shop.length===0){ showRegError('店铺名不合法或超长'); return; }
+        if(p1.length<8||p1.length>20){ showRegError('密码需 8~20 位'); return; }
+        if(p1!==p2){ showRegError('两次输入的密码不一致'); return; }
+        if(!code){ showRegError('请输入邮箱验证码'); return; }
+        var btn=document.getElementById('reg-submit'); btn.disabled=true; btn.textContent='注册中…';
+        api('/',{method:'POST',body:JSON.stringify({email:e,code:code,shop_name:shop,password:p1,confirm:p2})})
+          .then(function(d){ if(d.redirect){ location.href=d.redirect; } })
+          .catch(function(err){ showRegError(err.message||'注册失败'); btn.disabled=false; btn.textContent='立即注册开店'; });
+      });
+      </script>
+    </div>
+  </div>
+
+  <!-- 店铺广场 -->
+  <div>
+    <h2 class="display" style="font-size:18px"><morph-icon data-name="store" size="16"></morph-icon> 店铺广场</h2>
+    <p class="muted">看看别人在卖什么。点进任意店铺，就能体验顾客「选品 → 扫码付款」的真实动线——无需注册。</p>
+    <div id="shop-list" class="grid g3" style="margin-top:14px"></div>
+  </div>
+
+  <!-- 计费说明 -->
+  <div class="grid g4" style="border-top:1px solid var(--line);padding-top:32px">
+    <div class="card" style="padding:18px"><div class="display" style="font-size:22px;color:var(--brand)">¥{{ '%.2f'|format(api_fee) }} / 笔</div><div class="muted" style="margin-top:4px">仅<b>支付成功</b>的订单才扣，未付款不计费。</div></div>
+    <div class="card" style="padding:18px"><div class="display" style="font-size:22px"><morph-icon data-name="gift" size="18"></morph-icon> 注册有礼</div><div class="muted" style="margin-top:4px">注册即送 ¥{{ '%.2f'|format(api_fee) }} 体验额度，恰好覆盖你的第一笔订单服务费。</div></div>
+    <div class="card" style="padding:18px"><div class="display" style="font-size:22px"><morph-icon data-name="link" size="18"></morph-icon> 专属店铺链接</div><div class="muted" style="margin-top:4px">以你的爱发电 user_id 定位，一键分享；顾客免注册直接购买。</div></div>
+    <div class="card" style="padding:18px"><div class="display" style="font-size:22px"><morph-icon data-name="wallet" size="18"></morph-icon> 货款直达</div><div class="muted" style="margin-top:4px">款项经爱发电直达你自己绑定的账号，平台不经手、不托管货款。</div></div>
+  </div>
+</section>
+
+<footer style="border-top:1px solid var(--line);padding:24px 16px;text-align:center;font-size:11px;color:var(--ink-300)">
+  <morph-icon data-name="zap" size="12"></morph-icon> 爱发电铺 · 虚拟商品自助销售 · <span id="footer-support"></span>
+</footer>
+
+<style>
+@media (max-width:900px){.hero-grid{grid-template-columns:1fr !important}}
+/* 店铺广场卡片:简介最多两行,超出省略 */
+.shop-bio{margin-top:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;text-overflow:ellipsis;line-height:1.7;white-space:pre-line;word-break:break-word}
+</style>
+{% endblock %}
+{% block script %}
+<script>
+api('/api/support').then(d => {
+  if (d.email) {
+    document.getElementById('support-line').innerHTML = '<morph-icon data-name="phone" size="12"></morph-icon> 客服联系方式(平台管理员):<b style="color:var(--ink-700)">' + d.email + '</b>';
+    document.getElementById('footer-support').textContent = '客服(管理员):' + d.email;
+  }
+}).catch(() => {});
+
+const PLATFORM_LOGO = {{ (platformLogo or '')|tojson }};
+function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* 店铺卡片图标:店铺 LOGO → 兜底平台 LOGO → 再兜底店名首字 */
+function shopLogoHtml(s){
+  const l = (s.shop_logo_url || '').trim(), p = (PLATFORM_LOGO || '').trim();
+  const src = l || p;
+  if (src) {
+    return '<span class="logo-box" style="width:40px;height:40px;padding:0;overflow:hidden;background:transparent">'
+      + '<img src="' + esc(src) + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px" '
+      + 'onerror="this.parentNode.textContent=\'' + esc((s.shop_name||'铺')[0]) + '\';this.parentNode.style.background=\'var(--brand-50)\';this.parentNode.style.color=\'var(--brand)\'">'
+      + '</span>';
+  }
+  return '<span class="logo-box" style="width:40px;height:40px">' + esc((s.shop_name||'铺')[0]) + '</span>';
+}
+api('/api/shops').then(d => {
+  const box = document.getElementById('shop-list');
+  if (!d.shops.length) {
+    box.innerHTML = '<div class="card" style="grid-column:1/-1;padding:28px;text-align:center;color:var(--ink-400);font-size:12px;border-style:dashed">这里还没有已开店商户。注册成为第一个，你的店铺就会出现在这里。</div>';
+    return;
+  }  box.innerHTML = d.shops.map(s => `
+    <a class="card" href="/shop/${s.afdian_user_id}" style="padding:16px;transition:all .3s">
+      <div style="display:flex;align-items:center;gap:10px">
+        ${shopLogoHtml(s)}
+        <div style="min-width:0"><b style="font-size:13px">${esc(s.shop_name)}</b><div class="muted">${s.product_count} 个在售商品</div></div>
+      </div>
+      <div class="muted shop-bio">${esc(s.bio) || '这家店铺还没有写介绍'}</div>
+    </a>`).join('');
+}).catch(() => {});
+</script>
+{% endblock %}

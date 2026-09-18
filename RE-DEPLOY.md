@@ -6,6 +6,11 @@
 
 ---
 
+> 📚 **文档导航**：[README](README.md) · [全新部署](RE-DEPLOY.md) · [宝塔手把手](BT-PANEL-STEP.md) · [部署教程](DEPLOY-TUTORIAL.md) · [生产功能](PRODUCTION.md)
+> 当前页：**全新从零开始部署**（RE-DEPLOY.md）
+
+---
+
 ## 0. 准备一台全新服务器
 
 | 项 | 要求 |

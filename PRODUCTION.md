@@ -88,11 +88,13 @@
 - **导览**:右上角「导览」按钮可随时重播;首次登录商户自动触发(localStorage 一次性),逐步高亮主菜单各项;**导览按钮仅对非管理员商户显示**(`{% if me.role != 'admin' %}`),管理员不显示。
 - **任务清单**(`/console/tasks`):侧栏/顶栏入口;新手任务可勾选、显示进度、完成状态存本地。
 
-## 11. 当前仍为演示/未接入的部分(重要)
+## 11. 第三方对接的真实状态(重要)
 
-- **真实收款未接通** —— `afdian.create_order` / `order_paid` 的 **live 分支仍是占位实现**,请勿当作已可真实收款使用。已真实接通的是:**消费者账号登录**、**订单创建/查询的接口调用**(经 `curl_cffi` 伪装指纹绕 Cloudflare)、**商户绑定校验**(`ec=200` 判定能连通)。
-- 邮件需管理员在「平台配置」配好 SMTP 才真发;未配则为日志演示。
-- `curl_cffi` 为**可选依赖**:不装仍可运行(回退 urllib),但对接真实爱发电时可能因 Cloudflare 指纹校验失败。
+- **下单 / 查单:已接通真实接口**。走 `app/services/afd_live.py`(`/shop/buy`、充值下单、支付轮询都调用它),真实请求 `https://ifdian.net/api/order/create-order` 与 `https://ifdian.net/api/order/check`,携带消费者 `auth_token`,并用 `curl_cffi` 伪装浏览器指纹**绕过 Cloudflare 1010 拦截**(未安装 `curl_cffi` 时自动回退 urllib,但可能被拦)。
+- **登录凭证:已自动维护**。`afd_login.consumer_ensure_token()` 会复用未过期 token,过期则用平台配置的账密自动重新登录并落库;`live_create_auto` / `live_check_auto` 在首次调用失败且疑似登录态失效时,**会强制重登再试一次**。
+- **商户绑定校验:已真实请求**爱发电(`afdian.test_connection`,`ec=200` 判定能连通并读取)。
+- ⚠️ **`app/services/afdian.py` 里的 `create_order` / `order_paid` 是历史占位实现**(`AFDIAN_LIVE=true` 时会主动抛错),但**当前已无任何调用方**,属遗留死代码,不要与真实链路混淆。
+- 邮件需管理员在「平台配置」配好 SMTP 才真发;未配则仅记日志。
 
 ## 环境变量(.env)职责
 

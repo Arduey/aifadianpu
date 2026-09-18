@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}登录 · 爱发电铺{% endblock %}
+{% block body %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:40px 16px">
+  <div style="width:100%;max-width:400px">
+    <a href="/" style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:700;margin-bottom:20px">
+      <span class="logo-box" style="width:36px;height:36px"><morph-icon data-name="zap" size="17"></morph-icon></span> 爱发电铺
+    </a>
+    <div class="card fade-up" style="padding:24px">
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px"><morph-icon data-name="key" size="15"></morph-icon> 商户登录</div>
+      <p class="muted" style="margin-bottom:16px">使用邮箱或店铺名登录;消费者无需注册,直接在店铺页购买。</p>
+
+      <form method="post">
+        <div class="field">
+          <label>邮箱 / 店铺名</label>
+          <input name="account" placeholder="you@qq.com 或 店铺名" required autocomplete="off">
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input name="password" id="login-pwd" type="password" placeholder="输入登录密码" required autocomplete="current-password" style="flex:1">
+          </div>
+        </div>
+        {% if error %}
+        <div class="field-error" style="background:var(--bad-100);border:1px solid rgba(201,42,29,.2);border-radius:8px;padding:10px 12px;margin-bottom:12px">{{ error }}</div>
+        {% endif %}
+        <button class="btn btn-primary btn-lg btn-block" type="submit" tabindex="-1">登录</button>
+        <div style="display:flex;justify-content:space-between;margin-top:12px;font-size:12px">
+          <a href="/forgot" style="color:var(--ink-400)">忘记密码?</a>
+          <a href="/#register" style="color:var(--brand-700);font-weight:700">注册开店 →</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+</script>
+{% endblock %}

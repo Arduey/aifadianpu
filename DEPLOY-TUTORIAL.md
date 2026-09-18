@@ -6,6 +6,11 @@
 
 ---
 
+> 📚 **文档导航**：[README](README.md) · [全新部署](RE-DEPLOY.md) · [宝塔手把手](BT-PANEL-STEP.md) · [部署教程](DEPLOY-TUTORIAL.md) · [生产功能](PRODUCTION.md)
+> 当前页：**宝塔部署教程（从零到上线）**（DEPLOY-TUTORIAL.md）
+
+---
+
 ## 0. 准备清单
 
 | 需要的东西 | 说明 |

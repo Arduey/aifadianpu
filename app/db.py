@@ -142,7 +142,7 @@ class PlatformSetting(Base):
     alipay_disabled_note = Column(String(255), nullable=False, default="")
     # 安装向导/后台可填写的业务配置(空则回退 .env 环境变量)
     app_base_url = Column(String(300), nullable=False, default="")
-    afdian_live = Column(Boolean, nullable=True)  # None=跟随 .env AFDIAN_LIVE
+    afdian_live = Column(Boolean, nullable=True)  # ⚠️遗留:代码已不读取(None=跟随 .env);保留列以兼容旧库,勿删
     enable_preview_login = Column(Boolean, nullable=True)  # None=跟随 .env
     smtp_host = Column(String(120), nullable=False, default="")
     smtp_port = Column(Integer, nullable=True)

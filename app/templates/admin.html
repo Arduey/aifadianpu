@@ -1,0 +1,185 @@
+{% extends "console.html" %}
+{% block content %}
+<h1 class="display" style="font-size:20px;margin-bottom:4px">后台管理</h1>
+<p class="muted" style="margin-bottom:16px">仅管理员可见 · 管理商户账号状态与全平台商品</p>
+
+<div style="display:flex;gap:6px;margin-bottom:16px" class="card">
+  <button class="chip active" id="tab-m" style="flex:1;padding:10px" onclick="tab('m')">商户管理</button>
+  <button class="chip" id="tab-p" style="flex:1;padding:10px" onclick="tab('p')">商品数据</button>
+</div>
+
+<div class="card" id="pane-m">
+  <div style="overflow-x:auto">
+    <table style="min-width:860px" id="merchant-table">
+      <thead><tr>
+        <th class="sortable" data-key="name" onclick="sortM('name')">商户 <span class="msort"></span></th>
+        <th>爱发电 user_id</th>
+        <th class="sortable" style="text-align:right" data-key="prod" onclick="sortM('prod')">商品 <span class="msort"></span></th>
+        <th class="sortable" style="text-align:right" data-key="paid" onclick="sortM('paid')">已支付单 <span class="msort"></span></th>
+        <th class="sortable" style="text-align:right" data-key="bal" onclick="sortM('bal')">API 余额 <span class="msort"></span></th>
+        <th class="sortable" data-key="st" onclick="sortM('st')">状态 <span class="msort"></span></th>
+        <th style="text-align:right">操作</th></tr></thead>
+      <tbody>
+      {% for m in merchants %}
+      <tr data-name="{{ m.shop_name|lower }}" data-email="{{ m.email|lower }}" data-prod="{{ m.product_count }}" data-paid="{{ m.paid_order_count }}" data-bal="{{ m.api_balance_cents }}" data-st="{{ m.status }}" {% if m.status == 'disabled' %}style="opacity:.6"{% endif %}>
+        <td>{% if m.afdian_user_id %}<a href="/shop/{{ m.afdian_user_id }}" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700;text-decoration:none" title="打开前台店铺">{{ m.shop_name }} <morph-icon data-name="externalLink" size="12"></morph-icon></a>{% else %}<b>{{ m.shop_name }}</b>{% endif %} {% if m.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}<div class="muted">{{ m.email }}</div></td>
+        <td class="code">{{ m.afdian_user_id or '-' }}</td>
+        <td style="text-align:right;font-weight:700">{{ m.product_count }}</td>
+        <td style="text-align:right;font-weight:700">{{ m.paid_order_count }}</td>
+        <td style="text-align:right;font-weight:700;{% if m.api_balance_cents < 20 %}color:var(--bad){% else %}color:var(--good){% endif %}">¥{{ "%.2f"|format(m.api_balance_cents/100) }}</td>
+        <td>{% if m.status == 'active' %}<span class="badge badge-good">正常</span>{% else %}<span class="badge badge-bad">已停用</span>{% endif %}</td>
+        <td style="text-align:right;white-space:nowrap">
+          <button class="btn btn-outline btn-sm" onclick='adjust({{ m.id }},"{{ m.shop_name }}")'><morph-icon data-name="wallet" size="13"></morph-icon> 充值/调整</button>
+          {% if m.afdian_user_id %}<a class="btn btn-outline btn-sm" href="/shop/{{ m.afdian_user_id }}" target="_blank" rel="noopener"><morph-icon data-name="externalLink" size="13"></morph-icon> 访问店铺</a>{% endif %}
+          {% if m.role != 'admin' %}
+            {% if m.status == 'active' %}
+            <button class="btn btn-danger btn-sm" onclick="setStatus({{ m.id }},'disabled')">停用</button>
+            {% else %}
+            <button class="btn btn-good btn-sm" onclick="setStatus({{ m.id }},'active')">启用</button>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="card" id="pane-p" style="display:none">
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap">
+    <morph-icon data-name="search" size="13"></morph-icon>
+    <input id="goods-filter" placeholder="按商品 / 商家邮箱 / 店铺名筛选" style="flex:1;min-width:220px" oninput="filterGoods()">
+    <span class="muted" id="goods-count" style="font-size:11px"></span>
+  </div>
+  <div style="overflow-x:auto">
+    <table style="min-width:720px" id="goods-table">
+      <thead><tr><th>商品</th><th>商家(邮箱 + 店铺名)</th><th style="text-align:right">价格</th><th style="text-align:right">操作</th></tr></thead>
+      <tbody id="goods"><tr><td colspan="4" style="padding:30px;text-align:center;color:var(--ink-400)">加载中…</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 余额调整弹窗 -->
+<div class="modal-mask" id="adj-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-head"><span id="adj-title">余额调整</span><button data-close-modal="adj-modal" style="color:var(--ink-400)"><morph-icon data-name="x" size="14"></morph-icon></button></div>
+    <div class="modal-body">
+      <p class="muted" style="margin-bottom:10px">商户购买充值商品付款后在此确认入账;档位越高折算越高(10元 1:1 / 50元 1:1.1 / 100元 1:1.15 / 200元 1:1.2)。退款请线下确认后以负数扣减。</p>
+      <div class="grid g4" style="margin-bottom:12px">
+        <button class="chip" onclick="adjYuan.value=10">¥10 得10</button>
+        <button class="chip" onclick="adjYuan.value=50">¥50 得55</button>
+        <button class="chip" onclick="adjYuan.value=100">¥100 得115</button>
+        <button class="chip" onclick="adjYuan.value=200">¥200 得240</button>
+      </div>
+      <input type="hidden" id="adjId">
+      <div class="field"><label>金额(元,正数=充值,负数=扣减/退款)</label><input id="adjYuan" type="number" step="0.01"></div>
+      <button class="btn btn-primary btn-block" onclick="doAdjust()">确认调整</button>
+    </div>
+  </div>
+</div>
+
+<!-- 通用确认弹窗 -->
+<div class="modal-mask" id="cfm-modal" style="display:none">
+  <div class="modal" style="max-width:360px">
+    <div class="modal-body" style="text-align:center;padding:24px 22px 0">
+      <div style="font-size:26px;margin-bottom:8px"><morph-icon data-name="alertTriangle" size="26"></morph-icon></div>
+      <div id="cfm-msg" style="font-weight:700;font-size:14px;line-height:1.6"></div>
+    </div>
+    <div class="modal-foot" style="display:flex;gap:8px;justify-content:center;padding:18px">
+      <button class="btn btn-ghost" onclick="uiConfirmDone(false)">取消</button>
+      <button class="btn btn-primary" id="cfm-ok" onclick="uiConfirmDone(true)">确定</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block script %}
+<script>
+let cfmCb = null;
+function uiConfirm(msg, ok){
+  document.getElementById('cfm-msg').textContent = msg;
+  cfmCb = ok || null;
+  openModal('cfm-modal');
+}
+function uiConfirmDone(v){
+  var m = document.getElementById('cfm-modal'); m.style.display = 'none';
+  var cb = cfmCb; cfmCb = null;
+  if (v && cb) cb();
+}
+let mSortKey = '', mAsc = true;
+function sortM(key){
+  mSortKey = key; mAsc = !mSortKey ? !mAsc : key === mSortKey ? !mAsc : true; mSortKey = key;
+  var tb = document.getElementById('merchant-table'); if (!tb) return;
+  var rows = Array.prototype.slice.call(tb.tBodies[0].rows);
+  rows.sort(function(a, b){
+    var av = a.getAttribute('data-' + key), bv = b.getAttribute('data-' + key);
+    if (key === 'name' || key === 'email' || key === 'st') return mAsc ? (av < bv ? -1 : av > bv ? 1 : 0) : (av > bv ? -1 : av < bv ? 1 : 0);
+    return mAsc ? (parseFloat(av) - parseFloat(bv)) : (parseFloat(bv) - parseFloat(av));
+  });
+  rows.forEach(function(r){ tb.tBodies[0].appendChild(r); });
+  var h = tb.querySelector('thead').rows[0];
+  tb.querySelectorAll('.msort').forEach(function(s){ s.textContent=''; });
+  var th = h.querySelector('th[data-key="'+key+'"] .msort'); if (th) th.textContent = mAsc ? '▲' : '▼';
+}
+function filterGoods(){
+  var q = (document.getElementById('goods-filter').value || '').trim().toLowerCase();
+  var rows = document.querySelectorAll('#goods-table tbody tr');
+  var shown = 0;
+  rows.forEach(function(r){
+    if (r.getAttribute('data-title') === 'empty') { r.style.display=''; return; }
+    var hay = (r.getAttribute('data-hay') || '').toLowerCase();
+    var ok = !q || hay.indexOf(q) !== -1;
+    r.style.display = ok ? '' : 'none';
+    if (ok && q) shown++;
+  });
+  var cnt = document.getElementById('goods-count');
+  if (cnt){ var total = Array.from(rows).filter(function(r){ return r.getAttribute('data-title')!=='empty'; }).length; cnt.textContent = (q ? shown + ' / ' : '') + total + ' 件'; }
+}
+function tab(t){
+  document.getElementById('pane-m').style.display=t==='m'?'':'none';
+  document.getElementById('pane-p').style.display=t==='p'?'':'none';
+  document.getElementById('tab-m').classList.toggle('active',t==='m');
+  document.getElementById('tab-p').classList.toggle('active',t==='p');
+  if(t==='p') loadGoods();
+}
+let goodsLoaded=false;
+async function loadGoods(){
+  if(goodsLoaded) return; goodsLoaded=true;
+  try{
+    const d=await api('/console/api/admin/products');
+    document.getElementById('goods').innerHTML=d.products.length?d.products.map(p=>`<tr data-hay="${(p.title+' '+(p.merchant_shop||'')+' '+(p.merchant_email||'')).toLowerCase()}" data-title="${p.title||''}">
+      <td><b>${p.title}</b> ${p.is_recharge?'<span class="badge badge-warn">充值</span>':''}<div class="muted">${p.category} · ${p.sku_name}</div></td>
+      <td><b>${p.merchant_shop||'-'}</b><div class="muted">${p.merchant_email||''}</div></td>
+      <td class="money" style="text-align:right">¥${p.price}</td>
+      <td style="text-align:right"><button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="delGoods(${p.id})"><morph-icon data-name="trash" size="13"></morph-icon> 删除</button></td>
+    </tr>`).join(''):'<tr data-title="empty"><td colspan="4" style="padding:30px;text-align:center;color:var(--ink-400)">暂无商品</td></tr>';
+    filterGoods();
+  }catch(e){ toast('error','加载失败',e.message); }
+}
+async function setStatus(id,status){
+  var msg = status==='disabled' ? '确定停用该商户?停用后无法登录,店铺显示已停用。' : '确定启用该商户?';
+  uiConfirm(msg, function(){ doSetStatus(id, status); });
+}
+async function doSetStatus(id,status){
+  try{ const d=await api('/console/api/admin/merchant',{method:'POST',body:JSON.stringify({id,status})}); toast('success',d.message); setTimeout(()=>location.reload(),600); }
+  catch(e){ toast('error','操作失败',e.message); }
+}
+function adjust(id,name){ document.getElementById('adjId').value=id; document.getElementById('adj-title').textContent='余额调整 · '+name; document.getElementById('adjYuan').value=''; openModal('adj-modal'); }
+async function doAdjust(){
+  const yuan=parseFloat(document.getElementById('adjYuan').value);
+  if(!yuan){ toast('error','请输入非零金额'); return; }
+  try{
+    const d=await api('/console/api/admin/merchant',{method:'POST',body:JSON.stringify({id:document.getElementById('adjId').value,adjust_cents:Math.round(yuan*100)})});
+    toast('success',d.message,'当前余额 ¥'+(d.balanceAfterCents/100).toFixed(2));
+    closeModal('adj-modal'); setTimeout(()=>location.reload(),700);
+  }catch(e){ toast('error','操作失败',e.message); }
+}
+async function delGoods(id){
+  uiConfirm('确定删除该商品?', function(){ doDelGoods(id); });
+}
+async function doDelGoods(id){
+  try{ await api('/console/api/admin/product/delete',{method:'POST',body:JSON.stringify({id})}); toast('success','商品已删除'); goodsLoaded=false; loadGoods(); }
+  catch(e){ toast('error','删除失败',e.message); }
+}
+</script>
+{% endblock %}

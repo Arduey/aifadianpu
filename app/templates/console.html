@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="sidebar">
+  <div class="logo"><span class="logo-box"><morph-icon data-name="zap" size="16"></morph-icon></span> 爱发电铺</div>
+  <nav>
+    <div class="nav-group">主菜单</div>
+    <a href="/console/dashboard{{ qs }}" data-nav="/console/dashboard"><morph-icon data-name="lineChart" size="15"></morph-icon> 数据预览</a>
+    <a href="/console/products{{ qs }}" data-nav="/console/products"><morph-icon data-name="package" size="15"></morph-icon> 商品管理</a>
+    <a href="/console/orders{{ qs }}" data-nav="/console/orders"><morph-icon data-name="receiptText" size="15"></morph-icon> 订单管理</a>
+    <a href="/console/fees{{ qs }}" data-nav="/console/fees"><morph-icon data-name="wallet" size="15"></morph-icon> API 费用</a>
+    <a href="/console/account{{ qs }}" data-nav="/console/account"><morph-icon data-name="settings" size="15"></morph-icon> 个人中心</a>
+    {% if me.role == 'admin' %}
+    <div class="nav-group">管理员专区</div>
+    <a href="/console/admin-stats{{ qs }}" data-nav="/console/admin-stats"><morph-icon data-name="trendingUp" size="15"></morph-icon> 数据预览·管理员</a>
+    <a href="/console/admin-orders{{ qs }}" data-nav="/console/admin-orders"><morph-icon data-name="listOrdered" size="15"></morph-icon> 订单管理·管理员</a>
+    <a href="/console/admin{{ qs }}" data-nav="/console/admin"><morph-icon data-name="shield" size="15"></morph-icon> 后台管理</a>
+    <a href="/console/admin-notices{{ qs }}" data-nav="/console/admin-notices"><morph-icon data-name="bell" size="15"></morph-icon> 平台通知</a>
+    <a href="/console/afdian-callback-logs{{ qs }}" data-nav="/console/afdian-callback-logs"><morph-icon data-name="inbox" size="15"></morph-icon> 回调记录</a>
+    {% endif %}
+    <div class="nav-group">资源</div>
+    <a href="/guide{{ qs }}"><morph-icon data-name="bookOpen" size="15"></morph-icon> 使用说明</a>
+    <a href="/api-docs{{ qs }}"><morph-icon data-name="keySquare" size="15"></morph-icon> 开放接口</a>
+    <a href="/console/tasks{{ qs }}"><morph-icon data-name="clipboardCopy" size="15"></morph-icon> 任务清单</a>
+    <a href="/console/webhook-history{{ qs }}" data-nav="/console/webhook-history"><morph-icon data-name="inbox" size="15"></morph-icon> Webhook 记录</a>
+  </nav>
+  <div class="foot">
+    {% if me.afdian_user_id %}
+    <a href="/shop/{{ me.afdian_user_id }}" target="_blank"><morph-icon data-name="store" size="15"></morph-icon> 我的店铺</a>
+    {% else %}
+    <a href="#" onclick="toast('warn','尚未绑定爱发电','请在个人中心绑定 user_id 后才能访问店铺');return false;"><morph-icon data-name="store" size="15"></morph-icon> 我的店铺</a>
+    {% endif %}
+    <a href="/logout"><morph-icon data-name="logOut" size="15"></morph-icon> 退出登录</a>
+  </div>
+</div>
+<div class="console-main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:8px;font-weight:700">
+      {% if me.shop_logo_url %}<span class="logo-box" style="width:26px;height:26px;overflow:hidden;background:transparent;padding:0"><img src="{{ me.shop_logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px" onerror="this.parentElement.style.background='var(--brand)';this.remove()"></span>{% else %}<span class="logo-box" style="width:26px;height:26px;font-size:12px">{{ me.shop_name[:3] }}</span>{% endif %}
+      <span>{{ me.shop_name }}</span>
+      {% if me.email %}<span class="badge badge-neutral" title="登录邮箱" style="cursor:default;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ me.email }}</span>{% endif %}
+      {% if me.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="position:relative">
+        <button type="button" class="btn btn-ghost btn-sm" id="bell-btn" onclick="toggleBell(event)" style="position:relative;padding:6px 8px" title="平台通知">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <span id="bell-dot" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--card)"></span>
+        </button>
+        <div id="bell-menu" style="display:none;position:absolute;right:0;top:34px;width:300px;max-height:360px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.12);padding:8px;z-index:90"></div>
+      </div>
+      <a href="/console/fees{{ qs }}" class="card" title="点击前往「API 费用」页查看扣费明细与余额流水" style="padding:6px 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:inherit">
+        <morph-icon data-name="wallet" size="13"></morph-icon> API 余额 <span style="{% if me.api_balance_cents < 20 %}color:var(--bad){% else %}color:var(--good){% endif %}">¥{{ "%.2f"|format(me.api_balance_cents/100) }}</span> <span style="font-size:10px;color:var(--ink-400)">可下 {{ me.api_balance_cents // (api_fee_cents if api_fee_cents and api_fee_cents>0 else 10000) }} 单</span>
+      </a>
+      {% if me.role != 'admin' %}<button type="button" class="btn btn-outline btn-sm" onclick="startTour()" id="tour-btn"><morph-icon data-name="bookOpen" size="13"></morph-icon> 导览</button>{% endif %}
+      {% if me.role != 'admin' and request.url.path in ['/console/dashboard','/console/products','/console/orders','/console/fees','/console/account'] %}<button type="button" class="btn btn-outline btn-sm" onclick="startPageTour()" title="本页专属导览"><morph-icon data-name="map" size="13"></morph-icon> 本页导览</button>{% endif %}
+      <a href="/console/tasks{{ qs }}" class="btn btn-outline btn-sm" id="task-menu-btn"><morph-icon data-name="clipboardCopy" size="13"></morph-icon> 任务清单</a>
+    </div>
+  </header>
+  <main class="console-content fade-up" style="position:relative">
+    {% block contentcss %}{% endblock %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+<script>
+document.querySelectorAll('[data-nav]').forEach(a => {
+  if (location.pathname === a.dataset.nav) a.classList.add('active');
+});
+/* 非管理员:禁止 F12 / Ctrl+Shift+I/J/C / Ctrl+U / 右键「检查」,防看到后端请求与金额(管理员不受限) */
+(function(){
+  if ({{ 'true' if me.role == 'admin' else 'false' }}) return;
+  function lockKey(e){
+    var c = e.key || '';
+    var blocked = (c === 'F12') ||
+      (e.ctrlKey && e.shiftKey && /^[IJCS]$/i.test(c)) ||
+      (e.ctrlKey && !e.shiftKey && /^[UJS]$/i.test(c));
+    if (blocked){ e.preventDefault(); e.stopPropagation(); return false; }
+  }
+  document.addEventListener('keydown', lockKey, true);
+  document.addEventListener('keyup', lockKey, true);
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; }, true);
+})();
+/* ── 新手任务:全部完成时任务清单按钮变绿 ── */
+(function(){
+  function loc(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+  var m = { sn: {{ (me.shop_name or '')|tojson|safe }}, bio: {{ (me.bio or '')|tojson|safe }}, qq: {{ (me.qq or '')|tojson|safe }}, wx: {{ (me.wechat or '')|tojson|safe }}, aff: {{ (me.afdian_user_id or '')|tojson|safe }}, wu: {{ (me.webhook_url or '')|tojson|safe }}, em: {{ 'true' if me.email_notify else 'false' }} };
+  var done = (!m.sn ? false : !!(m.bio||m.qq||m.wx)) + 0;
+  done += (!!m.aff) ? 1 : 0;
+  done += (!!(m.wu||m.em)) ? 1 : 0;
+  done += (loc('afp_hasprod')==='1') ? 1 : 0;
+  done += (!!m.aff && loc('afp_shopvis_'+m.aff)==='1') ? 1 : 0;
+  done += (loc('afp_fees')==='1') ? 1 : 0;
+  done += (loc('afp_recharged')==='1') ? 1 : 0;
+  done += (loc('afp_tour_'+{{ me.id }})==='1') ? 1 : 0;
+  if (done >= 8) { var btn=document.getElementById('task-menu-btn'); if (btn) btn.classList.add('all-done'); }
+})();
+/* ── 平台通知:铃铛 + 未读弹窗 ── */
+(function(){
+  var meId = {{ me.id }};
+  var KEY = 'afp_news_' + meId;
+  var seen = {};
+  try { seen = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ seen = {}; }
+  var NEWS = [];
+  var _noticeModal = null;
+
+  function markSeen(id){ seen[id] = 1; localStorage.setItem(KEY, JSON.stringify(seen)); refreshDot(); if (window.afpProgressPush) afpProgressPush({ notices_seen: { [id]: 1 } }); }
+
+  function refreshDot(){
+    var unread = NEWS.filter(function(n){ return !seen[n.id]; }).length;
+    var dot = document.getElementById('bell-dot');
+    if (dot) dot.style.display = unread ? 'block' : 'none';
+  }
+
+  function openNotice(n, index, total, afterFns){
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.style.zIndex = 95;
+    mask.innerHTML =
+      '<div class="modal" style="max-width:480px">' +
+        '<div class="modal-head"><span>平台通知</span><button style="color:var(--ink-400)" onclick="this.closest(\'.modal-mask\').remove()"><morph-icon data-name="x" size="13"></morph-icon></button></div>' +
+        '<div class="modal-body">' +
+          '<div style="font-size:11px;color:var(--ink-400);margin-bottom:4px">' + n.created_at + ' · ' + index + ' / ' + total + '</div>' +
+          '<div style="font-weight:700;margin-bottom:8px">' + n.title + '</div>' +
+          '<div class="muted" style="white-space:pre-wrap;line-height:1.8;font-size:13px">' + n.content + '</div>' +
+        '</div>' +
+        '<div class="modal-foot" style="padding:14px 18px;display:flex;justify-content:flex-end"><button class="btn btn-primary" onclick="' + (total === 1 ? 'this.closest(\'.modal-mask\').remove()' : 'window.__nextNotice && window.__nextNotice(this.closest(\'.modal-mask\'))') + '">' + (total === 1 ? '确定' : '下一条') + '</button></div>' +
+      '</div>';
+    document.body.appendChild(mask);
+    _noticeModal = mask;
+  }
+
+  window.__noticeFlow = function(){
+    var unread = NEWS.filter(function(n){ return !seen[n.id]; });
+    if (!unread.length) return;
+    var i = 0;
+    function step(mask){
+      if (mask) mask.remove();
+      if (i < unread.length) { cleanSeenUpTo(i); markSeen(unread[i].id); }
+      if (i >= unread.length) return;
+      var n = unread[i]; i++;
+      openNotice(n, i, unread.length, step);
+    }
+    function cleanSeenUpTo(k){ markSeen(unread[k].id); }
+    window.__nextNotice = function(mask){ step(mask); };
+    step();
+  };
+
+  function load(){
+    // 先等云端已读回到本机,再拉公告并弹未读,保证换设备一致(不会把别机已读的再弹一遍)
+    window.afpProgressLoad(function(G){
+      var cloudSeen = (G && G.notices_seen) || {};
+      if (typeof cloudSeen === 'object') { Object.keys(cloudSeen).forEach(function(k){ try { seen[k] = 1; } catch(e){} }); }
+      fetch('/console/api/notices', { headers: { 'X-Requested-With': 'fetch' } }).then(function(r){ return r.json(); }).then(function(d){
+        NEWS = (d && d.notices) || [];
+        localStorage.setItem(KEY, JSON.stringify(seen));
+        refreshDot();
+        // 首次进入:逐个弹未读(自动)
+        window.__noticeFlow();
+      }).catch(function(){});
+    });
+  }
+  window.toggleBell = function(e){
+    if (e) e.stopPropagation();
+    var m = document.getElementById('bell-menu');
+    if (!m) return;
+    if (m.style.display === 'block') { m.style.display = 'none'; return; }
+    var list = document.getElementById('bell-menu');
+    if (!NEWS.length) { list.innerHTML = '<div style="padding:14px;text-align:center;color:var(--ink-400);font-size:12px">暂无通知</div>'; }
+    else {
+      list.innerHTML = NEWS.map(function(n){
+        return '<div class="bell-item" data-id="' + n.id + '" style="padding:8px 10px;border-radius:8px;cursor:pointer;display:flex;gap:8px;align-items:center" onclick="bellRead(' + n.id + ')">'
+          + '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + n.title + '</div>'
+          + '<div style="font-size:10px;color:var(--ink-400)">' + n.created_at + '</div></div>'
+          + (seen[n.id] ? '' : '<span style="width:7px;height:7px;border-radius:50%;background:var(--bad);flex-shrink:0"></span>')
+          + '</div>';
+      }).join('');
+    }
+    list.style.display = 'block';
+  };
+  window.bellRead = function(id){
+    var n = null; NEWS.forEach(function(x){ if (x.id == id) n = x; });
+    if (n) { openNotice(n, 1, 1, null); markSeen(id); setTimeout(function(){ var m = document.getElementById('bell-menu'); if (m) m.style.display = 'none'; }, 60); }
+  };
+  document.addEventListener('click', function(e){
+    var m = document.getElementById('bell-menu');
+    if (m && m.style.display === 'block' && !e.target.closest('#bell-btn') && !e.target.closest('#bell-menu')) m.style.display = 'none';
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', load); else load();
+})();
+
+/* ── 产品导览(轻量,无外部依赖) ── */
+var TOUR_STEPS = [
+  { el: '[data-nav="/console/dashboard"]', t: '数据预览', d: '查看你的店铺经营数据:创建/支付订单、金额趋势、商品销量。' },
+  { el: '[data-nav="/console/products"]', t: '商品管理', d: '新增/编辑/删除商品;分类选「API充值」即成为充值商品。' },
+  { el: '[data-nav="/console/orders"]', t: '订单管理', d: '管理订单(含待支付与已付款):搜索、按渠道筛选、查看回调留言与扣除的服务费。' },
+  { el: '[data-nav="/console/fees"]', t: 'API 费用', d: '查看余额变动流水:充值到账、订单服务费、赠送与退费。' },
+  { el: '[data-nav="/console/account"]', t: '个人中心', d: '维护店铺信息、绑定爱发电、配置通知/Webhook、修改密码。' },
+  { el: '[href="/console/tasks"]', t: '任务清单', d: '按清单逐步完成开店各项准备,了解平台功能。' },
+];
+var PAGE_TOURS = {
+  '/console/dashboard': [
+    { el: '#kpis', t: '经营指标', d: '顶部三个卡片:当前 API 余额、累计已支付订单数与累计流水,一眼掌握经营概况。' },
+    { el: '#presets', t: '日期范围', d: '用「今天/本周/本月/近 7 天」等预设快速选择统计区间,也可点「自定义」用年/月/日分段。' },
+    { el: '#segFrom, #segTo', t: '自定义起止', d: '分别选择开始与结束日期,结束日期须不早于开始日期,选好后点击右侧「查询」。' },
+    { el: '#btnQuery', t: '查询', d: '点此按所选的日期范围刷新订单金额趋势与销量统计。' },
+    { el: '#chart', t: '金额趋势', d: '折线图展示区间内每日订单金额的变化。' },
+    { el: '#prod-table', t: '热销商品', d: '区间内销量 Top 商品的列表。' },
+  ],
+  '/console/products': [
+    { el: '.console-content h1', t: '商品管理', d: '在这里新增、编辑、删除商品,并对列表做分类筛选与排序(↑/↓ 上移下移,改完自动保存)。' },
+    { el: 'button[onclick="openForm()"]', t: '新增商品', d: '点此打开表单创建新商品;价格须 ≥5 元正整数,最低 5 元是爱发电限制。' },
+    { el: '#cat-filter', t: '分类筛选', d: '下拉可多选分类,松开即实时过滤商品;点「清空」恢复查看全部。' },
+    { el: 'tbody tr.prow:first-child td:last-child', t: '上移 / 下移', d: '每行右侧 ↑↓ 可上移/下移调整展示顺序并保存。' },
+    { el: 'button[onclick^="openForm({\"id"]', t: '编辑 / 删除', d: '每行右侧的编辑、删除按钮用于维护该商品(注意别与右上角「新增商品」混淆)。' },
+  ],
+  '/console/orders': [
+    { el: '.console-content h1', t: '订单管理', d: '查看订单(含待支付与已付款);每笔成功付款自动扣减 API 服务费并触发回调。' },
+    { el: '.console-content input, .console-content .field input', t: '搜索', d: '按订单号等关键字搜索订单。' },
+    { el: '.console-content select, .console-content .chip', t: '渠道 / 筛选', d: '按支付渠道(微信/支付宝)等条件筛选订单。' },
+    { el: '.console-content table', t: '订单列表', d: '表格含订单号、支付时间、分类、商品、SKU、渠道、金额与留言。' },
+  ],
+  '/console/fees': [
+    { el: '.console-content h1', t: 'API 费用', d: '查看 API 余额的变动流水:充值、订单服务费、赠送与退费。' },
+    { el: '.console-content .card', t: '费用卡片', d: '累计充值、累计支出与规则说明;单次费用由平台管理员配置。' },
+    { el: '.console-content table', t: '费用流水', d: '每条流水的发生时间、类型(订单服务费/充值/赠送)、费用与变动后余额。' },
+  ],
+  '/console/account': [
+    { el: '.console-content h1', t: '个人中心', d: '集中维护店铺信息、爱发电绑定、通知与 Webhook、密码安全与 API 余额。' },
+    { el: '#shop_name, #bio', t: '店铺信息', d: '设置店铺名、Logo 头像、店铺介绍与 QQ/微信,保存后前台店铺即展示。' },
+    { el: '#afdian_user_id, #afdian_token', t: '绑定爱发电', d: '填写你的爱发电 user_id 与 token,启用商品可售与收款。' },
+    { el: '#webhook_url', t: '订单通知 / Webhook', d: '配置回调地址、请求方法、编码与自定义请求头,并可按提示发送测试。' },
+    { el: 'button[onclick="openRecharge()"]', t: '充值余额', d: '为 API 余额充值,用于支付每单服务费。' },
+    { el: '#platform-config-card', t: '平台配置(管理员)', d: '管理员专属:平台 Logo、支付渠道、SMTP 与单次 API 费用等(可折叠)。' },
+  ],
+};
+var CUR_STEPS = TOUR_STEPS;
+var tourIdx = -1, tourRoot = null;
+function tourBanner(){ return '<div style="position:fixed;inset:0;background:transparent;z-index:200"></div>'; }
+function tourBody(el, i){
+  var s = CUR_STEPS[i], r = el.getBoundingClientRect();
+  var b = document.createElement('div');
+  b.style.cssText = 'position:fixed;z-index:210;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;width:280px;box-shadow:0 16px 40px rgba(0,0,0,.25);box-sizing:border-box';
+  b.innerHTML = '<div style="font-weight:800;font-size:14px;margin-bottom:6px">' + s.t + '</div>' +
+    '<div style="font-size:12px;color:var(--ink-500);line-height:1.7;margin-bottom:12px">' + s.d + '</div>' +
+    '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center">' +
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="tourDone()">跳过</button>' +
+      '<span style="font-size:11px;color:var(--ink-300)">' + (i + 1) + ' / ' + CUR_STEPS.length + '</span>' +
+      (i < CUR_STEPS.length - 1 ? '<button type="button" class="btn btn-primary btn-sm" onclick="tourNext()">下一步</button>'
+        : '<button type="button" class="btn btn-primary btn-sm" onclick="tourDone()">完成</button>') +
+    '</div>';
+  // 定位到元素右侧(若空间不足则放下方)
+  var left = r.right + 12, top = r.top;
+  if (left + 300 > window.innerWidth) { left = Math.max(8, r.left - 292); }
+  if (top + 140 > window.innerHeight) { top = Math.max(8, window.innerHeight - 150); }
+  b.style.left = left + 'px'; b.style.top = top + 'px';
+  if(tourRoot) tourRoot.appendChild(b); else document.body.appendChild(b);
+}
+function tourShow(i){
+  if (tourRoot) tourRoot.remove();
+  if (i >= CUR_STEPS.length) { tourDone(); return; }
+  var s = CUR_STEPS[i], el = document.querySelector(s.el);
+  if (!el) { tourShow(i + 1); return; }
+  tourIdx = i;
+  tourRoot = document.createElement('div');
+  tourRoot.id = 'tour-root';
+  tourRoot.innerHTML = tourBanner();
+  // 把目标滚到可视区,保证高亮框落在屏幕上
+  try { el.scrollIntoView({ block: 'center' }); } catch(e){}
+  // 高亮元素框:自身镂空(亮),用超大外阴影把四周压暗 —— 即“高亮导览区域”
+  var hl = document.createElement('div'); hl.style.cssText = 'position:fixed;z-index:205;border:2px solid var(--brand);border-radius:10px;background:rgba(249,93,31,.06);box-shadow:0 0 0 9999px rgba(20,16,12,.55);pointer-events:none;box-sizing:border-box;transition:all .2s';
+  var r = el.getBoundingClientRect();
+  hl.style.left = (r.left - 4) + 'px'; hl.style.top = (r.top - 4) + 'px';
+  hl.style.width = (r.width + 8) + 'px'; hl.style.height = (r.height + 8) + 'px';
+  tourRoot.appendChild(hl);
+  document.body.appendChild(tourRoot);
+  tourBody(el, i);
+}
+function tourNext(){ tourShow(tourIdx + 1); }
+function tourDone(){ if (tourRoot) tourRoot.remove(); tourRoot = null; try { localStorage.setItem('afp_tour_' + {{ me.id }}, '1'); } catch(e){} window.afpProgressPush && afpProgressPush({ tours: { ['afp_tour_' + {{ me.id }}]: 1 } }); }
+function startTour(){ CUR_STEPS = TOUR_STEPS; tourShow(0); }
+function pTourKey(){ return 'afp_ptour_' + {{ me.id }} + '_' + (location.pathname.split('?')[0].replace(/[^a-zA-Z0-9]+/g, '_')); }
+function markPageTourSeen(){ try { localStorage.setItem(pTourKey(), '1'); } catch(e){} var _key=pTourKey(); window.afpProgressPush && afpProgressPush({ tours: { [_key]: 1 } }); }
+function startPageTour(){
+  var st = PAGE_TOURS[location.pathname.split('?')[0]];
+  if (!st || !st.length) { if (window.toast) toast('info', '本页暂无专属导览'); return; }
+  markPageTourSeen();
+  CUR_STEPS = st; tourShow(0);
+}
+/* 首次登录商户自动全局导览;之后首次访问某页自动本页导览(云端进度为准,跨设备不重复) */
+(function(){ if (!{{ me.id }} || {{ 'true' if me.role == 'admin' else 'false' }}) return;
+  var gk = 'afp_tour_' + {{ me.id }}, pk = pTourKey();
+  function lsGet(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
+  function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
+  window.afpProgressLoad(function(G){ var all=(G&&G.tours)||{};
+    if (all[gk] === 1 && lsGet(gk) !== '1') lsSet(gk, '1');          // 别机已“完成全局导览”→本机也跳过
+    if (all[pk] === 1 && lsGet(pk) !== '1') lsSet(pk, '1');
+    var alreadyGlobal = lsGet(gk) === '1';
+    if (!alreadyGlobal) { setTimeout(startTour, 600); return; }        // 全局未完成才引导;其余走单页
+    var onRoute = !!PAGE_TOURS[location.pathname.split('?')[0]];
+    if (onRoute && lsGet(pk) !== '1') setTimeout(startPageTour, 600);
+  });
+})();
+</script>
+{% endblock %}

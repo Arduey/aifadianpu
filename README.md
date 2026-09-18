@@ -175,5 +175,6 @@ python deploy_check.py   # 部署前环境检查
 
 ### 已知边界(不要当 bug)
 
-- **真实收款未接通**:`afdian.create_order / order_paid` 的 live 分支目前是占位实现,请勿当作已可真实收款;
+- **下单/查单走 `afd_live.py`(真实接口)**,不是 `afdian.py`;后者里的 `create_order / order_paid` 是**历史占位且已无调用方**,属死代码,别混淆;
+- 下单依赖 `curl_cffi` 伪装指纹绕 Cloudflare:未安装时可回退 urllib,但**很可能被 1010 拦截**;
 - 未支付订单**超过 3 小时会被物理清除**(`gc_stale_pending`),因此「创建订单数」由独立的 `order_stats` 表累计保障,不受清理影响。

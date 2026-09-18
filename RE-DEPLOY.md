@@ -108,6 +108,7 @@ cd /www/wwwroot/afd
     uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
     ```
   - 或 **gunicorn**:通讯协议选 **asgi**,启动文件/应用填 `main:app`
+    > ⚠️ 该方式依赖 `uvicorn.workers.UvicornWorker`,而它在 uvicorn 0.34+ 已被移除,故 `requirements.txt` 已锁 `uvicorn<0.35`。**推荐用上面的命令行启动方式,不受此限制。**
 - 勾选「安装模块依赖」
 - 启动项目
 

@@ -44,6 +44,12 @@
     .cat-block-body{display:block}
     .cat-block.collapsed .cat-block-body{display:none}
     .cat-block-body table{width:100%}
+    /* 卡密统计胶囊 */
+    .cards-stats{display:flex;gap:8px;flex-wrap:wrap}
+    .cs{font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 11px;border:1px solid var(--line);background:var(--paper);color:var(--ink-600)}
+    .cs-ok{color:var(--good);border-color:#BFE3CE;background:var(--good-100)}
+    .cs-warn{color:var(--warn);border-color:#F2D08A;background:var(--warn-100)}
+    .cs-dim{color:var(--ink-400)}
     /* 问号悬浮提示(JS 定位的 fixed 气泡,不受 .modal-body 裁剪) */
     .hint-icon{cursor:help;display:inline-flex;vertical-align:middle}
     .hint-tip{position:fixed;max-width:min(280px,80vw);background:var(--ink-900);color:var(--paper);font-size:11.5px;font-weight:400;line-height:1.7;text-align:left;padding:8px 11px;border-radius:9px;box-shadow:0 10px 26px rgba(0,0,0,.24);white-space:normal;pointer-events:none;z-index:200;opacity:0;transition:opacity .16s;font-family:inherit}
@@ -70,12 +76,25 @@
       </button>
       <div class="cat-block-body">
         <table>
-          <thead><tr><th>标题</th><th>SKU 名</th><th style="text-align:right">价格</th><th style="text-align:right">操作</th></tr></thead>
+          <thead><tr><th>标题</th><th>SKU 名</th><th>返回方式</th><th style="text-align:right">价格</th><th style="text-align:right">操作</th></tr></thead>
           <tbody>
           {% for p in rows %}
           <tr data-cat="{{ p.category }}" data-id="{{ p.id }}" class="prow">
             <td><b>{{ p.title }}</b> {% if p.is_recharge %}<span class="badge badge-warn">充值</span>{% endif %}</td>
             <td>{{ p.sku_name }}</td>
+            <td>
+              {% if p.delivery_type == 'platform' and p.delivery_kind == 'card' %}
+                <span class="badge badge-brand"><morph-icon data-name="key" size="11"></morph-icon> 卡密</span>
+                <span style="font-size:11px;font-weight:700;{% if p.stock <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">
+                  库存 {{ p.stock }}{% if p.stock_locked %} · 锁定 {{ p.stock_locked }}{% endif %}
+                </span>
+                <button class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick='openCardsFor({{ p.id }}, {{ p.title|tojson }})'>管理</button>
+              {% elif p.delivery_type == 'platform' and p.delivery_kind == 'link' %}
+                <span class="badge badge-good"><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
+              {% else %}
+                <span class="muted" style="font-size:11px">商户发货</span>
+              {% endif %}
+            </td>
             <td class="money" style="text-align:right">¥{{ p.price }}</td>
             <td style="text-align:right;white-space:nowrap">
               <button class="btn btn-ghost btn-sm" title="上移" onclick='moveRow(this,"up")'>↑</button>
@@ -126,11 +145,71 @@
           <div class="field" style="margin:0"><label>支付成功到账金额(元)</label><input name="recharge_grant" type="number" min="0" step="0.5" placeholder="留空按售价 1:1"></div>
         </div>
         {% endif %}
+        <div class="field">
+          <label>发货方式 <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400);vertical-align:middle"
+            data-tip="商户发货=平台只通知你，由你自行发货；平台发货=买家付款后在「自助提货」页自动领取卡密或链接"></morph-icon></label>
+          <select name="delivery_type" id="dv-type" onchange="dvToggle()">
+            <option value="merchant">商户发货（平台只回调通知，你自行发放）</option>
+            <option value="platform">平台发货（买家自助提货）</option>
+          </select>
+        </div>
+        <div id="dv-platform" style="display:none">
+          <div class="field">
+            <label>平台发货类型</label>
+            <select name="delivery_kind" id="dv-kind" onchange="dvToggle()">
+              <option value="card">卡密（有库存限制，售完即缺货）</option>
+              <option value="link">链接（无库存限制，固定一个链接）</option>
+            </select>
+          </div>
+          <div class="field" id="dv-link-box" style="display:none">
+            <label>发货链接 <span class="hint">买家付款后在提货页会看到该链接</span></label>
+            <input name="delivery_link" id="dv-link" placeholder="https://…" autocomplete="off">
+          </div>
+          <div class="field" id="dv-card-box">
+            <label>卡密库存 <span class="hint" id="dv-stock-hint">保存商品后可在此管理卡密</span></label>
+            <div id="dv-card-actions">
+              <button type="button" class="btn btn-outline btn-sm" id="dv-manage" onclick="openCards()" disabled>
+                <morph-icon data-name="key" size="13"></morph-icon> 管理卡密
+              </button>
+              <span class="muted" style="font-size:11px;margin-left:8px">先保存商品，再点「管理卡密」粘贴导入（一行一个，自动去重）</span>
+            </div>
+          </div>
+        </div>
+        <div class="field">
+          <label>提货说明 <span class="hint">可选 · 显示在提货页，如「请到 xx 网站兑换」</span></label>
+          <input name="delivery_tip" maxlength="500" placeholder="例如：请登录 https://xx.com 使用卡密兑换" autocomplete="off">
+        </div>
         <div style="display:flex;justify-content:flex-end;gap:8px">
           <button type="button" class="btn btn-ghost" data-close-modal="form-modal">取消</button>
           <button type="submit" class="btn btn-primary" id="form-save">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- 卡密管理弹窗 -->
+<div class="modal-mask" id="cards-modal" data-lock-close-outside style="display:none">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-head"><span id="cards-title">卡密库存</span><button data-close-modal="cards-modal" style="color:var(--ink-400)"><morph-icon data-name="x" size="13"></morph-icon></button></div>
+    <div class="modal-body" style="padding:14px 16px">
+      <div id="cards-stats" class="cards-stats"></div>
+      <div class="field" style="margin-top:12px">
+        <label>批量导入 <span class="hint">一行一个卡密；与本商品已有卡密自动去重</span></label>
+        <textarea id="cards-text" rows="6" placeholder="ABCD-1234-EFGH-5678&#10;IJKL-9012-MNOP-3456" style="width:100%;box-sizing:border-box;font-family:ui-monospace,Consolas,Menlo,monospace;font-size:12px;resize:vertical"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="btn btn-primary btn-sm" id="cards-import" onclick="doImportCards()">导入卡密</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="doCleanCards('dedup')">清理重复</button>
+        <button type="button" class="btn btn-outline btn-sm" style="color:var(--bad)" onclick="doCleanCards('unused')">删除未售出</button>
+        <span class="muted" style="font-size:11px">「删除未售出」仅删未被订单占用的卡密，已售出永久保留</span>
+      </div>
+      <div class="field" style="margin-top:14px">
+        <label>卡密列表 <span class="hint" id="cards-count"></span></label>
+        <div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px">
+          <table style="margin:0"><tbody id="cards-rows"></tbody></table>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -249,7 +328,82 @@ function openForm(p){
   form.reset(); form.id.value = p?p.id:0;
   document.getElementById('form-title').textContent = p?'编辑商品':'新增商品';
   if(p){ form.category.value=p.category; form.category_icon_url.value=p.category_icon_url; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  // 发货方式回填
+  var _dt=document.getElementById('dv-type'), _dk=document.getElementById('dv-kind');
+  if(_dt) _dt.value = (p && p.delivery_type==='platform') ? 'platform' : 'merchant';
+  if(_dk) _dk.value = (p && (p.delivery_kind==='card'||p.delivery_kind==='link')) ? p.delivery_kind : 'card';
+  form.delivery_link.value = (p && p.delivery_link) ? p.delivery_link : '';
+  form.delivery_tip.value = (p && p.delivery_tip) ? p.delivery_tip : '';
+  window.__curPid = p ? p.id : 0;
+  window.__curStock = p ? (p.stock||0) : 0;
+  dvToggle();
   updateTip(); if(window.cfPrev) cfPrev(); openModal('form-modal');
+}
+/* 发货方式联动:平台发货才显示类型;卡密才显示库存管理;链接才显示链接输入 */
+function dvToggle(){
+  var t=(document.getElementById('dv-type')||{}).value||'merchant';
+  var k=(document.getElementById('dv-kind')||{}).value||'card';
+  var box=document.getElementById('dv-platform'); if(box) box.style.display = (t==='platform')?'':'none';
+  var lb=document.getElementById('dv-link-box'); if(lb) lb.style.display = (t==='platform'&&k==='link')?'':'none';
+  var cb=document.getElementById('dv-card-box'); if(cb) cb.style.display = (t==='platform'&&k==='card')?'':'none';
+  var mg=document.getElementById('dv-manage');
+  if(mg){
+    var pid=window.__curPid||0;
+    mg.disabled = !pid;
+    mg.title = pid ? '' : '请先保存商品，再管理卡密';
+  }
+  var sh=document.getElementById('dv-stock-hint');
+  if(sh){ sh.textContent = (window.__curPid) ? ('当前可售库存 '+(window.__curStock||0)+'，点「管理卡密」导入') : '保存商品后可在此管理卡密'; }
+}
+/* 卡密管理 */
+function openCards(){ var pid=window.__curPid||0; if(!pid){ toast('warn','请先保存商品'); return; } openCardsFor(pid, form.title.value||''); }
+function escC(v){ return String(v==null?'':v).replace(/[&<>"']/g,function(c){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];}); }
+async function openCardsFor(pid, title){
+  window.__cardsPid = pid;
+  document.getElementById('cards-title').textContent = '卡密库存 · ' + (title||'');
+  document.getElementById('cards-text').value = '';
+  openModal('cards-modal');
+  await reloadCards();
+}
+async function reloadCards(){
+  var pid=window.__cardsPid; if(!pid) return;
+  try{
+    var d=await api('/console/api/product/cards?id='+pid);
+    var s=d.stats||{};
+    document.getElementById('cards-stats').innerHTML =
+      '<span class="cs cs-ok">可售 '+s.available+'</span>'
+      + '<span class="cs cs-warn">已锁定 '+s.locked+'（未付款订单占用）</span>'
+      + '<span class="cs cs-dim">已售出 '+s.used+'</span>'
+      + '<span class="cs">合计 '+s.total+'</span>';
+    var rows=(d.cards||[]).map(function(c){
+      var tag = c.used ? '<span class="badge badge-neutral">已售出</span>'
+              : (c.locked ? '<span class="badge badge-warn">已锁定</span>' : '<span class="badge badge-good">可售</span>');
+      return '<tr><td style="font-family:ui-monospace,Consolas,Menlo,monospace;font-size:11.5px;word-break:break-all">'+escC(c.content)+'</td>'
+        + '<td style="text-align:right;white-space:nowrap">'+tag+(c.order_no?'<div class="muted" style="font-size:10px">'+escC(c.order_no)+'</div>':'')+'</td></tr>';
+    }).join('');
+    document.getElementById('cards-rows').innerHTML = rows || '<tr><td colspan="2" style="padding:20px;text-align:center;color:var(--ink-400)">暂无卡密，请在上方粘贴导入</td></tr>';
+    document.getElementById('cards-count').textContent = (d.cards||[]).length + ' 条（最多显示 800）';
+  }catch(e){ toast('error','加载卡密失败',e.message); }
+}
+async function doImportCards(){
+  var pid=window.__cardsPid; if(!pid) return;
+  var t=document.getElementById('cards-text').value;
+  if(!t.trim()){ toast('warn','请先粘贴卡密'); return; }
+  var btn=document.getElementById('cards-import'); btn.disabled=true; btn.textContent='导入中…';
+  try{
+    var d=await api('/console/api/product/cards/import',{method:'POST',body:JSON.stringify({id:pid,text:t})});
+    toast('success',d.message); document.getElementById('cards-text').value=''; await reloadCards();
+  }catch(e){ toast('error','导入失败',e.message); }
+  finally{ btn.disabled=false; btn.textContent='导入卡密'; }
+}
+async function doCleanCards(mode){
+  var pid=window.__cardsPid; if(!pid) return;
+  var tip = mode==='dedup' ? '确定清理本商品内重复的卡密?(保留最早一条)' : '确定删除所有「未售出」卡密?(已售出/已锁定不受影响)';
+  if(!confirm(tip)) return;
+  try{
+    var d=await api('/console/api/product/cards/clean',{method:'POST',body:JSON.stringify({id:pid,mode:mode})});
+    toast('success',d.message); await reloadCards();
+  }catch(e){ toast('error','操作失败',e.message); }
 }
 function addSku(p){
   openForm(null);

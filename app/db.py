@@ -91,6 +91,12 @@ class Product(Base):
     is_recharge = Column(Boolean, nullable=False, default=False)
     recharge_grant_cents = Column(Integer, nullable=False, default=0)
     sort_order = Column(Integer, nullable=False, default=0)  # 后台拖拽排序(同分类内/全局)
+    # 发货方式(SKU 级):merchant=商户自行发货(默认) | platform=平台发货
+    delivery_type = Column(String(16), nullable=False, default="merchant")
+    # 平台发货时的类型:"" | card(卡密) | link(链接)
+    delivery_kind = Column(String(16), nullable=False, default="")
+    delivery_link = Column(String(1000), nullable=False, default="")   # kind=link 时的内容
+    delivery_tip = Column(String(500), nullable=False, default="")     # 提货页给买家的说明(可选)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
@@ -108,8 +114,10 @@ class Order(Base):
     channel = Column(String(16), nullable=False, default="wechat")
     remark = Column(String(500), nullable=False, default="")
     buyer_account = Column(String(120), nullable=False, default="")
+    buyer_email = Column(String(120), nullable=False, default="")   # 下单时选填,仅用于付款后发卡邮件
     status = Column(String(16), nullable=False, default="pending")  # pending|paid
     paid_at = Column(DateTime, nullable=True)
+    delivered_at = Column(DateTime, nullable=True)                  # 卡密/链接发放时间
     recharge_for_id = Column(Integer, nullable=True)
     recharge_grant_cents = Column(Integer, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now, index=True)
@@ -192,6 +200,41 @@ class WebhookSend(Base):
     is_test = Column(Boolean, nullable=False, default=False)  # 发送测试标记(非真实订单回调)
     resp_head = Column(Text)
     resp_body = Column(Text)
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class StockCard(Base):
+    """卡密库存(SKU 级)。
+
+    生命周期:下单即锁定(locked=1, order_no=订单号) → 付款成功(used_at=付款时间)
+    → 若订单 3 小时未付款被清理,则释放回库存(locked=0, order_no='')。
+    库存数 = 该 product_id 下 locked=0 且 used_at IS NULL 的行数。
+    """
+    __tablename__ = "stock_cards"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    product_id = Column(Integer, nullable=False, index=True)
+    merchant_id = Column(Integer, nullable=False, index=True)
+    content = Column(Text, nullable=False)                 # 单行卡密
+    locked = Column(Boolean, nullable=False, default=False, index=True)  # 被订单锁定(含未付款)
+    order_no = Column(String(64), nullable=False, default="")            # 锁它的订单号
+    locked_at = Column(DateTime, nullable=True)
+    used_at = Column(DateTime, nullable=True)              # 付款成功时间;NULL=未售出
+    created_at = Column(DateTime, nullable=False, default=datetime.now)
+
+
+class DeliveryRecord(Base):
+    """发放记录(提货幂等核心)。
+
+    order_no 唯一:同一订单无论查询多少次,都返回同一条记录的内容。
+    kind: card(卡密) | link(链接)
+    """
+    __tablename__ = "delivery_records"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    order_no = Column(String(64), unique=True, nullable=False, index=True)
+    product_id = Column(Integer, nullable=True)
+    merchant_id = Column(Integer, nullable=False, index=True)
+    kind = Column(String(16), nullable=False, default="")   # card | link
+    content = Column(Text, nullable=False, default="")
     created_at = Column(DateTime, nullable=False, default=datetime.now)
 
 

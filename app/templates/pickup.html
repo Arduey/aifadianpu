@@ -108,10 +108,18 @@ async function doPickup(){
         + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制卡密</button></div>';
       window.__pkContent = dv.content;
     } else if(dv.kind==='link'){
-      title.textContent='你的链接';
-      box.innerHTML='<div class="pk-empty" style="background:var(--card)"><a class="pk-link" href="'+escH(dv.content)+'" target="_blank" rel="noopener">'+escH(dv.content)+'</a></div>'
-        + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制链接</button></div>';
-      window.__pkContent = dv.content;
+      var _c=String(dv.content||'');
+      var _isUrl=/^https?:\/\//i.test(_c.trim());
+      title.textContent = _isUrl ? '你的链接' : '发货说明';
+      if(_isUrl){
+        box.innerHTML='<div class="pk-empty" style="background:var(--card)"><a class="pk-link" href="'+escH(_c)+'" target="_blank" rel="noopener">'+escH(_c)+'</a></div>'
+          + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制链接</button></div>';
+      } else {
+        // 商户填的是提示文字(非链接):按文本展示,保留换行,避免误当链接跳转
+        box.innerHTML='<div class="pk-empty" style="background:var(--card);white-space:pre-wrap;word-break:break-word">'+escH(_c)+'</div>'
+          + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制内容</button></div>';
+      }
+      window.__pkContent = _c;
     } else {
       title.textContent='发货说明';
       box.innerHTML='<div class="pk-empty">本商品由<b>商家手动发货</b>，平台不自动发放内容。请联系商家客服领取：</div>';

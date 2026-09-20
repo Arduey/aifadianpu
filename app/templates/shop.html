@@ -409,10 +409,17 @@ function stopPoll() { if (pollTimer) { clearInterval(pollTimer); pollTimer = nul
 function buyInPayShown(){ var el=document.getElementById('qr-section'); return !!(el && el.style.display==='block'); }
 function bLock(on){ var m=document.getElementById('buy-modal'); if(!m) return; if(on){ m.setAttribute('data-lock-close-outside','1'); } else { m.removeAttribute('data-lock-close-outside'); } }
 function bClose(){ bLock(false); stopPoll(); closeModal('buy-modal'); }
-function buyCancel(){
+async function buyCancel(){
   if (!buyInPayShown()){ bClose(); return; }
-  var msg='此订单将不再在本页继续检测支付状态;若你确实已付款,建议刷新确认,必要时联系商户/管理员手动处理。确定取消吗?';
-  if (window.confirm(msg)) bClose();
+  var ok = await appConfirm({
+    title: '取消购买',
+    message: '确定取消本次购买吗？',
+    lines: ['此订单将不再在本页继续检测支付状态', '若你确实已付款，建议刷新页面确认，必要时联系商户 / 管理员处理'],
+    okText: '确定取消',
+    cancelText: '继续等待',
+    danger: true
+  });
+  if (ok) bClose();
 }
 function buyModalX(){ if (buyInPayShown()) buyCancel(); else bClose(); }
 </script>

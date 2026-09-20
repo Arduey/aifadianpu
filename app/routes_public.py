@@ -427,7 +427,8 @@ async def forgot(request: Request):
         token = auth.random_token()
         db.add(PasswordReset(email=email, token=token, expires_at=datetime.now() + timedelta(minutes=10)))
         db.commit()
-        url = f"{settings.app_base_url()}/reset/{token}"
+        _base = settings.app_base_url() or str(request.base_url).rstrip("/")
+        url = f"{_base}/reset/{token}"
         mailer.send(email, "【爱发电铺】重置密码链接(10分钟有效)", email_templates.reset_password_html(email, url))
         if mailer.demo_mode():
             demo_url = url

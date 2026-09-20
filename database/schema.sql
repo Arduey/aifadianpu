@@ -155,7 +155,7 @@ CREATE TABLE IF NOT EXISTS `platform_settings` (
   `smtp_from` VARCHAR(120) NOT NULL DEFAULT '',
   `api_fee_cents` INT NULL COMMENT '单次API费用(分),NULL=用.env默认',
   `allowed_email_domains` VARCHAR(600) NOT NULL DEFAULT '' COMMENT '注册允许邮箱域名(;分隔,空=不限制)',
-  `webhook_base_url` VARCHAR(300) NOT NULL DEFAULT '' COMMENT '爱发电 Webhook 平台外部域名,留空默认test.arduey.top,仅供后台展示拼接',
+  `webhook_base_url` VARCHAR(300) NOT NULL DEFAULT '' COMMENT '爱发电 Webhook 平台外部域名,留空用当前访问域名,仅供后台展示拼接',
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台配置(单行)';

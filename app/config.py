@@ -1,5 +1,6 @@
 """环境变量配置(宝塔:面板中配置 或 .env 文件)"""
 import os
+import secrets
 
 from dotenv import load_dotenv
 
@@ -22,8 +23,11 @@ DB_USER = os.getenv("DB_USER", "afdianpu")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "afdianpu")
 
-SESSION_SECRET = os.getenv("SESSION_SECRET", "afdianpu-dev-secret-key")
-APP_BASE_URL = os.getenv("APP_BASE_URL", "http://localhost:8000").rstrip("/")
+# 会话签名密钥(HS256 JWT):必须由 .env 提供。未配置时随机生成,避免沿用公开的固定值
+# 导致任何人可伪造登录 cookie;随机值只在"尚未走向导"阶段生效,该阶段没有真实会话。
+SESSION_SECRET = os.getenv("SESSION_SECRET") or secrets.token_hex(32)
+# 对外访问域名:留空表示未配置,由使用处以当前请求域名兜底(不再写死 localhost)
+APP_BASE_URL = (os.getenv("APP_BASE_URL") or "").rstrip("/")
 APP_SECURE = _bool("APP_SECURE", True)
 
 # ⚠️ 遗留配置:当前业务代码已不读取(下单/查单固定走 app/services/afd_live.py 的真实接口)。

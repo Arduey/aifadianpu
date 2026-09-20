@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from . import auth, config, settings
 from .db import (FeeLedger, Notice, Order, OrderStat, Product, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
 from .render import render
-from .services import afdian, afd_login, afd_live, delivery, email_templates, mailer, pipeline
+from .services import afdian, afd_login, afd_live, categories, delivery, email_templates, mailer, pipeline
 from .utils import has_amp
 
 router = APIRouter()
@@ -91,6 +91,12 @@ def products_page(request: Request):
             _cat_amount[p.category] = _cat_amount.get(p.category, 0) + _a
         # 限购类商品的剩余可售量
         _lim_left = delivery.limited_left_map(db, [p for p in rows if delivery.is_limited(p)])
+        # 独立分类表:用于分类卡片(名称/图标/排序)与「编辑分类」;顺序以分类表为准
+        _cats = categories.list_categories(db, me.id)
+        _cat_order = {c.name: int(c.sort_order or 0) for c in _cats}
+        _cat_icon_map = {c.name: (c.icon_url or "") for c in _cats}
+        _cat_items = [{"id": c.id, "name": c.name, "icon_url": c.icon_url or "",
+                       "sort_order": int(c.sort_order or 0)} for c in _cats]
         items = [{
             "id": p.id, "category": p.category, "category_icon_url": p.category_icon_url,
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
@@ -114,6 +120,7 @@ def products_page(request: Request):
     return render(request, "products.html", {
         "products": items, "configured": me.is_afdian_configured(), "is_admin": me.role == "admin",
         "platformLogo": _plogo, "cat_sold": _cat_sold, "cat_amount": _cat_amount,
+        "cat_items": _cat_items, "cat_icon_map": _cat_icon_map, "cat_order": _cat_order,
     })
 
 
@@ -474,6 +481,16 @@ async def product_save(request: Request):
             final_icon = icon_url if (icon_url and icon_url != _existing_icon) else _existing_icon
         else:
             final_icon = icon_url
+        # 与独立分类表保持一致:商品用到的新分类自动落表;图标以分类表为准并回写商品
+        try:
+            _cat = categories.get_or_create(db, me.id, category)
+            if _cat is not None:
+                if final_icon:
+                    _cat.icon_url = final_icon
+                elif _cat.icon_url:
+                    final_icon = _cat.icon_url
+        except Exception:  # noqa: BLE001
+            pass
 
         data = dict(
             merchant_id=me.id, category=category, category_icon_url=final_icon,
@@ -1361,8 +1378,11 @@ async def product_sort(request: Request):
 
 @router.post("/console/api/category/sort")
 async def category_sort(request: Request):
-    """保存分类展示顺序:cats 按从前到后;把该顺序写进每个分类下所有商品的 sort_order
-    (即 category 顺序 = min(sort_order)),前台按此顺序展示分类目录。"""
+    """保存分类展示顺序(cats 按从前到后)。
+
+    分类顺序写进独立分类表 product_categories.sort_order;
+    同时把该顺序下沉到商品的 sort_order,保证前台按此展示分类目录。
+    """
     me = _me(request)
     if not me:
         return err("未登录", 401)
@@ -1379,12 +1399,63 @@ async def category_sort(request: Request):
     if not clean:
         return err("无效的排序数据")
     with SessionLocal() as db:
+        categories.sort_categories(db, me.id, clean)
         for i, cat in enumerate(clean):
             db.query(Product).filter(
                 Product.merchant_id == me.id, Product.category == cat
             ).update({"sort_order": i * 100})
         db.commit()
     return {"ok": True, "message": "分类排序已保存"}
+
+
+@router.post("/console/api/category/save")
+async def category_save(request: Request):
+    """新增 / 编辑分类(仅分类自身:名称 + 图标)。
+
+    传 id=0 或省略 => 新增;传 id => 编辑。
+    """
+    me = _me(request)
+    if not me:
+        return err("未登录", 401)
+    b = await request.json()
+    try:
+        cid = int(b.get("id") or 0)
+    except (TypeError, ValueError):
+        cid = 0
+    name = b.get("name")
+    icon = b.get("icon_url")
+    with SessionLocal() as db:
+        if cid:
+            r = categories.update_category(
+                db, me.id, cid,
+                name=(str(name) if name is not None else None),
+                icon_url=(str(icon) if icon is not None else None),
+            )
+        else:
+            r = categories.create_category(db, me.id, str(name or ""), str(icon or ""))
+    if not r.get("ok"):
+        return err(r.get("message") or "保存失败")
+    return {"ok": True, "message": r.get("message") or "已保存"}
+
+
+@router.post("/console/api/category/delete")
+async def category_delete(request: Request):
+    """删除分类(分类下仍有商品时拒绝)。"""
+    me = _me(request)
+    if not me:
+        return err("未登录", 401)
+    b = await request.json()
+    try:
+        cid = int(b.get("id") or 0)
+    except (TypeError, ValueError):
+        cid = 0
+    if not cid:
+        return err("缺分类 id")
+    with SessionLocal() as db:
+        r = categories.delete_category(db, me.id, cid)
+    if not r.get("ok"):
+        return err(r.get("message") or "删除失败")
+    return {"ok": True, "message": r.get("message") or "分类已删除"}
 
 
 # ── 爱发电回调测试日志(管理员) ─────────────────────────────

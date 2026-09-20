@@ -82,11 +82,9 @@ class LoginLock(Base):
 class ProductCategory(Base):
     """店铺分类(独立表,与 SKU 解耦)。
 
-    为什么独立:分类的「名称/图标/排序」原先寄生在 products 的字段上
-    (靠 groupby 推导),导致改名/改图标/排序都要动商品行。独立后:
-      - 分类可单独新增、改名、换图标、排序;
-      - 商品仍用 products.category(字符串) 关联本表 name,保持订单/前台逻辑不变。
-    迁移:首次取分类时会用现有商品的 category 回填(见 sync_from_products)。
+    分类的「名称/图标/排序」都在本表;商品用 products.category_id 关联本表 id,
+    因此改名/换图标只需改这一行,不必触碰商品行。
+    服务层见 app/services/categories.py。
     """
     __tablename__ = "product_categories"
     id = Column(Integer, primary_key=True, autoincrement=True)

@@ -124,7 +124,7 @@ html,body{height:100%}
       <aside id="shop-catbar" role="navigation" aria-label="商品分类" style="flex:0 0 184px;position:sticky;top:20px;max-height:70vh;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;box-shadow:0 2px 10px rgba(0,0,0,.04)"><div style="font-size:11px;font-weight:800;color:var(--ink-500);letter-spacing:.4px;padding:2px 6px 10px">分类目录</div>
       {% for _cat, _its in groups %}
       <button type="button" data-ci="{{ loop.index0 }}" style="display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;color:var(--ink-800);text-align:left;padding:8px 6px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer" onclick="shopPick({{ loop.index0 }}, this)">
-        {% set _ci = (_its[0].category_icon_url if (_its and _its[0] is defined and _its[0].get('category_icon_url')) else '') or (platformLogo or '') %}
+        {% set _ci = (cat_icon.get(_cat) if cat_icon else '') or (platformLogo or '') %}
         {% if _ci %}<img src="{{ _ci }}" alt="" style="width:16px;height:16px;object-fit:contain;flex-shrink:0" onerror="this.remove()">{% endif %}
         <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0">{{ _cat }}</span>
       </button>

@@ -43,8 +43,8 @@
     .cat-mv{display:inline-flex;gap:4px;margin-left:auto}
     .cat-ed{display:inline-flex;gap:4px;margin-left:8px}
     .cat-add{display:inline-flex;gap:4px;margin-left:6px}
-    .cat-ed .btn, .cat-mv .btn, .cat-add .btn{padding:2px 8px;line-height:1.5;display:inline-flex;align-items:center;gap:3px}
-    .cat-mv .btn{padding:2px 8px;line-height:1.5}
+    /* 分类卡片头按钮:统一高度 —— 纯图标的上/下移按钮原本比带文字的按钮矮 5px,显得扁 */
+    .cat-ed .btn, .cat-mv .btn, .cat-add .btn{padding:4px 9px;min-height:26px;box-sizing:border-box;line-height:1.5;display:inline-flex;align-items:center;justify-content:center;gap:3px}
     .cat-block.collapsed .chev{transform:rotate(-90deg)}
     .cat-block-body{display:block}
     .cat-block.collapsed .cat-block-body{display:none}

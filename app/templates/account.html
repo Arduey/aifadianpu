@@ -530,7 +530,15 @@ async function savePwd(){
   if(d){ ['pwd-current','pwd-next','pwd-confirm'].forEach(i=>document.getElementById(i).value=''); }
 }
 async function deactivate(){
-  if(!confirm('注销后账号立即停用、无法登录;商品、订单与余额数据全部保留,需管理员重新启用方可恢复。确定继续?')) return;
+  var ok = await appConfirm({
+    title: '注销账号',
+    message: '注销后账号将立即停用，且无法登录。',
+    lines: ['商品、订单与余额数据全部保留', '需管理员重新启用后方可恢复'],
+    okText: '确定注销',
+    cancelText: '再想想',
+    danger: true
+  });
+  if(!ok) return;
   const d=await post('/console/api/account/deactivate',{},'账号已注销停用');
   if(d) setTimeout(()=>location.href='/',900);
 }
@@ -609,11 +617,18 @@ function stopRPoll(){ if(rTimer){clearInterval(rTimer);rTimer=null;} }
 function rPayShown(){ var el=document.getElementById('r-pay'); return !!(el && el.style.display==='block'); }
 function rLock(on){ var m=document.getElementById('r-modal'); if(!m) return; if(on){ m.setAttribute('data-lock-close-outside','1'); } else { m.removeAttribute('data-lock-close-outside'); } }
 function rCloseModal(){ rLock(false); stopRPoll(); closeModal('r-modal'); }
-function cancelFlow(){
+async function cancelFlow(){
   if (!rPayShown()){ rCloseModal(); return; }
-  // 仅在支付/等待查询阶段提示；用户若点“否”则不中断仍继续轮询
-  var msg='此订单将不检测付款状态,即使已付款也不会自动充值到账,需联系管理员手动充值。确定取消吗?';
-  if (window.confirm(msg)) rCloseModal();
+  // 仅在支付/等待查询阶段提示；用户若选“继续等待”则不中断仍继续轮询
+  var ok = await appConfirm({
+    title: '取消充值',
+    message: '确定取消本次充值吗？',
+    lines: ['该订单将不再检测付款状态', '即使已付款也不会自动充值到账，需联系管理员手动充值'],
+    okText: '确定取消',
+    cancelText: '继续等待',
+    danger: true
+  });
+  if (ok) rCloseModal();
 }
 function cancelModalX(){ if(rPayShown()) cancelFlow(); else rCloseModal(); }
 </script>

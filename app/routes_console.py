@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from . import auth, config, settings
 from .db import (FeeLedger, Notice, Order, OrderStat, Product, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
 from .render import render
-from .services import afdian, afd_login, afd_live, email_templates, mailer, pipeline
+from .services import afdian, afd_login, afd_live, delivery, email_templates, mailer, pipeline
 from .utils import has_amp
 
 router = APIRouter()
@@ -59,10 +59,21 @@ def products_page(request: Request):
         return resp
     with SessionLocal() as db:
         rows = db.query(Product).filter(Product.merchant_id == me.id).order_by(Product.category, Product.sort_order, Product.id).all()
+        _stats = {}
+        for p in rows:
+            if p.delivery_type == "platform" and p.delivery_kind == "card":
+                _stats[p.id] = delivery.cards_stats(db, p.id)
         items = [{
             "id": p.id, "category": p.category, "category_icon_url": p.category_icon_url,
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
             "is_recharge": 1 if p.is_recharge else 0, "recharge_grant_cents": p.recharge_grant_cents,
+            "delivery_type": p.delivery_type or "merchant",
+            "delivery_kind": p.delivery_kind or "",
+            "delivery_link": p.delivery_link or "",
+            "delivery_tip": p.delivery_tip or "",
+            "stock": int((_stats.get(p.id) or {}).get("available", 0)),
+            "stock_locked": int((_stats.get(p.id) or {}).get("locked", 0)),
+            "stock_used": int((_stats.get(p.id) or {}).get("used", 0)),
         } for p in rows]
         _plogo = platform_settings(db).platform_logo_url or ""
     return render(request, "products.html", {
@@ -354,6 +365,22 @@ async def product_save(request: Request):
     sku = str(b.get("sku_name", "")).strip()
     price = b.get("price", "")
     grant_yuan = str(b.get("recharge_grant", "")).strip()
+    # 发货方式(SKU 级)
+    delivery_type = str(b.get("delivery_type", "merchant") or "merchant").strip()
+    delivery_kind = str(b.get("delivery_kind", "") or "").strip()
+    delivery_link = str(b.get("delivery_link", "") or "").strip()[:1000]
+    delivery_tip = str(b.get("delivery_tip", "") or "").strip()[:500]
+    if delivery_type not in ("merchant", "platform"):
+        delivery_type = "merchant"
+    if delivery_type == "merchant":
+        delivery_kind, delivery_link = "", ""
+    elif delivery_kind not in ("card", "link"):
+        return err("请选择平台发货的具体方式(卡密 / 链接)")
+    elif delivery_kind == "link":
+        if not delivery_link:
+            return err("链接型发货需填写链接")
+        if not (delivery_link.startswith("http://") or delivery_link.startswith("https://")):
+            return err("链接需以 http:// 或 https:// 开头")
 
     if not category or not title or not sku:
         return err("分类/标题/SKU 均不能为空")
@@ -412,6 +439,8 @@ async def product_save(request: Request):
             merchant_id=me.id, category=category, category_icon_url=final_icon,
             title=title, sku_name=sku, price=price_i,
             is_recharge=is_recharge, recharge_grant_cents=grant_cents if is_recharge else 0,
+            delivery_type=delivery_type, delivery_kind=delivery_kind,
+            delivery_link=delivery_link, delivery_tip=delivery_tip,
         )
         if pid:
             product = db.get(Product, pid)
@@ -448,6 +477,89 @@ async def product_delete(request: Request):
         db.delete(product)
         db.commit()
     return {"ok": True, "message": "商品已删除"}
+
+
+# ═══════════════ JSON:卡密库存(SKU 级) ═══════════════
+
+@router.get("/console/api/product/cards")
+def product_cards(request: Request):
+    """查看某商品的卡密:统计 + 列表(未用/锁定/已用)"""
+    me = _me(request)
+    if not me:
+        return err("未登录", 401)
+    try:
+        pid = int(request.query_params.get("id") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    if not pid:
+        return err("缺少商品 id")
+    with SessionLocal() as db:
+        p = db.get(Product, pid)
+        if not p or (p.merchant_id != me.id and me.role != "admin"):
+            return err("无权查看该商品", 403)
+        stats = delivery.cards_stats(db, pid)
+        rows = delivery.list_cards(db, pid, limit=800)
+    return {"ok": True, "stats": stats, "cards": rows}
+
+
+@router.post("/console/api/product/cards/import")
+async def product_cards_import(request: Request):
+    """粘贴导入卡密(一行一个,同一商品内去重)"""
+    me = _me(request)
+    if not me:
+        return err("未登录", 401)
+    b = await request.json()
+    try:
+        pid = int(b.get("id") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    text = str(b.get("text") or "")
+    if not pid:
+        return err("缺少商品 id")
+    if not text.strip():
+        return err("请粘贴卡密内容(一行一个)")
+    with SessionLocal() as db:
+        p = db.get(Product, pid)
+        if not p or (p.merchant_id != me.id and me.role != "admin"):
+            return err("无权操作该商品", 403)
+        if not (p.delivery_type == "platform" and p.delivery_kind == "card"):
+            return err("该商品未设置为「平台发货 · 卡密」")
+        r = delivery.import_cards(db, pid, p.merchant_id, text)
+        db.commit()
+        stats = delivery.cards_stats(db, pid)
+    msg = f"已导入 {r['added']} 条"
+    if r["dup"]:
+        msg += f",跳过重复 {r['dup']} 条"
+    return {"ok": True, "message": msg, "added": r["added"], "dup": r["dup"], "stats": stats}
+
+
+@router.post("/console/api/product/cards/clean")
+async def product_cards_clean(request: Request):
+    """清理:删除未售出的卡密(用于重新导入) / 清理同商品内重复"""
+    me = _me(request)
+    if not me:
+        return err("未登录", 401)
+    b = await request.json()
+    try:
+        pid = int(b.get("id") or 0)
+    except (TypeError, ValueError):
+        pid = 0
+    mode = str(b.get("mode") or "unused")
+    if not pid:
+        return err("缺少商品 id")
+    with SessionLocal() as db:
+        p = db.get(Product, pid)
+        if not p or (p.merchant_id != me.id and me.role != "admin"):
+            return err("无权操作该商品", 403)
+        if mode == "dedup":
+            n = delivery.prune_duplicate_cards(db, pid)
+            msg = f"已清理重复卡密 {n} 条"
+        else:
+            n = delivery.delete_unused_cards(db, pid, p.merchant_id)
+            msg = f"已删除未售出卡密 {n} 条"
+        db.commit()
+        stats = delivery.cards_stats(db, pid)
+    return {"ok": True, "message": msg, "deleted": n, "stats": stats}
 
 
 # ═══════════════ JSON:个人中心 ═══════════════
@@ -1037,6 +1149,10 @@ def admin_products(request: Request):
             "id": p.id, "category": p.category, "title": p.title, "sku_name": p.sku_name,
             "price": p.price, "is_recharge": 1 if p.is_recharge else 0,
             "merchant_email": em, "merchant_shop": sn,
+            "delivery_type": p.delivery_type or "merchant",
+            "delivery_kind": p.delivery_kind or "",
+            "stock": (delivery.cards_stats(db, p.id)["available"]
+                      if (p.delivery_type == "platform" and p.delivery_kind == "card") else 0),
         } for p, em, sn in rows]
     return {"ok": True, "products": items}
 

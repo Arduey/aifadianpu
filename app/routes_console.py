@@ -82,10 +82,13 @@ def products_page(request: Request):
                 _sold_amt[_pid] = _sold_amt.get(_pid, 0) + int(_total or 0)
         # 分类销量汇总(用于分类头部显示)
         _cat_sold = {}
+        _cat_amount = {}
         for p in rows:
             _k = f"{p.category}|{p.title}|{p.sku_name}"
             _n = _sold.get(p.id, 0) or _sold_key.get(_k, 0)
+            _a = _sold_amt.get(p.id, 0) or _sold_key_amt.get(_k, 0)
             _cat_sold[p.category] = _cat_sold.get(p.category, 0) + _n
+            _cat_amount[p.category] = _cat_amount.get(p.category, 0) + _a
         items = [{
             "id": p.id, "category": p.category, "category_icon_url": p.category_icon_url,
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
@@ -99,11 +102,13 @@ def products_page(request: Request):
             "stock_used": int((_stats.get(p.id) or {}).get("used", 0)),
             "sold": (lambda _k: (_sold.get(p.id, 0) or _sold_key.get(_k, 0)))(
                 f"{p.category}|{p.title}|{p.sku_name}"),
+            "sold_amount": (lambda _k: (_sold_amt.get(p.id, 0) or _sold_key_amt.get(_k, 0)))(
+                f"{p.category}|{p.title}|{p.sku_name}"),
         } for p in rows]
         _plogo = platform_settings(db).platform_logo_url or ""
     return render(request, "products.html", {
         "products": items, "configured": me.is_afdian_configured(), "is_admin": me.role == "admin",
-        "platformLogo": _plogo, "cat_sold": _cat_sold,
+        "platformLogo": _plogo, "cat_sold": _cat_sold, "cat_amount": _cat_amount,
     })
 
 

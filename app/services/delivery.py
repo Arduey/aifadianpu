@@ -16,7 +16,7 @@
 import logging
 from datetime import datetime
 
-from ..db import DeliveryRecord, Product, SessionLocal, StockCard
+from ..db import DeliveryRecord, Order, Product, SessionLocal, StockCard
 
 log = logging.getLogger("afdianpu.delivery")
 
@@ -34,6 +34,53 @@ def is_card_type(p: Product) -> bool:
 def is_link_type(p: Product) -> bool:
     return (getattr(p, "delivery_type", "merchant") or "merchant") == "platform" and \
            (getattr(p, "delivery_kind", "") or "") == "link"
+
+
+def is_limited(p: Product) -> bool:
+    """是否为「限购总量」类商品(商户发货 / 链接发货且设了上限)"""
+    if is_card_type(p):
+        return False
+    return int(getattr(p, "stock_limit", 0) or 0) > 0
+
+
+def limited_sold(db, product_id: int) -> int:
+    """限购类商品的已售数量(已付款订单数)"""
+    if not product_id:
+        return 0
+    return int(
+        db.query(Order).filter(Order.product_id == product_id, Order.status == "paid").count()
+    )
+
+
+def limited_left(db, p: Product) -> int:
+    """限购类商品剩余可售量;不限量返回 -1"""
+    _lim = int(getattr(p, "stock_limit", 0) or 0)
+    if _lim <= 0 or is_card_type(p):
+        return -1
+    return max(_lim - limited_sold(db, p.id), 0)
+
+
+def limited_left_map(db, products) -> dict:
+    """批量:限购商品剩余量 {product_id: left}"""
+    out = {}
+    ids = []
+    for p in products or []:
+        if is_limited(p):
+            ids.append(p.id)
+            out[p.id] = int(getattr(p, "stock_limit", 0) or 0)
+    if not ids:
+        return out
+    rows = (
+        db.query(Order.product_id)
+        .filter(Order.product_id.in_(ids), Order.status == "paid")
+        .all()
+    )
+    for (pid,) in rows:
+        if pid in out:
+            out[pid] = out[pid] - 1
+    for k in list(out.keys()):
+        out[k] = max(out[k], 0)
+    return out
 
 
 # ── 库存统计 ──────────────────────────────────────────────

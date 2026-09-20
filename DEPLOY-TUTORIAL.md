@@ -56,7 +56,6 @@
 /www/wwwroot/afdianpu/
 ├── main.py
 ├── requirements.txt
-├── .env.example           # 稍后复制成 .env
 ├── .env                   # (重要!)你的私有配置,不要外传
 ├── database/schema.sql
 ├── app/

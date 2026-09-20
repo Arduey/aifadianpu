@@ -70,7 +70,7 @@ yum install -y wget && wget -O install.sh https://download.bt.cn/install/install
 上传方式任选:宝塔「文件」上传 / FTP / `git clone`。
 
 > ⚠️ 上传的是**完整的 `fastapi/` 内容**(`main.py`、`app/`、`database/`、`deploy_check.py` 等)。
-> **不要复制 `.env.example` 为 `.env`** —— 本流程不需要预填 env;`.env` 会由安装向导自动生成。
+> **本流程不需要预填 env** —— `.env` 会由安装向导自动生成,无需手工创建。
 
 ---
 
@@ -177,5 +177,4 @@ cd /www/wwwroot/afd
 - `deploy_check.py` —— 部署自检脚本(建议每次部署后先跑)
 - `database/schema.sql` —— 表结构(可选手工导入;程序也会自动建)
 - `database/reset.sql` —— 清库重装
-- `.env.example` —— 仅供参考(实际 `.env` 由安装向导自动生成,无需手编)
 - `DEPLOY-TUTORIAL.md` —— 更详细的操作图解版(若需要)

@@ -68,7 +68,7 @@
         {% if cat_icon or platformLogo %}<img src="{{ cat_icon or platformLogo }}" alt="" class="cat-ico" loading="lazy" onerror="this.remove()">{% else %}<span class="cat-ico cat-ico-empty"><morph-icon data-name="package" size="12"></morph-icon></span>{% endif %}
         <b>{{ cat }}</b>
         <span class="badge badge-neutral">{{ rows|length }} 个商品</span>
-        <span class="badge badge-good" title="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(cat, 0) }}</span>
+        <span class="badge badge-good" title="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(cat, 0) }} 件 · ¥{{ cat_amount.get(cat, 0) }}</span>
         <span class="cat-mv" title="调整分类顺序（影响前台店铺分类目录）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'>↑</span>
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'>↓</span>
@@ -83,7 +83,9 @@
           <tr data-cat="{{ p.category }}" data-id="{{ p.id }}" class="prow">
             <td><b>{{ p.title }}</b> {% if p.is_recharge %}<span class="badge badge-warn">充值</span>{% endif %}</td>
             <td>{{ p.sku_name }}</td>
-            <td style="text-align:right;font-weight:700;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" title="历史已付款订单件数">{{ p.sold }}</td>
+            <td style="text-align:right;font-weight:700;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" title="历史已付款：件数 / 金额">
+              {% if p.sold %}{{ p.sold }} 件<div style="font-size:10.5px;font-weight:600;color:var(--ink-400)">¥{{ p.sold_amount }}</div>{% else %}0{% endif %}
+            </td>
             <td>
               {% if p.delivery_type == 'platform' and p.delivery_kind == 'card' %}
                 <span class="badge badge-brand"><morph-icon data-name="key" size="11"></morph-icon> 卡密</span>

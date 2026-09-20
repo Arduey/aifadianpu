@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}自助提货 · 爱发电铺{% endblock %}
+{% block body %}
+<header class="topbar">
+  <a href="/" style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="logo-box" style="width:30px;height:30px"><morph-icon data-name="zap" size="15"></morph-icon></span> 爱发电铺 · 自助提货</a>
+  <nav style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="/" class="btn btn-outline btn-sm">返回首页</a>
+  </nav>
+</header>
+
+<main class="pickup-wrap">
+  <div class="pickup-card">
+    <h1 class="display" style="font-size:20px;margin:0 0 6px;display:flex;align-items:center;gap:8px">
+      <morph-icon data-name="package" size="18"></morph-icon> 自助提货
+    </h1>
+    <p class="muted" style="font-size:12.5px;line-height:1.8;margin:0 0 14px">
+      输入下单后的<b>订单号</b>即可查询商品内容（卡密 / 链接 / 商家联系方式）。<b>无需登录</b>；同一订单可重复查询，返回的始终是同一份内容，请妥善保管。
+    </p>
+
+    <div class="pickup-form">
+      <input id="pickup-order" placeholder="请输入订单号（例如 AFD… 或爱发电订单号）" autocomplete="off" onkeydown="if(event.key==='Enter')doPickup()">
+      <button class="btn btn-primary" id="pickup-btn" onclick="doPickup()">查询</button>
+    </div>
+    <div id="pickup-msg" class="pickup-msg" style="display:none"></div>
+
+    <div id="pickup-result" style="display:none">
+      <div class="pk-sec">
+        <div class="pk-t">订单信息</div>
+        <table class="pk-table"><tbody id="pk-order"></tbody></table>
+      </div>
+      <div class="pk-sec">
+        <div class="pk-t" id="pk-deliv-title">发货内容</div>
+        <div id="pk-deliv"></div>
+      </div>
+      <div class="pk-sec">
+        <div class="pk-t">需要帮助？</div>
+        <div class="muted" style="font-size:12.5px;line-height:1.9" id="pk-contact"></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="muted" style="text-align:center;font-size:11px;margin-top:16px">
+    提示：订单号在付款页面与你的购买记录里都能看到；若订单号丢失，请联系卖家客服。
+  </p>
+</main>
+{% endblock %}
+{% block style %}
+<style>
+.pickup-wrap{max-width:620px;margin:0 auto;padding:28px 16px 80px}
+.pickup-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px;box-shadow:0 1px 3px rgba(32,29,23,.05)}
+.pickup-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pickup-form input{flex:1;min-width:220px}
+.pickup-msg{margin-top:12px;padding:10px 12px;border-radius:10px;font-size:12.5px;line-height:1.8;border:1px solid}
+.pk-sec{margin-top:16px;border-top:1px dashed var(--line);padding-top:14px}
+.pk-t{font-size:11px;font-weight:800;color:var(--ink-400);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+.pk-table{width:100%;border-collapse:collapse;font-size:12.5px}
+.pk-table td{padding:5px 0;color:var(--ink-700)}
+.pk-table td:first-child{color:var(--ink-400);width:86px;white-space:nowrap}
+.pk-code{display:flex;align-items:center;gap:10px;background:var(--ink-950);color:var(--brand-200);border-radius:10px;padding:14px 16px;word-break:break-all;font-family:ui-monospace,Consolas,Menlo,monospace;font-size:14px;line-height:1.7}
+.pk-code .val{flex:1;min-width:0;white-space:pre-wrap}
+.pk-link{word-break:break-all;color:var(--brand);font-size:13px;line-height:1.8}
+.pk-empty{font-size:13px;color:var(--ink-500);line-height:1.9;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.pk-tip{font-size:12px;color:var(--ink-500);line-height:1.8;margin-top:8px}
+</style>
+{% endblock %}
+{% block script %}
+<script>
+function pkMsg(t, kind){
+  var el=document.getElementById('pickup-msg'); if(!el) return;
+  el.style.display='block';
+  el.textContent=t;
+  if(kind==='bad'){ el.style.background='#FEF3F2'; el.style.borderColor='#F1C4C1'; el.style.color='#B42318'; }
+  else if(kind==='warn'){ el.style.background='#FFFAEB'; el.style.borderColor='#F2D08A'; el.style.color='#B54708'; }
+  else { el.style.background='var(--paper)'; el.style.borderColor='var(--line)'; el.style.color='var(--ink-600)'; }
+}
+function pkRow(k,v){ return '<tr><td>'+k+'</td><td>'+v+'</td></tr>'; }
+function escH(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+async function doPickup(){
+  var inp=document.getElementById('pickup-order');
+  var btn=document.getElementById('pickup-btn');
+  var no=(inp.value||'').trim();
+  if(!no){ pkMsg('请先填写订单号','bad'); return; }
+  btn.disabled=true; btn.textContent='查询中…';
+  document.getElementById('pickup-result').style.display='none';
+  try{
+    var r=await fetch('/api/pickup?order_no='+encodeURIComponent(no));
+    var d=await r.json().catch(function(){ return {}; });
+    if(!d.ok){ pkMsg(d.message||'查询失败','bad'); return; }
+    var o=d.order||{}, dv=d.delivery||{};
+    document.getElementById('pk-order').innerHTML =
+      pkRow('订单号', '<b>'+escH(o.order_no)+'</b>')
+      + pkRow('店铺', escH(o.shop_name||'-'))
+      + pkRow('商品', escH(o.category)+' · '+escH(o.title)+' · '+escH(o.sku))
+      + pkRow('金额', '¥'+escH(o.total))
+      + pkRow('付款方式', escH(o.channel))
+      + pkRow('下单时间', escH(o.created_at||'-'))
+      + pkRow('支付时间', escH(o.paid_at||'-'));
+    var box=document.getElementById('pk-deliv');
+    var title=document.getElementById('pk-deliv-title');
+    if(dv.kind==='card'){
+      title.textContent='你的卡密';
+      box.innerHTML='<div class="pk-code"><span class="val">'+escH(dv.content)+'</span></div>'
+        + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制卡密</button></div>';
+      window.__pkContent = dv.content;
+    } else if(dv.kind==='link'){
+      title.textContent='你的链接';
+      box.innerHTML='<div class="pk-empty" style="background:var(--card)"><a class="pk-link" href="'+escH(dv.content)+'" target="_blank" rel="noopener">'+escH(dv.content)+'</a></div>'
+        + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制链接</button></div>';
+      window.__pkContent = dv.content;
+    } else {
+      title.textContent='发货说明';
+      box.innerHTML='<div class="pk-empty">本商品由<b>商家手动发货</b>，平台不自动发放内容。请联系商家客服领取：</div>';
+      window.__pkContent = '';
+    }
+    if(dv.tip){ box.innerHTML += '<div class="pk-tip">'+escH(dv.tip)+'</div>'; }
+    var ct=[];
+    if(d.merchant_email) ct.push('商家客服：<b>'+escH(d.merchant_email)+'</b>');
+    if(d.contact) ct.push('平台客服：'+escH(d.contact));
+    ct.push('请通过正规渠道核对订单信息，谨防诈骗。');
+    document.getElementById('pk-contact').innerHTML=ct.join('<br>');
+    document.getElementById('pickup-result').style.display='';
+    pkMsg('查询成功。请及时保存内容，同一订单可重复查询。','ok');
+  }catch(e){
+    pkMsg('网络异常，请稍后重试','bad');
+  }finally{
+    btn.disabled=false; btn.textContent='查询';
+  }
+}
+function copyPk(){
+  var t=window.__pkContent||''; if(!t) return;
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(t); pkMsg('已复制到剪贴板','ok'); }
+    else { var ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); pkMsg('已复制到剪贴板','ok'); }
+  }catch(e){ pkMsg('复制失败，请手动选择复制','warn'); }
+}
+(function(){
+  // 支持 /pickup?order_no=xxx 直接带出结果(从支付成功页跳转过来)
+  try{
+    var q=new URLSearchParams(location.search);
+    var no=(q.get('order_no')||'').trim();
+    if(no){ var el=document.getElementById('pickup-order'); if(el){ el.value=no; } doPickup(); }
+  }catch(e){}
+})();
+</script>
+{% endblock %}

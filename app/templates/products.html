@@ -95,8 +95,10 @@
                 <button class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick='openCardsFor({{ p.id }}, {{ p.title|tojson }})'>管理</button>
               {% elif p.delivery_type == 'platform' and p.delivery_kind == 'link' %}
                 <span class="badge badge-good"><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
+                {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% else %}
                 <span class="muted" style="font-size:11px">商户发货</span>
+                {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% endif %}
             </td>
             <td class="money" style="text-align:right">¥{{ p.price }}</td>
@@ -179,7 +181,10 @@
             </div>
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="dv-limit-box">
+          <label>限购总量 <span class="hint">可选 · 0 或留空 = 不限量；填数字则卖完自动显示「已售罄」不可购买（卡密型不用此项，按卡密库存算）</span></label>
+          <input name="stock_limit" id="dv-limit" type="number" min="0" step="1" placeholder="0 = 不限量" autocomplete="off">
+        </div>        <div class="field">
           <label>提货说明 <span class="hint">可选 · 显示在提货页，如「请到 xx 网站兑换」</span></label>
           <input name="delivery_tip" maxlength="500" placeholder="例如：请登录 https://xx.com 使用卡密兑换" autocomplete="off">
         </div>
@@ -338,6 +343,7 @@ function openForm(p){
   if(_dk) _dk.value = (p && (p.delivery_kind==='card'||p.delivery_kind==='link')) ? p.delivery_kind : 'card';
   form.delivery_link.value = (p && p.delivery_link) ? p.delivery_link : '';
   form.delivery_tip.value = (p && p.delivery_tip) ? p.delivery_tip : '';
+  if(form.stock_limit) form.stock_limit.value = (p && p.stock_limit) ? p.stock_limit : '';
   window.__curPid = p ? p.id : 0;
   window.__curStock = p ? (p.stock||0) : 0;
   dvToggle();
@@ -358,6 +364,9 @@ function dvToggle(){
   }
   var sh=document.getElementById('dv-stock-hint');
   if(sh){ sh.textContent = (window.__curPid) ? ('当前可售库存 '+(window.__curStock||0)+'，点「管理卡密」导入') : '保存商品后可在此管理卡密'; }
+  // 限购总量:卡密型不用(按卡密库存算),其余(商户发货/链接发货)可设
+  var lbox=document.getElementById('dv-limit-box');
+  if(lbox){ lbox.style.display = (t==='platform' && k==='card') ? 'none' : ''; }
 }
 /* 卡密管理 */
 function openCards(){ var pid=window.__curPid||0; if(!pid){ toast('warn','请先保存商品'); return; } openCardsFor(pid, form.title.value||''); }

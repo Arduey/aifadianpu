@@ -420,9 +420,7 @@ async def product_save(request: Request):
         return err("请选择平台发货的具体方式(卡密 / 链接)")
     elif delivery_kind == "link":
         if not delivery_link:
-            return err("链接型发货需填写链接")
-        if not (delivery_link.startswith("http://") or delivery_link.startswith("https://")):
-            return err("链接需以 http:// 或 https:// 开头")
+            return err("链接型发货需填写内容(链接或发货提示文字)")
 
     if not category or not title or not sku:
         return err("分类/标题/SKU 均不能为空")

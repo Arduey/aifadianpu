@@ -65,6 +65,93 @@ document.addEventListener('click', (e) => {
 /* 金额格式化:分 → ¥0.00 */
 function yuan(cents) { return '¥' + (cents / 100).toFixed(2); }
 
+/* ═══ 站内确认弹窗:替代 window.confirm ═══
+   用法(需 await):
+     if (!await appConfirm('确定删除?')) return;
+     if (!await appConfirm({ title:'删除分类', message:'…', lines:['…','…'],
+                             okText:'删除', danger:true })) return;
+   返回 Promise<boolean>。全程不使用浏览器原生 alert/confirm。
+*/
+function appConfirm(opt) {
+  var o = (typeof opt === 'string') ? { message: opt } : (opt || {});
+  var title = o.title || '请确认';
+  var message = o.message || '';
+  var lines = o.lines || [];
+  var okText = o.okText || '确定';
+  var cancelText = o.cancelText || '取消';
+  var danger = !!o.danger;
+
+  return new Promise(function (resolve) {
+    var mask = document.createElement('div');
+    mask.className = 'modal-mask';
+    mask.setAttribute('data-app-confirm', '1');
+
+    var box = document.createElement('div');
+    box.className = 'modal';
+    box.style.maxWidth = '420px';
+
+    var head = document.createElement('div');
+    head.className = 'modal-head';
+    var hTitle = document.createElement('span');
+    hTitle.textContent = title;
+    head.appendChild(hTitle);
+    box.appendChild(head);
+
+    var body = document.createElement('div');
+    body.className = 'modal-body';
+    if (message) {
+      var p = document.createElement('div');
+      p.style.cssText = 'font-size:13px;line-height:1.7;color:var(--ink-800);white-space:pre-wrap';
+      p.textContent = message;
+      body.appendChild(p);
+    }
+    if (lines.length) {
+      var ul = document.createElement('div');
+      ul.style.cssText = 'margin-top:10px;display:flex;flex-direction:column;gap:6px';
+      lines.forEach(function (t) {
+        var li = document.createElement('div');
+        li.style.cssText = 'font-size:12px;line-height:1.6;color:var(--ink-500);padding-left:10px;border-left:2px solid var(--line)';
+        li.textContent = t;
+        ul.appendChild(li);
+      });
+      body.appendChild(ul);
+    }
+    box.appendChild(body);
+
+    var act = document.createElement('div');
+    act.style.cssText = 'display:flex;justify-content:flex-end;gap:8px;padding:0 20px 18px';
+    var bCancel = document.createElement('button');
+    bCancel.type = 'button';
+    bCancel.className = 'btn btn-ghost';
+    bCancel.textContent = cancelText;
+    var bOk = document.createElement('button');
+    bOk.type = 'button';
+    bOk.className = 'btn ' + (danger ? 'btn-danger' : 'btn-primary');
+    bOk.textContent = okText;
+    act.appendChild(bCancel);
+    act.appendChild(bOk);
+    box.appendChild(act);
+    mask.appendChild(box);
+    document.body.appendChild(mask);
+
+    function done(val) {
+      try { mask.remove(); } catch (e) {}
+      document.removeEventListener('keydown', onKey);
+      resolve(val);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') { done(false); }
+      else if (e.key === 'Enter') { e.preventDefault(); done(true); }
+    }
+    bCancel.addEventListener('click', function () { done(false); });
+    bOk.addEventListener('click', function () { done(true); });
+    mask.addEventListener('click', function (e) { if (e.target === mask) done(false); });
+    document.addEventListener('keydown', onKey);
+    setTimeout(function () { bOk.focus(); }, 30);
+  });
+}
+window.appConfirm = appConfirm;
+
 /* 北京时间显示 */
 function fmtTime(s) { return s ? String(s).replace('T', ' ').slice(0, 19) : '-'; }
 

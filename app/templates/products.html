@@ -511,8 +511,15 @@ async function doImportCards(){
 }
 async function doCleanCards(mode){
   var pid=window.__cardsPid; if(!pid) return;
-  var tip = mode==='dedup' ? '确定清理本商品内重复的卡密?(保留最早一条)' : '确定删除所有「未售出」卡密?(已售出/已锁定不受影响)';
-  if(!confirm(tip)) return;
+  var _isDedup = (mode==='dedup');
+  var ok = await appConfirm({
+    title: _isDedup ? '清理重复卡密' : '删除未售出卡密',
+    message: _isDedup ? '确定清理本商品内重复的卡密吗？' : '确定删除所有「未售出」卡密吗？',
+    lines: _isDedup ? ['重复的卡密只保留最早导入的一条'] : ['已售出 / 已锁定的卡密不受影响'],
+    okText: _isDedup ? '清理' : '删除',
+    danger: true
+  });
+  if(!ok) return;
   try{
     var d=await api('/console/api/product/cards/clean',{method:'POST',body:JSON.stringify({id:pid,mode:mode})});
     toast('success',d.message); await reloadCards();
@@ -557,7 +564,7 @@ async function delCat(){
   var cid=parseInt(cf.id.value||'0',10);
   if(!cid) return;
   var cname=cf.name.value||'';
-  if(!confirm('确定删除分类「'+cname+'」？')) return;
+  if(!await appConfirm({ title:'删除分类', message:'确定删除分类「'+cname+'」吗？', okText:'删除', danger:true })) return;
   // 第一次尝试:不级联。若分类下有商品,后端返回 409 + product_count,再弹二次确认。
   async function call(withProducts){
     var res=await fetch(withPreview('/console/api/category/delete'),{
@@ -572,9 +579,18 @@ async function delCat(){
     var r=await call(false);
     if(r.status===409 && r.data && r.data.need_confirm){
       var n=r.data.product_count||0;
-      if(!confirm('分类「'+cname+'」下还有 '+n+' 个商品。\n\n点「确定」= 连同这 '+n+' 个商品及其卡密一起删除（订单记录会保留）\n点「取消」= 放弃删除')){
-        return;
-      }
+      var okCascade = await appConfirm({
+        title: '分类下还有商品',
+        message: '分类「'+cname+'」下还有 '+n+' 个商品。',
+        lines: [
+          '确定 = 连同这 '+n+' 个商品及其卡密一起删除',
+          '订单记录会保留，历史订单不受影响'
+        ],
+        okText: '连同商品一起删除',
+        cancelText: '放弃删除',
+        danger: true
+      });
+      if(!okCascade) return;
       r=await call(true);
       if(!(r.status>=200 && r.status<300)){
         toast('error','删除失败',(r.data&&r.data.message)||('HTTP '+r.status)); return;
@@ -626,7 +642,14 @@ form.addEventListener('submit',async e=>{
   }catch(err){ toast('error','保存失败',err.message); btn.disabled=false; btn.textContent='保存'; }
 });
 async function del(id){
-  if(!confirm('确定删除该商品吗?历史订单数据不受影响。')) return;
+  var ok = await appConfirm({
+    title: '删除商品',
+    message: '确定删除该商品吗？',
+    lines: ['历史订单数据不受影响', '该商品的卡密库存会一并删除'],
+    okText: '删除',
+    danger: true
+  });
+  if(!ok) return;
   try{ await api('/console/api/product/delete',{method:'POST',body:JSON.stringify({id})}); toast('success','商品已删除'); setTimeout(()=>location.reload(),600); }
   catch(e){ toast('error','删除失败',e.message); }
 }

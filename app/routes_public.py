@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import auth, config, settings
-from .db import FeeLedger, Order, PasswordReset, PlatformSetting, Product, SessionLocal, User, platform_settings
+from .db import FeeLedger, Order, PasswordReset, PlatformSetting, Product, ProductCategory, SessionLocal, User, platform_settings
 from .render import render
 from .services import afdian, afd_login, afd_live, delivery, mailer, email_templates, pipeline, verification
 from .utils import shop_name_ok, valid_email, valid_shop_name
@@ -126,10 +126,14 @@ async def register(request: Request):
             created_at=datetime.now(),
         ))
         db.commit()
-        # 新注册商户自动创建一个默认测试商品,便于立即体验
+        # 新注册商户自动创建一个默认分类 + 默认测试商品,便于立即体验
+        _dc = ProductCategory(merchant_id=user.id, name="默认分类", icon_url="",
+                              sort_order=0, created_at=datetime.now(), updated_at=datetime.now())
+        db.add(_dc)
+        db.flush()
         db.add(Product(
-            merchant_id=user.id, category="默认分类",
-            category_icon_url="", title="测试商品", sku_name="默认SKU",
+            merchant_id=user.id, category_id=_dc.id,
+            title="测试商品", sku_name="默认SKU",
             price=5, is_recharge=False, recharge_grant_cents=0, sort_order=0,
             created_at=datetime.now(), updated_at=datetime.now(),
         ))
@@ -315,8 +319,12 @@ async def install_finish(request: Request):
                     db.refresh(admin)
                     # 管理员默认充值商品:标题「充值倍率」,SKU「1：1」,售价 10 元 → 到账 10 元(=1000 分)
                     try:
+                        _ac = ProductCategory(merchant_id=admin.id, name="API充值",
+                                              icon_url="", sort_order=0)
+                        db.add(_ac)
+                        db.flush()
                         db.add(Product(
-                            merchant_id=admin.id, category="API充值",
+                            merchant_id=admin.id, category_id=_ac.id,
                             title="充值倍率", sku_name="1：1", price=10,
                             is_recharge=True, recharge_grant_cents=1000, sort_order=0,
                         ))
@@ -646,14 +654,16 @@ def api_products(request: Request):
         if not u:
             return err("未找到该店铺(需已绑定爱发电且状态正常)", 404)
         rows = (
-            db.query(Product)
+            db.query(Product, ProductCategory)
+            .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
             .filter(Product.merchant_id == u.id, Product.is_recharge == False)  # noqa: E712
-            .order_by(Product.category, Product.sort_order, Product.id)
+            .order_by(ProductCategory.sort_order, Product.sort_order, Product.id)
             .all()
         )
         items = [
-            {"id": p.id, "category": p.category, "title": p.title, "sku_name": p.sku_name, "price": p.price}
-            for p in rows
+            {"id": p.id, "category": (c.name if c else ""), "title": p.title,
+             "sku_name": p.sku_name, "price": p.price}
+            for p, c in rows
         ]
     return {"ok": True, "shop_name": u.shop_name, "afdian_user_id": u.afdian_user_id, "products": items}
 
@@ -683,20 +693,28 @@ def shop_page(request: Request, uid: str):
             "groups": [],
         }
         if merchant.status == "active":
+            _cat_rows = (
+                db.query(ProductCategory)
+                .filter(ProductCategory.merchant_id == merchant.id)
+                .order_by(ProductCategory.sort_order, ProductCategory.id)
+                .all()
+            )
             goods = (
-                db.query(Product)
+                db.query(Product, ProductCategory)
+                .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
                 .filter(Product.merchant_id == merchant.id, Product.is_recharge == False)  # noqa: E712
-                .order_by(Product.category, Product.sort_order, Product.id)
+                .order_by(ProductCategory.sort_order, Product.sort_order, Product.id)
                 .all()
             )
             grouped: dict[str, list] = {}
             _lim_products = []
-            for g in goods:
+            for g, c in goods:
+                _cname = c.name if c else ""
                 _is_card = delivery.is_card_type(g)
                 if delivery.is_limited(g):
                     _lim_products.append(g)
-                grouped.setdefault(g.category, []).append({
-                    "id": g.id, "category": g.category, "title": g.title,
+                grouped.setdefault(_cname, []).append({
+                    "id": g.id, "category": _cname, "title": g.title,
                     "sku_name": g.sku_name, "price": g.price,
                     "delivery_kind": (g.delivery_kind if g.delivery_type == "platform" else "") or "",
                     "is_card": _is_card,
@@ -719,15 +737,14 @@ def shop_page(request: Request, uid: str):
                     for x in lst:
                         if x.get("is_limited"):
                             x["stock"] = int(_lmap.get(x["id"], 0))
-            # 分类顺序 = 该分类下最靠前商品的 sort_order(即商户在后台调的分类顺序)
-            _order = {}
-            for _c, _lst in grouped.items():
-                _order[_c] = min(int(x.get("_sort") or 0) for x in _lst)
-            _items = sorted(grouped.items(), key=lambda kv: (_order.get(kv[0], 0), kv[0]))
+            # 分类顺序已由 SQL 按 product_categories.sort_order 排好(保持插入顺序)
+            _items = list(grouped.items())
             for _lst in grouped.values():
                 for _x in _lst:
                     _x.pop("_sort", None)
             ctx["groups"] = _items
+            # 分类图标(前台分类目录用)
+            ctx["cat_icon"] = {c.name: (c.icon_url or "") for c in _cat_rows}
     from .auth import current_user as _shop_user
     _cu = None
     try:
@@ -763,6 +780,8 @@ async def shop_buy(request: Request):
         product = db.get(Product, product_id)
         if not product or product.is_recharge:
             return err("商品不存在", 404)
+        _cat_row = db.get(ProductCategory, product.category_id)
+        _cat_name = _cat_row.name if _cat_row else ""
         merchant = db.get(User, product.merchant_id)
         if not merchant or merchant.status != "active":
             return err("店铺已停用", 403)
@@ -787,7 +806,7 @@ async def shop_buy(request: Request):
         if delivery.is_limited(product) and delivery.limited_left(db, product) <= 0:
             return err("该商品已售罄,暂无法购买", 409)
 
-        remark = f"{product.category}&{product.title}&{product.sku_name}&{product.price}"
+        remark = f"{_cat_name}&{product.title}&{product.sku_name}&{product.price}"
         # 无人自动化下单:自动取/续登消费者 token;token 失效会自动重登再试
         pay_type = (afd_live.PAY_TYPES.get(channel) or {}).get("py_type", "wpy_qr")
         r = afd_live.live_create_auto(merchant.afdian_user_id, product.price, remark, pay_type)
@@ -800,7 +819,7 @@ async def shop_buy(request: Request):
             return err("下单失败:爱发电未返回订单号", 500)
         db.add(Order(
             order_no=order_no, product_id=product.id, merchant_id=merchant.id,
-            category=product.category, title=product.title, sku=product.sku_name,
+            category=_cat_name, title=product.title, sku=product.sku_name,
             total=product.price, channel=channel, remark=remark,
             buyer_account=s.consumer_account, buyer_email=buyer_email,
             status="pending", created_at=datetime.now(),

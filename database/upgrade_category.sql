@@ -23,7 +23,29 @@
 
 
 -- ─────────────────────────────────────────────────────────────
+-- 步骤 0/8  ★ 先跑这句「前置状态探查」（只读，不修改任何东西）
+--           它会告诉你当前库处于哪个阶段，据此决定从哪一步开始跑：
+--             has_category     = 1 → products 还有旧列, 从步骤 1 开始
+--             has_category_id  = 1 → 已加过新列, 可跳过步骤 3
+--            （分类表是否存在/有几条，跑完步骤 1 后用这句看：
+--               SELECT COUNT(*) FROM product_categories;  ）
+-- ─────────────────────────────────────────────────────────────
+SELECT
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+       AND COLUMN_NAME = 'category')            AS has_category,
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
+       AND COLUMN_NAME = 'category_id')         AS has_category_id,
+  (SELECT COUNT(*) FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'product_categories')   AS categories_table_exists;
+
+
+-- ─────────────────────────────────────────────────────────────
 -- 步骤 1/8  建独立分类表
+--           若表已存在（比如你跑过上一版精简 SQL），下面这句会静默跳过，
+--           不会修正旧定义 —— 所以随后用步骤 1b 强制补齐列默认值。
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS `product_categories` (
   `id`          INT          NOT NULL AUTO_INCREMENT,
@@ -37,6 +59,28 @@ CREATE TABLE IF NOT EXISTS `product_categories` (
   KEY `ix_product_categories_merchant_id` (`merchant_id`),
   KEY `ix_product_categories_sort_order`  (`sort_order`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='店铺分类(独立于商品)';
+
+
+-- ─────────────────────────────────────────────────────────────
+-- 步骤 1b  ★ 强制修正列定义（幂等；表是刚建的也没副作用）
+--          作用：与你库里可能存在的「旧定义表」对齐，补上各列默认值。
+--          典型报错 "Field 'created_at' doesn't have a default value"
+--          就是旧定义缺 DEFAULT 导致的，跑完这句即修复。
+--          ★ 若报 "Duplicate key name"，说明索引已存在，可忽略该句。
+-- ─────────────────────────────────────────────────────────────
+ALTER TABLE `product_categories`
+  MODIFY COLUMN `merchant_id` INT          NOT NULL,
+  MODIFY COLUMN `name`        VARCHAR(60)  NOT NULL,
+  MODIFY COLUMN `icon_url`    VARCHAR(500) NOT NULL DEFAULT '',
+  MODIFY COLUMN `sort_order`  INT          NOT NULL DEFAULT 0,
+  MODIFY COLUMN `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  MODIFY COLUMN `updated_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE `product_categories`
+  ADD KEY `ix_product_categories_merchant_id` (`merchant_id`);
+
+ALTER TABLE `product_categories`
+  ADD KEY `ix_product_categories_sort_order` (`sort_order`);
 
 
 -- ─────────────────────────────────────────────────────────────
@@ -71,6 +115,8 @@ ALTER TABLE `products` ADD COLUMN `category_id` INT NOT NULL DEFAULT 0
 
 -- ─────────────────────────────────────────────────────────────
 -- 步骤 4/8  按「商户 + 分类名」把商品的 category_id 关联到分类表
+--           ⚠️ 只有 products.category 旧列还在时才能跑（即还没执行步骤 8）。
+--           若已删旧列，这步会报 Unknown column —— 直接跳过步骤 4 即可。
 -- ─────────────────────────────────────────────────────────────
 UPDATE `products` p
 JOIN `product_categories` c

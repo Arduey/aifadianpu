@@ -16,6 +16,7 @@ from .. import config
 from .. import settings as _settings
 from ..db import FeeLedger, Order, OrderStat, SessionLocal, User, WebhookSend
 from . import email_templates, mailer
+from . import delivery
 
 log = logging.getLogger("afdianpu.pipeline")
 FEE_PER_ORDER_CENTS = config.FEE_PER_ORDER_CENTS
@@ -66,6 +67,16 @@ def mark_order_paid(order_no: str):
         paid_at_str = paid_at.strftime("%Y-%m-%d %H:%M:%S")
         _stat_merchant = order.merchant_id
         _stat_amount = order.total or 0
+
+        # ⓪ 平台发货:核销卡密 + 写发放记录(提货页据此幂等返回同一内容)
+        _deliv = None
+        try:
+            delivery.mark_paid(db, order_no)
+            _deliv = delivery.ensure_delivery(db, order)
+            if _deliv and _deliv.get("kind"):
+                order.delivered_at = paid_at
+        except Exception:  # noqa: BLE001
+            log.exception("delivery ensure failed: %s", order_no)
 
         # ① 充值订单:为充值商户加余额
         if order.recharge_for_id and order.recharge_grant_cents:
@@ -141,6 +152,33 @@ def mark_order_paid(order_no: str):
                     f"【爱发电铺】订单支付成功 {order_no}",
                     email_templates.order_email_html(payload, merchant.shop_name, f"{after_fee / 100:.2f}"),
                 )
+            # ⑤ 买家发货邮件(下单时填了收货邮箱才发;卡密/链接直接送达)
+            _buyer = (getattr(order, "buyer_email", "") or "").strip()
+            if _buyer and _deliv and _deliv.get("kind"):
+                try:
+                    _dk = "卡密" if _deliv.get("kind") == "card" else "链接"
+                    _lines = [
+                        f"您在「{merchant.shop_name}」的订单已支付成功。",
+                        "",
+                        f"订单号：{order_no}",
+                        f"商品：{order.category} · {order.title} · {order.sku}",
+                        f"金额：¥{order.total}",
+                        "",
+                        f"您的{_dk}：",
+                        str(_deliv.get("content") or ""),
+                    ]
+                    if _deliv.get("tip"):
+                        _lines += ["", str(_deliv["tip"])]
+                    _lines += ["", "如需再次查看，可到店铺页「自助提货」用订单号查询。"]
+                    if merchant.email:
+                        _lines += [f"商家客服邮箱：{merchant.email}"]
+                    mailer.send(
+                        _buyer,
+                        f"【{merchant.shop_name}】订单 {order_no} 已发货（{_dk}）",
+                        "\n".join(_lines),
+                    )
+                except Exception:  # noqa: BLE001
+                    log.exception("buyer delivery mail failed: %s", order_no)
         else:
             db.commit()
         return order
@@ -428,6 +466,16 @@ def gc_stale_pending(max_hours: float = 3.0) -> dict:
                 Order.status != "paid",
                 Order.created_at < cutoff,
             ).count()
+            # 释放这些订单锁定的卡密(方案 A:未付款单被清时,卡密回到可售库存)
+            _stale = (
+                db.query(Order.order_no)
+                .filter(Order.status != "paid", Order.created_at < cutoff)
+                .all()
+            )
+            _released = 0
+            for (_no,) in _stale:
+                if _no:
+                    _released += delivery.release_order(db, _no)
             q = db.query(Order).filter(
                 Order.status != "paid",
                 Order.created_at < cutoff,
@@ -435,6 +483,7 @@ def gc_stale_pending(max_hours: float = 3.0) -> dict:
             n = q.delete(synchronize_session=False)
             db.commit()
             out = {"deleted": int(n or 0), "expired": int(expired or 0),
+                   "cards_released": int(_released or 0),
                    "now": _dt.now().isoformat(timespec="seconds"), "error": ""}
             log.info("gc_stale_pending completed: %s", out)
             return out

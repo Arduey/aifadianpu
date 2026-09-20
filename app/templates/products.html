@@ -43,7 +43,12 @@
     .cat-block.collapsed .chev{transform:rotate(-90deg)}
     .cat-block-body{display:block}
     .cat-block.collapsed .cat-block-body{display:none}
-    .cat-block-body table{width:100%}
+    .cat-block-body table{width:100%;table-layout:fixed}
+    /* 各分类共用同一套列宽(colgroup),保证跨分类列对齐 */
+    .cat-block-body th,.cat-block-body td{overflow:hidden;text-overflow:ellipsis}
+    .cat-block-body th{white-space:nowrap}
+    .cat-block-body td.dv-col{overflow:visible;text-overflow:clip;white-space:normal;line-height:1.9}
+    .cat-block-body td.ops-col{white-space:nowrap;overflow:visible}
     /* 卡密统计胶囊 */
     .cards-stats{display:flex;gap:8px;flex-wrap:wrap}
     .cs{font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 11px;border:1px solid var(--line);background:var(--paper);color:var(--ink-600)}
@@ -77,6 +82,10 @@
       </button>
       <div class="cat-block-body">
         <table>
+          <colgroup>
+            <col style="width:20%"><col style="width:12%"><col style="width:10%">
+            <col style="width:29%"><col style="width:9%"><col style="width:20%">
+          </colgroup>
           <thead><tr><th>标题</th><th>SKU 名</th><th style="text-align:right">销量</th><th>返回方式</th><th style="text-align:right">价格</th><th style="text-align:right">操作</th></tr></thead>
           <tbody>
           {% for p in rows %}
@@ -86,7 +95,7 @@
             <td style="text-align:right;font-weight:700;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" title="历史已付款：件数 / 金额">
               {% if p.sold %}{{ p.sold }} 件<div style="font-size:10.5px;font-weight:600;color:var(--ink-400)">¥{{ p.sold_amount }}</div>{% else %}0{% endif %}
             </td>
-            <td>
+            <td class="dv-col">
               {% if p.delivery_type == 'platform' and p.delivery_kind == 'card' %}
                 <span class="badge badge-brand"><morph-icon data-name="key" size="11"></morph-icon> 卡密</span>
                 <span style="font-size:11px;font-weight:700;{% if p.stock <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">
@@ -102,7 +111,7 @@
               {% endif %}
             </td>
             <td class="money" style="text-align:right">¥{{ p.price }}</td>
-            <td style="text-align:right;white-space:nowrap">
+            <td class="ops-col" style="text-align:right">
               <button class="btn btn-ghost btn-sm" title="上移" onclick='moveRow(this,"up")'>↑</button>
               <button class="btn btn-ghost btn-sm" title="下移" onclick='moveRow(this,"down")'>↓</button>
               <button class="btn btn-outline btn-sm" onclick='addSku({{ p|tojson }})'>+ SKU</button>

@@ -90,20 +90,22 @@
   <div style="text-align:center;padding:48px;color:var(--ink-400)"><morph-icon data-name="package" size="26"></morph-icon> 还没有商品,点击右上角「新增商品」创建</div>
   {% else %}
   <div id="cat-blocks">
-    {% for cat, rows in products|groupby('category') %}
-    {% set cat_icon = (rows|map(attribute='category_icon_url')|select|first) or '' %}
-    <div class="cat-block" data-cat="{{ cat }}">
+    {% for c in cat_items %}
+    {% set rows = products|selectattr('category_id','equalto',c.id)|list %}
+    {% set cat = c.name %}
+    {% set cat_icon = c.icon_url or '' %}
+    <div class="cat-block" data-cat="{{ cat }}" data-cid="{{ c.id }}">
       <button type="button" class="cat-block-head" onclick="toggleCat(this)">
         {% if cat_icon or platformLogo %}<img src="{{ cat_icon or platformLogo }}" alt="" class="cat-ico" loading="lazy" onerror="this.remove()">{% else %}<span class="cat-ico cat-ico-empty"><morph-icon data-name="package" size="12"></morph-icon></span>{% endif %}
         <b>{{ cat }}</b>
         <span class="badge badge-neutral">{{ rows|length }} 个商品</span>
-        <span class="badge badge-good" title="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(cat, 0) }} 件 · ¥{{ cat_amount.get(cat, 0) }}</span>
+        <span class="badge badge-good" title="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(c.id, 0) }} 件 · ¥{{ cat_amount.get(c.id, 0) }}</span>
         <span class="cat-mv" title="调整分类顺序（影响前台店铺分类目录）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'>↑</span>
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'>↓</span>
         </span>
         <span class="cat-ed" title="编辑分类（名称 / 图标）">
-          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='editCat(event, {{ cat|tojson }})'><morph-icon data-name="pencil" size="12"></morph-icon> 编辑分类</span>
+          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='editCat(event, {{ c.id }})'><morph-icon data-name="pencil" size="12"></morph-icon> 编辑分类</span>
         </span>
         <span class="chev">▾</span>
       </button>
@@ -167,8 +169,8 @@
           <div class="field"><label>商品标题 <span class="fld-hint">≤24 字 · 禁 &amp;</span></label><input name="title" maxlength="24" placeholder="如：Morph 线性图标包" required></div>
           <div class="field">
             <label>所属分类 <span class="fld-hint">分类在「添加分类 / 编辑分类」中管理</span></label>
-            <select name="category" id="p-cat" required>
-              {% for c in cat_items %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}
+            <select name="category_id" id="p-cat" required>
+              {% for c in cat_items %}<option value="{{ c.id }}">{{ c.name }}</option>{% endfor %}
             </select>
           </div>
         </div>
@@ -176,7 +178,6 @@
           <div class="field"><label>SKU 名 <span class="fld-hint">≤12 字 · 禁 &amp;</span></label><input name="sku_name" maxlength="12" placeholder="如：SVG全量版" required></div>
           <div class="field"><label>价格 <span class="fld-hint">整数 ≥5 元</span></label><input name="price" type="number" min="5" step="1" placeholder="如：18" required></div>
         </div>
-        <input type="hidden" name="category_icon_url" id="cf_icon_url" value="">
 
         {% if is_admin %}
         <div id="recharge-tip" class="box" style="display:none;background:var(--brand-50);border-color:var(--brand-200)">
@@ -336,9 +337,9 @@ window.moveCat = function(ev, dir){
   var tgt = dir==='up' ? all[idx-1] : all[idx+1];
   if(!tgt){ if(window.toast) toast('info', dir==='up'?'已是第一个分类':'已是最后一个分类'); return; }
   if(dir==='up'){ wrap.insertBefore(block, tgt); } else { wrap.insertBefore(tgt, block); }
-  var cats=Array.prototype.slice.call(wrap.querySelectorAll('.cat-block')).map(function(b){ return b.getAttribute('data-cat')||''; });
+  var cats=Array.prototype.slice.call(wrap.querySelectorAll('.cat-block')).map(function(b){ return b.getAttribute('data-cid')||''; });
   if(window.toast) toast('success', dir==='up'?'分类已上移':'分类已下移');
-  api('/console/api/category/sort',{method:'POST',body:JSON.stringify({cats:cats})})
+  api('/console/api/category/sort',{method:'POST',body:JSON.stringify({ids:cats})})
     .then(function(){ if(window.toast) toast('success','分类顺序已保存（前台店铺同步生效）'); })
     .catch(function(e){ if(window.toast) toast('error','分类排序保存失败',e&&e.message); });
 };
@@ -414,9 +415,9 @@ const form = document.getElementById('p-form');
 function openForm(p){
   form.reset(); form.id.value = p?p.id:0;
   document.getElementById('form-title').textContent = p?'编辑商品':'新增商品';
-  if(p){ form.category.value=p.category; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
-  // 分类图标由「编辑分类」维护,SKU 表单不涉及(隐藏字段留空,后端会自动沿用分类图标)
-  if(form.category_icon_url) form.category_icon_url.value = '';
+  if(p){ form.category_id.value=p.category_id; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  // 分类图标由「编辑分类」维护,SKU 表单不涉及分类字段
+
   // 发货方式回填
   var _dt=document.getElementById('dv-type'), _dk=document.getElementById('dv-kind');
   if(_dt) _dt.value = (p && p.delivery_type==='platform') ? 'platform' : 'merchant';
@@ -516,11 +517,11 @@ function openCatForm(name){
   catIconPrev();
   openModal('cat-modal');
 }
-function editCat(ev, name){
+function editCat(ev, cid){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }
   var list = {{ cat_items|tojson }};
   var item = null;
-  for(var i=0;i<list.length;i++){ if(list[i].name===name){ item=list[i]; break; } }
+  for(var i=0;i<list.length;i++){ if(String(list[i].id)===String(cid)){ item=list[i]; break; } }
   var cf=document.getElementById('c-form');
   cf.reset();
   if(!item){ toast('warn','未找到该分类（请刷新页面）'); return; }
@@ -557,12 +558,17 @@ async function delCat(){
     });
   }
 })();
+function pCatName(){
+  var sel=document.getElementById('p-cat');
+  if(!sel||!sel.selectedOptions||!sel.selectedOptions[0]) return '';
+  return (sel.selectedOptions[0].textContent||'').trim();
+}
 function updateTip(){
   const tip=document.getElementById('recharge-tip');
-  if(tip) tip.style.display=(isAdmin&&form.category.value.trim()==='API充值')?'block':'none';
+  if(tip) tip.style.display=(isAdmin&&pCatName()==='API充值')?'block':'none';
 }
 
-form.category.addEventListener('change',updateTip);
+form.category_id.addEventListener('change',updateTip);
 
 form.addEventListener('submit',async e=>{
   e.preventDefault();

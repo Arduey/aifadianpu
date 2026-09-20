@@ -175,6 +175,17 @@ function tab(t){
 }
 let goodsLoaded=false;
 function escA(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+/* 发货方式标签(管理员总览):卡密显示库存,链接显示自动发货 */
+function dvLabel(p){
+  if(p.delivery_type==='platform' && p.delivery_kind==='card'){
+    var ok=(p.stock||0)>0;
+    return '<span class="badge badge-brand">卡密</span> <span style="font-size:11px;font-weight:700;color:'+(ok?'var(--good)':'var(--bad)')+'">库存 '+(p.stock||0)+'</span>';
+  }
+  if(p.delivery_type==='platform' && p.delivery_kind==='link'){
+    return '<span class="badge badge-good">链接</span>';
+  }
+  return '<span class="muted" style="font-size:11px">商户发货</span>';
+}
 /* 折叠切换:通用的 head → 最近祖先块 */
 function toggleBlock(head, cls){
   var b=head.closest('.'+cls); if(!b) return;
@@ -228,6 +239,7 @@ async function loadGoods(){
           const hay=(p.title+' '+(p.sku_name||'')+' '+cat+' '+(p.merchant_shop||'')+' '+(p.merchant_email||'')).toLowerCase();
           html+='<tr data-hay="'+escA(hay)+'">'
             +'<td><b>'+escA(p.title)+'</b>'+(p.is_recharge?' <span class="badge badge-warn">充值</span>':'')+'<div class="muted">'+escA(p.sku_name||'')+'</div></td>'
+            +'<td style="white-space:nowrap">'+dvLabel(p)+'</td>'
             +'<td class="money" style="text-align:right;white-space:nowrap">¥'+escA(p.price)+'</td>'
             +'<td style="text-align:right;white-space:nowrap"><button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="delGoods('+p.id+')"><morph-icon data-name="trash" size="13"></morph-icon> 删除</button></td>'
             +'</tr>';

@@ -135,7 +135,7 @@
                 </span>
                 <button class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick='openCardsFor({{ p.id }}, {{ p.title|tojson }})'>管理</button>
               {% elif p.delivery_type == 'platform' and p.delivery_kind == 'link' %}
-                <span class="badge badge-good"><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
+                <span class="badge badge-good"{% if p.delivery_link %} title="{{ p.delivery_link }}"{% endif %}><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
                 {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% else %}
                 <span class="muted" style="font-size:11px">商户发货</span>

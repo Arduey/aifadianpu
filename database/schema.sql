@@ -65,11 +65,23 @@ CREATE TABLE IF NOT EXISTS `login_locks` (
   PRIMARY KEY (`identifier`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录防爆破';
 
+CREATE TABLE IF NOT EXISTS `product_categories` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `merchant_id` INT UNSIGNED NOT NULL,
+  `name` VARCHAR(60) NOT NULL COMMENT '分类名,禁&;同商户内唯一',
+  `icon_url` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '空则前台回退平台LOGO',
+  `sort_order` INT NOT NULL DEFAULT 0 COMMENT '越大越靠后',
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_categories_merchant` (`merchant_id`),
+  KEY `idx_categories_sort` (`sort_order`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='店铺分类(独立于商品)';
+
 CREATE TABLE IF NOT EXISTS `products` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `merchant_id` INT UNSIGNED NOT NULL,
-  `category` VARCHAR(60) NOT NULL COMMENT '禁&;管理员建「API充值」分类=充值商品',
-  `category_icon_url` VARCHAR(500) NOT NULL DEFAULT '',
+  `category_id` INT UNSIGNED NOT NULL DEFAULT 0 COMMENT '关联 product_categories.id;分类名「API充值」=充值商品',
   `title` VARCHAR(180) NOT NULL COMMENT '禁&',
   `sku_name` VARCHAR(180) NOT NULL COMMENT '禁&;同标题下唯一',
   `price` INT NOT NULL COMMENT '元,正整数≥5',
@@ -80,7 +92,8 @@ CREATE TABLE IF NOT EXISTS `products` (
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uq_products_title_sku` (`title`,`sku_name`),
-  KEY `idx_products_merchant` (`merchant_id`)
+  KEY `idx_products_merchant` (`merchant_id`),
+  KEY `idx_products_category` (`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品';
 
 CREATE TABLE IF NOT EXISTS `orders` (

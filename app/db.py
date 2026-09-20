@@ -102,8 +102,8 @@ class Product(Base):
     __tablename__ = "products"
     id = Column(Integer, primary_key=True, autoincrement=True)
     merchant_id = Column(Integer, nullable=False, index=True)
-    category = Column(String(60), nullable=False)
-    category_icon_url = Column(String(500), nullable=False, default="")
+    # 分类改为外键关联 product_categories.id(不再存分类名字符串与图标)
+    category_id = Column(Integer, nullable=False, default=0, index=True)
     title = Column(String(180), nullable=False)
     sku_name = Column(String(180), nullable=False)
     price = Column(Integer, nullable=False)  # 元,≥5

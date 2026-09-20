@@ -510,7 +510,16 @@ def _pickup_rate_ok(ip: str, limit: int = 3, window: float = 1.0) -> bool:
 
 @router.get("/pickup")
 def pickup_page(request: Request):
-    return render(request, "pickup.html", {})
+    """自助提货页(无需登录)。返回按钮默认指向管理员店铺,查询成功后由前端改为订单所属店铺。"""
+    fallback = "/"
+    try:
+        with SessionLocal() as db:
+            adm = db.query(User).filter(User.role == "admin").order_by(User.id).first()
+            if adm and (adm.afdian_user_id or "").strip():
+                fallback = "/shop/" + adm.afdian_user_id.strip()
+    except Exception:  # noqa: BLE001
+        fallback = "/"
+    return render(request, "pickup.html", {"fallback_shop_url": fallback})
 
 
 @router.get("/api/pickup")
@@ -545,6 +554,7 @@ def api_pickup(request: Request):
                 "total": order.total,
                 "channel": "微信" if order.channel == "wechat" else "支付宝",
                 "shop_name": merchant.shop_name if merchant else "",
+                "shop_uid": (merchant.afdian_user_id if merchant else "") or "",
             },
             "delivery": {
                 "kind": info.get("kind") or "",

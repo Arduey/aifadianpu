@@ -3,9 +3,12 @@
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
   <div style="flex:1;min-width:260px">
     <h1 class="display" style="font-size:20px">商品管理</h1>
-    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类可复用(同名分类可放多个商品) · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额) · 同标题多档规格用「+ SKU」 · 「API充值」分类仅管理员可创建</p>
+    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类与 SKU 分开管理：分类在「添加分类 / 编辑分类」维护(名称+图标)，SKU 在「新增商品 / 编辑」维护 · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额) · 「API充值」分类仅管理员可创建</p>
   </div>
-  <button class="btn btn-primary" onclick="openForm()" {% if not configured %}disabled{% endif %} style="flex:none;margin-left:auto">＋ 新增商品</button>
+  <div style="display:flex;gap:8px;flex:none;margin-left:auto">
+    <button class="btn btn-outline" onclick="openCatForm()">＋ 添加分类</button>
+    <button class="btn btn-primary" onclick="openForm()" {% if not configured %}disabled{% endif %}>＋ 新增商品</button>
+  </div>
 </div>
 <script>setTimeout(function(){ if(window.toast) toast('warn','请勿创建违法商品,轻则删除商品,重则关闭账户。','爱发电平台规范'); }, 900);</script>
 {% if not configured %}
@@ -39,6 +42,8 @@
     .cat-ico-empty{background:var(--line);color:var(--ink-400)}
     .chev{transition:transform .22s;color:var(--ink-400);font-size:12px;line-height:1;margin-left:10px}
     .cat-mv{display:inline-flex;gap:4px;margin-left:auto}
+    .cat-ed{display:inline-flex;gap:4px;margin-left:8px}
+    .cat-ed .btn, .cat-mv .btn{padding:2px 8px;line-height:1.5;display:inline-flex;align-items:center;gap:3px}
     .cat-mv .btn{padding:2px 8px;line-height:1.5}
     .cat-block.collapsed .chev{transform:rotate(-90deg)}
     .cat-block-body{display:block}
@@ -97,6 +102,9 @@
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'>↑</span>
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'>↓</span>
         </span>
+        <span class="cat-ed" title="编辑分类（名称 / 图标）">
+          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='editCat(event, {{ cat|tojson }})'><morph-icon data-name="pencil" size="12"></morph-icon> 编辑分类</span>
+        </span>
         <span class="chev">▾</span>
       </button>
       <div class="cat-block-body">
@@ -133,7 +141,6 @@
             <td class="ops-col" style="text-align:right">
               <button class="btn btn-ghost btn-sm" title="上移" onclick='moveRow(this,"up")'>↑</button>
               <button class="btn btn-ghost btn-sm" title="下移" onclick='moveRow(this,"down")'>↓</button>
-              <button class="btn btn-outline btn-sm" onclick='addSku({{ p|tojson }})'>+ SKU</button>
               <button class="btn btn-ghost btn-sm" onclick='openForm({{ p|tojson }})'><morph-icon data-name="pencil" size="13"></morph-icon> 编辑</button>
               <button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="del({{ p.id }})"><morph-icon data-name="trash" size="13"></morph-icon></button>
             </td>
@@ -157,27 +164,19 @@
         <input type="hidden" name="id" value="0">
 
         <div class="pform-row c2">
-          <div class="field"><label>分类 <span class="fld-hint">≤16 字 · 禁 &amp;</span></label><input name="category" maxlength="16" placeholder="如：图标素材" required></div>
           <div class="field"><label>商品标题 <span class="fld-hint">≤24 字 · 禁 &amp;</span></label><input name="title" maxlength="24" placeholder="如：Morph 线性图标包" required></div>
+          <div class="field">
+            <label>所属分类 <span class="fld-hint">分类在「添加分类 / 编辑分类」中管理</span></label>
+            <select name="category" id="p-cat" required>
+              {% for c in cat_items %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}
+            </select>
+          </div>
         </div>
         <div class="pform-row c2">
           <div class="field"><label>SKU 名 <span class="fld-hint">≤12 字 · 禁 &amp;</span></label><input name="sku_name" maxlength="12" placeholder="如：SVG全量版" required></div>
           <div class="field"><label>价格 <span class="fld-hint">整数 ≥5 元</span></label><input name="price" type="number" min="5" step="1" placeholder="如：18" required></div>
         </div>
-
-        <div class="field">
-          <label>分类图标链接
-            <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400)"
-              data-tip="可选 · 同一分类共用一个图标，此处修改即改整个分类；未设置时前台回退平台 LOGO"></morph-icon>
-          </label>
-          <div style="display:flex;align-items:center;gap:10px">
-            <input name="category_icon_url" id="cf_icon_url" placeholder="https://…（可选）" autocomplete="off" style="flex:1;min-width:0">
-            <span title="分类图标预览" id="cf_icon_prev" style="flex:none;width:38px;height:38px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper)">
-              <b id="cf_icon_hint" style="grid-area:1/1;font-size:10px;font-weight:400;color:var(--ink-300)">预览</b>
-              <img id="cf_icon_img" src="" alt="" style="grid-area:1/1;width:100%;height:100%;object-fit:contain;padding:3px;display:none">
-            </span>
-          </div>
-        </div>
+        <input type="hidden" name="category_icon_url" id="cf_icon_url" value="">
 
         {% if is_admin %}
         <div id="recharge-tip" class="box" style="display:none;background:var(--brand-50);border-color:var(--brand-200)">
@@ -236,6 +235,40 @@
         <div class="act">
           <button type="button" class="btn btn-ghost" data-close-modal="form-modal">取消</button>
           <button type="submit" class="btn btn-primary" id="form-save">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 分类编辑弹窗(仅分类:名称 + 图标) -->
+<div class="modal-mask" id="cat-modal" data-lock-close-outside style="display:none">
+  <div class="modal" style="max-width:460px">
+    <div class="modal-head"><span id="cat-title">添加分类</span><button data-close-modal="cat-modal" style="color:var(--ink-400)"><morph-icon data-name="x" size="13"></morph-icon></button></div>
+    <div class="modal-body" style="padding:16px">
+      <form id="c-form" class="pform">
+        <input type="hidden" name="id" value="0">
+        <div class="field">
+          <label>分类名 <span class="fld-hint">≤16 字 · 禁 &amp; · 同一店铺内唯一</span></label>
+          <input name="name" maxlength="16" placeholder="如：图标素材" required>
+        </div>
+        <div class="field">
+          <label>分类图标链接
+            <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400)"
+              data-tip="可选 · 同一分类共用一个图标，此处修改即改整个分类；未设置时前台回退平台 LOGO"></morph-icon>
+          </label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input name="icon_url" id="c-icon" placeholder="https://…（可选）" autocomplete="off" style="flex:1;min-width:0">
+            <span title="图标预览" style="flex:none;width:38px;height:38px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper)">
+              <b id="c-icon-hint" style="grid-area:1/1;font-size:10px;font-weight:400;color:var(--ink-300)">预览</b>
+              <img id="c-icon-img" src="" alt="" style="grid-area:1/1;width:100%;height:100%;object-fit:contain;padding:3px;display:none">
+            </span>
+          </div>
+        </div>
+        <div class="act">
+          <button type="button" class="btn btn-ghost" id="c-del" style="margin-right:auto;color:var(--bad);display:none" onclick="delCat()">删除分类</button>
+          <button type="button" class="btn btn-ghost" data-close-modal="cat-modal">取消</button>
+          <button type="submit" class="btn btn-primary" id="c-save">保存</button>
         </div>
       </form>
     </div>
@@ -381,7 +414,9 @@ const form = document.getElementById('p-form');
 function openForm(p){
   form.reset(); form.id.value = p?p.id:0;
   document.getElementById('form-title').textContent = p?'编辑商品':'新增商品';
-  if(p){ form.category.value=p.category; form.category_icon_url.value=p.category_icon_url; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  if(p){ form.category.value=p.category; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  // 分类图标由「编辑分类」维护,SKU 表单不涉及(隐藏字段留空,后端会自动沿用分类图标)
+  if(form.category_icon_url) form.category_icon_url.value = '';
   // 发货方式回填
   var _dt=document.getElementById('dv-type'), _dk=document.getElementById('dv-kind');
   if(_dt) _dt.value = (p && p.delivery_type==='platform') ? 'platform' : 'merchant';
@@ -392,7 +427,7 @@ function openForm(p){
   window.__curPid = p ? p.id : 0;
   window.__curStock = p ? (p.stock||0) : 0;
   dvToggle();
-  updateTip(); if(window.cfPrev) cfPrev(); openModal('form-modal');
+  updateTip(); openModal('form-modal');
 }
 /* 发货方式联动:平台发货才显示类型;卡密才显示库存管理;链接才显示链接输入 */
 function dvToggle(){
@@ -463,19 +498,72 @@ async function doCleanCards(mode){
     toast('success',d.message); await reloadCards();
   }catch(e){ toast('error','操作失败',e.message); }
 }
-function addSku(p){
-  openForm(null);
-  form.category.value=p.category; form.category_icon_url.value=p.category_icon_url; form.title.value=p.title;
-  updateTip(); if(window.cfPrev) cfPrev();
-  toast('info','正在为「'+p.title+'」添加新 SKU','同一标题可挂多个 SKU 规格');
+/* ── 分类弹窗(仅分类:名称 + 图标) ───────────────── */
+function catIconPrev(){
+  var u=document.getElementById('c-icon'), i=document.getElementById('c-icon-img'), h=document.getElementById('c-icon-hint');
+  if(!u||!i||!h) return;
+  var v=(u.value||'').trim();
+  if(!v){ i.style.display='none'; i.removeAttribute('src'); h.style.display='inline'; return; }
+  h.style.display='none'; i.style.display='block';
+  i.onerror=function(){ i.style.display='none'; h.style.display='inline'; };
+  i.src=v;
 }
+function openCatForm(name){
+  var cf=document.getElementById('c-form');
+  cf.reset(); cf.id.value = 0;
+  document.getElementById('cat-title').textContent='添加分类';
+  document.getElementById('c-del').style.display='none';
+  catIconPrev();
+  openModal('cat-modal');
+}
+function editCat(ev, name){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  var list = {{ cat_items|tojson }};
+  var item = null;
+  for(var i=0;i<list.length;i++){ if(list[i].name===name){ item=list[i]; break; } }
+  var cf=document.getElementById('c-form');
+  cf.reset();
+  if(!item){ toast('warn','未找到该分类（请刷新页面）'); return; }
+  cf.id.value = item.id;
+  cf.name.value = item.name;
+  cf.icon_url.value = item.icon_url || '';
+  document.getElementById('cat-title').textContent='编辑分类';
+  document.getElementById('c-del').style.display='';
+  catIconPrev();
+  openModal('cat-modal');
+}
+async function delCat(){
+  var cf=document.getElementById('c-form');
+  var cid=parseInt(cf.id.value||'0',10);
+  if(!cid) return;
+  if(!confirm('确定删除分类「'+(cf.name.value||'')+'」？（分类下若还有商品将无法删除）')) return;
+  try{
+    var d=await api('/console/api/category/delete',{method:'POST',body:JSON.stringify({id:cid})});
+    toast('success',d.message); closeModal('cat-modal'); setTimeout(function(){ location.reload(); },600);
+  }catch(e){ toast('error','删除失败',e.message); }
+}
+(function(){
+  var cf=document.getElementById('c-form');
+  if(cf){
+    var u=document.getElementById('c-icon');
+    if(u) u.addEventListener('input',catIconPrev);
+    cf.addEventListener('submit', async function(e){
+      e.preventDefault();
+      var btn=document.getElementById('c-save'); btn.disabled=true; btn.textContent='保存中…';
+      try{
+        var d=await api('/console/api/category/save',{method:'POST',body:JSON.stringify({id:parseInt(cf.id.value||'0',10), name:cf.name.value, icon_url:cf.icon_url.value})});
+        toast('success',d.message); closeModal('cat-modal'); setTimeout(function(){ location.reload(); },600);
+      }catch(err){ toast('error','保存失败',err.message); btn.disabled=false; btn.textContent='保存'; }
+    });
+  }
+})();
 function updateTip(){
   const tip=document.getElementById('recharge-tip');
   if(tip) tip.style.display=(isAdmin&&form.category.value.trim()==='API充值')?'block':'none';
 }
-function cfPrev(){ var u=document.getElementById('cf_icon_url'); var i=document.getElementById('cf_icon_img'); var h=document.getElementById('cf_icon_hint'); if(!u||!i||!h) return; var v=(u.value||'').trim(); if(!v){ i.style.display='none'; i.removeAttribute('src'); h.style.display='inline'; return; } h.style.display='none'; i.style.display='block'; i.onerror=function(){ i.style.display='none'; h.style.display='inline'; }; i.src=v; }
-form.category.addEventListener('input',updateTip);
-(function(){ var u=document.getElementById('cf_icon_url'); if(u){ u.addEventListener('input',cfPrev); } cfPrev(); })();
+
+form.category.addEventListener('change',updateTip);
+
 form.addEventListener('submit',async e=>{
   e.preventDefault();
   const btn=document.getElementById('form-save'); btn.disabled=true; btn.textContent='保存中…';

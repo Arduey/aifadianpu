@@ -17,6 +17,11 @@ html,body{height:100%}
 .p-card:hover{transform:translateY(-3px)}
 .p-info{min-width:0}
 .p-title{font-size:13px}
+.p-titlerow{display:flex;align-items:center;gap:8px;justify-content:space-between}
+.p-stock{font-size:11px;font-weight:700;color:var(--ink-400);white-space:nowrap;flex-shrink:0}
+.p-stock-out{color:var(--bad)}
+.p-card.p-out{opacity:.55;cursor:not-allowed}
+.p-card.p-out:hover{transform:none}
 .p-sku{margin-top:8px;font-size:13px}
 .p-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
 .p-price{font-size:18px;color:var(--brand)}
@@ -55,7 +60,12 @@ html,body{height:100%}
     <a href="/" style="display:flex;align-items:center;gap:6px"><span class="logo-box" style="width:28px;height:28px;overflow:hidden;padding:0;background:transparent{% if not shop_logo_ok %} !important{% endif %}">{% if shop_logo_ok %}<img src="{{ shop.shop_logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px">{% else %}<morph-icon data-name="zap" size="13"></morph-icon>{% endif %}</span></a>
     {% if not notFound %}<span style="color:var(--ink-300)">/</span><span style="color:var(--ink-700)">{{ shop.shop_name }}</span>{% endif %}
   </div>
-  {% if not notFound %}{% if isOwner %}<a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>{% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}{% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
+  {% if not notFound %}
+  <div style="display:flex;align-items:center;gap:8px">
+    <a href="/pickup" class="btn btn-outline btn-sm" title="已购买？用订单号自助查询卡密/链接"><morph-icon data-name="package" size="13"></morph-icon> 自助提货</a>
+    {% if isOwner %}<a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>{% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
+  </div>
+  {% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
 </header>
 
 <main style="max-width:960px;width:100%;flex:1;margin:0 auto;padding:32px 16px;box-sizing:border-box">
@@ -133,14 +143,23 @@ document.addEventListener('click', function (e) {
     <section data-cat="{{ loop.index0 }}" style="margin-bottom:30px{% if not loop.first %};display:none{% endif %}">
       <div class="grid g3 cat-grid">
         {% for p in items %}
-        <button class="card p-card" onclick='openBuy({{ p|tojson }})'>
+        {% set soldout = p.is_card and p.stock <= 0 %}
+        <button class="card p-card{% if soldout %} p-out{% endif %}" {% if soldout %}disabled data-out="1"{% else %}onclick='openBuy({{ p|tojson }})'{% endif %}>
           <div class="p-info">
-            <b class="p-title">{{ p.title }}</b>
+            <div class="p-titlerow">
+              <b class="p-title">{{ p.title }}</b>
+              {% if p.is_card %}
+                {% if p.stock > 0 %}<span class="p-stock">库存 {{ p.stock }}</span>
+                {% else %}<span class="p-stock p-stock-out">缺货</span>{% endif %}
+              {% elif p.delivery_kind == 'link' %}
+                <span class="p-stock">自动发货</span>
+              {% endif %}
+            </div>
             <div class="muted p-sku">{{ p.sku_name }}</div>
           </div>
           <div class="p-foot">
             <span class="display p-price">¥{{ p.price }}</span>
-            <span class="p-cart"><morph-icon data-name="shoppingCart" size="16"></morph-icon></span>
+            <span class="p-cart">{% if soldout %}<morph-icon data-name="ban" size="16"></morph-icon>{% else %}<morph-icon data-name="shoppingCart" size="16"></morph-icon>{% endif %}</span>
           </div>
         </button>
         {% endfor %}
@@ -228,6 +247,10 @@ window.copyContact=function(v,l){
     <div class="modal-body" style="padding:14px 16px">
       <div id="buy-info" class="card" style="padding:12px;background:var(--paper);margin-bottom:12px"></div>
       <div id="pay-section" style="display:none">
+        <div class="field" style="margin-bottom:12px">
+          <label>收货邮箱 <span class="hint">选填 · 付款成功后自动把订单号与卡密/链接发送到该邮箱</span></label>
+          <input id="buyer-email" type="email" placeholder="you@example.com（可不填）" autocomplete="off">
+        </div>
         <div style="font-size:12px;font-weight:700;color:var(--ink-700);margin-bottom:8px">选择付款方式</div>
         <div class="grid g2">
           <button id="btn-wechat" class="btn btn-wechat btn-lg">微信支付</button>
@@ -260,7 +283,8 @@ window.copyContact=function(v,l){
         <div style="width:60px;height:60px;border-radius:50%;background:var(--good-100);color:var(--good);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><morph-icon data-name="check" size="24"></morph-icon></div>
         <div style="font-weight:700"><morph-icon data-name="partyPopper" size="15"></morph-icon> 支付成功</div>
         <div class="muted" style="margin-top:6px" id="done-info"></div>
-        <button class="btn btn-primary btn-block" style="margin-top:16px" data-close-modal="buy-modal">完成</button>
+        <a class="btn btn-outline btn-block" id="done-pickup" href="/pickup" style="margin-top:12px"><morph-icon data-name="package" size="14"></morph-icon> 去自助提货（卡密 / 链接）</a>
+        <button class="btn btn-primary btn-block" style="margin-top:8px" data-close-modal="buy-modal">完成</button>
       </div>
     </div>
   </div>
@@ -307,10 +331,20 @@ document.addEventListener('click', function(e){
 
 function openBuy(p) {
   currentProduct = p;
+  var _dv = '';
+  if (p.is_card) {
+    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:' + (p.stock > 0 ? 'var(--good)' : 'var(--bad)') + '">'
+        + (p.stock > 0 ? '自动发货 · 付款后可在提货页领取卡密（库存 ' + p.stock + '）' : '该商品已缺货') + '</div>';
+  } else if (p.delivery_kind === 'link') {
+    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:var(--good)">自动发货 · 付款后可在提货页领取链接</div>';
+  } else {
+    _dv = '<div style="margin-top:6px;font-size:11px;color:var(--ink-400)">商家发货 · 付款后请联系商家客服领取</div>';
+  }
   document.getElementById('buy-info').innerHTML =
     '<div class="muted">' + p.category + '</div><b>' + p.title + '</b>' +
     '<div class="muted" style="margin-top:2px">SKU:' + p.sku_name + '</div>' +
-    '<div class="display" style="font-size:20px;color:var(--brand);margin-top:6px">¥' + p.price + '</div>';
+    '<div class="display" style="font-size:20px;color:var(--brand);margin-top:6px">¥' + p.price + '</div>'
+    + _dv;
   show('pay-section');
   const w = payMethods && payMethods.wechat ? payMethods.wechat : {enabled:true,note:''};
   const a = payMethods && payMethods.alipay ? payMethods.alipay : {enabled:true,note:''};
@@ -342,7 +376,8 @@ function show(id) {
 async function createOrder(channel) {
   try {
     toast('info', '正在创建订单…');
-    const d = await api('/shop/buy', { method: 'POST', body: JSON.stringify({ product_id: currentProduct.id, channel }) });
+    const _be = (document.getElementById('buyer-email') || {}).value || '';
+    const d = await api('/shop/buy', { method: 'POST', body: JSON.stringify({ product_id: currentProduct.id, channel, buyer_email: _be.trim() }) });
     show('qr-section');
     document.getElementById('qr-pay').textContent = (channel === 'wechat' ? '微信' : '支付宝');
     document.getElementById('qr-no').textContent = d.orderNo;
@@ -359,7 +394,9 @@ async function createOrder(channel) {
       try {
         const r = await api('/shop/poll/' + d.orderNo);
         if (r.status === 'paid') { stopPoll(); bLock(false); show('done-section');
-          document.getElementById('done-info').innerHTML = '订单 <span class="code">' + d.orderNo + '</span> 已支付 ¥' + d.total.toFixed(2) + '<br>商户已收到回调与邮件通知';
+          document.getElementById('done-info').innerHTML = '订单 <span class="code">' + d.orderNo + '</span> 已支付 ¥' + d.total.toFixed(2) + '<br>可点击下方按钮查看卡密 / 链接';
+          var _dp = document.getElementById('done-pickup');
+          if (_dp) { _dp.href = '/pickup?order_no=' + encodeURIComponent(d.orderNo); }
         }
       } catch (e) { /* 继续轮询 */ }
     }, 5000);

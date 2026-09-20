@@ -4,7 +4,7 @@
 <header class="topbar">
   <a href="/" style="display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px"><span class="logo-box" style="width:30px;height:30px"><morph-icon data-name="zap" size="15"></morph-icon></span> 爱发电铺 · 自助提货</a>
   <nav style="display:flex;gap:8px;flex-wrap:wrap">
-    <a href="/" class="btn btn-outline btn-sm">返回首页</a>
+    <a href="{{ fallback_shop_url }}" id="back-shop" class="btn btn-outline btn-sm"><morph-icon data-name="store" size="13"></morph-icon> 返回店铺</a>
   </nav>
 </header>
 
@@ -87,6 +87,11 @@ async function doPickup(){
     var d=await r.json().catch(function(){ return {}; });
     if(!d.ok){ pkMsg(d.message||'查询失败','bad'); return; }
     var o=d.order||{}, dv=d.delivery||{};
+    // 返回按钮指向该订单所属店铺(未知则保留兜底=管理员商店)
+    try{
+      var bk=document.getElementById('back-shop');
+      if(bk && o.shop_uid){ bk.href='/shop/'+o.shop_uid; bk.innerHTML='<morph-icon data-name="store" size="13"></morph-icon> 返回「'+escH(o.shop_name||'店铺')+'」'; }
+    }catch(e){}
     document.getElementById('pk-order').innerHTML =
       pkRow('订单号', '<b>'+escH(o.order_no)+'</b>')
       + pkRow('店铺', escH(o.shop_name||'-'))

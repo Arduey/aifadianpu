@@ -89,6 +89,8 @@ def products_page(request: Request):
             _a = _sold_amt.get(p.id, 0) or _sold_key_amt.get(_k, 0)
             _cat_sold[p.category] = _cat_sold.get(p.category, 0) + _n
             _cat_amount[p.category] = _cat_amount.get(p.category, 0) + _a
+        # 限购类商品的剩余可售量
+        _lim_left = delivery.limited_left_map(db, [p for p in rows if delivery.is_limited(p)])
         items = [{
             "id": p.id, "category": p.category, "category_icon_url": p.category_icon_url,
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
@@ -97,6 +99,9 @@ def products_page(request: Request):
             "delivery_kind": p.delivery_kind or "",
             "delivery_link": p.delivery_link or "",
             "delivery_tip": p.delivery_tip or "",
+            "stock_limit": int(p.stock_limit or 0),
+            "limited_left": int(_lim_left.get(p.id, -1)),
+            "is_limited": bool(delivery.is_limited(p)),
             "stock": int((_stats.get(p.id) or {}).get("available", 0)),
             "stock_locked": int((_stats.get(p.id) or {}).get("locked", 0)),
             "stock_used": int((_stats.get(p.id) or {}).get("used", 0)),
@@ -400,6 +405,13 @@ async def product_save(request: Request):
     delivery_kind = str(b.get("delivery_kind", "") or "").strip()
     delivery_link = str(b.get("delivery_link", "") or "").strip()[:1000]
     delivery_tip = str(b.get("delivery_tip", "") or "").strip()[:500]
+    # 限购总量(商户发货/链接发货用;0=不限量)
+    try:
+        stock_limit = int(str(b.get("stock_limit", "0") or "0").strip() or 0)
+    except (TypeError, ValueError):
+        stock_limit = 0
+    if stock_limit < 0:
+        stock_limit = 0
     if delivery_type not in ("merchant", "platform"):
         delivery_type = "merchant"
     if delivery_type == "merchant":
@@ -471,6 +483,7 @@ async def product_save(request: Request):
             is_recharge=is_recharge, recharge_grant_cents=grant_cents if is_recharge else 0,
             delivery_type=delivery_type, delivery_kind=delivery_kind,
             delivery_link=delivery_link, delivery_tip=delivery_tip,
+            stock_limit=(0 if (delivery_type == "platform" and delivery_kind == "card") else stock_limit),
         )
         if pid:
             product = db.get(Product, pid)

@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from . import auth, config, settings
 from .db import FeeLedger, Order, PasswordReset, PlatformSetting, Product, SessionLocal, User, platform_settings
 from .render import render
-from .services import afdian, afd_login, afd_live, mailer, email_templates, pipeline, verification
+from .services import afdian, afd_login, afd_live, delivery, mailer, email_templates, pipeline, verification
 from .utils import shop_name_ok, valid_email, valid_shop_name
 
 router = APIRouter()
@@ -488,6 +488,75 @@ def api_docs(request: Request):
     return render(request, "openapi.html", {"api_base": settings.app_base_url() or str(request.base_url).rstrip("/")})
 
 
+# ── 自助提货(无需登录)──────────────────────────────────────
+# 仅凭订单号查询;3 QPS/IP 限流;同一订单始终返回同一份内容(幂等)。
+_pickup_hits: dict[str, list] = {}
+
+
+def _pickup_rate_ok(ip: str, limit: int = 3, window: float = 1.0) -> bool:
+    """简单滑动窗口限流:每 window 秒最多 limit 次"""
+    import time as _t
+    now = _t.time()
+    arr = [x for x in _pickup_hits.get(ip, []) if now - x < window]
+    if len(arr) >= limit:
+        _pickup_hits[ip] = arr
+        return False
+    arr.append(now)
+    _pickup_hits[ip] = arr
+    if len(_pickup_hits) > 5000:  # 防止字典无限增长
+        _pickup_hits.clear()
+    return True
+
+
+@router.get("/pickup")
+def pickup_page(request: Request):
+    return render(request, "pickup.html", {})
+
+
+@router.get("/api/pickup")
+def api_pickup(request: Request):
+    """提货查询:GET /api/pickup?order_no=xxx  (无需登录)"""
+    ip = _client_ip(request)
+    if not _pickup_rate_ok(ip):
+        return err("查询过于频繁,请稍后再试", 429)
+    order_no = (request.query_params.get("order_no") or "").strip()
+    if not order_no:
+        return err("请填写订单号")
+    if len(order_no) > 64:
+        return err("订单号格式不正确")
+    with SessionLocal() as db:
+        order = db.query(Order).filter(Order.order_no == order_no).first()
+        if not order:
+            return err("订单号不存在,请核对后重试", 404)
+        if order.status != "paid":
+            return err("该订单尚未支付,支付成功后即可提货", 403)
+        info = delivery.ensure_delivery(db, order)
+        db.commit()
+        merchant = db.get(User, order.merchant_id)
+        return {
+            "ok": True,
+            "order": {
+                "order_no": order.order_no,
+                "created_at": order.created_at.strftime("%Y-%m-%d %H:%M:%S") if order.created_at else "",
+                "paid_at": order.paid_at.strftime("%Y-%m-%d %H:%M:%S") if order.paid_at else "",
+                "category": order.category,
+                "title": order.title,
+                "sku": order.sku,
+                "total": order.total,
+                "channel": "微信" if order.channel == "wechat" else "支付宝",
+                "shop_name": merchant.shop_name if merchant else "",
+            },
+            "delivery": {
+                "kind": info.get("kind") or "",
+                "content": info.get("content") or "",
+                "tip": info.get("tip") or "",
+                "needs_manual": bool(info.get("needs_manual")),
+            },
+            "contact": (auth.first_admin_email() or ""),
+            "merchant_email": (merchant.email if merchant else "") or "",
+        }
+
+
 @router.get("/api/order/query")
 def api_order_query(request: Request):
     """商户查询订单数据(供外部程序发放权益):传 商户邮箱 + 订单号,仅返回已支付订单。
@@ -612,11 +681,23 @@ def shop_page(request: Request, uid: str):
             )
             grouped: dict[str, list] = {}
             for g in goods:
+                _is_card = delivery.is_card_type(g)
                 grouped.setdefault(g.category, []).append({
                     "id": g.id, "category": g.category, "title": g.title,
                     "sku_name": g.sku_name, "price": g.price,
+                    "delivery_kind": (g.delivery_kind if g.delivery_type == "platform" else "") or "",
+                    "is_card": _is_card,
+                    "stock": 0,  # 下面按需填充
                     "_sort": g.sort_order,
                 })
+            # 卡密型 SKU:批量取可售库存(0 则前台显示缺货、不可购买)
+            _card_ids = [x["id"] for _c, lst in grouped.items() for x in lst if x.get("is_card")]
+            if _card_ids:
+                _smap = delivery.stock_map(db, _card_ids)
+                for _c, lst in grouped.items():
+                    for x in lst:
+                        if x.get("is_card"):
+                            x["stock"] = int(_smap.get(x["id"], 0))
             # 分类顺序 = 该分类下最靠前商品的 sort_order(即商户在后台调的分类顺序)
             _order = {}
             for _c, _lst in grouped.items():
@@ -641,10 +722,13 @@ async def shop_buy(request: Request):
     body = await request.json()
     product_id = int(body.get("product_id", 0))
     channel = body.get("channel", "")
+    buyer_email = str(body.get("buyer_email", "") or "").strip().lower()[:120]
     if not product_id:
         return err("请选择商品")
     if channel not in ("wechat", "alipay"):
         return err("请选择付款方式(微信/支付宝)")
+    if buyer_email and not valid_email(buyer_email):
+        return err("收货邮箱格式不正确")
 
     with SessionLocal() as db:
         s = platform_settings(db)
@@ -674,6 +758,11 @@ async def shop_buy(request: Request):
         if merchant.api_balance_cents < merchant.balance_threshold_cents:
             pipeline.notify_low_balance(merchant.id)
 
+        # 平台发货·卡密:下单前先看库存,为 0 直接拒(前台已置灰,此处双保险)
+        _card_delivery = delivery.is_card_type(product)
+        if _card_delivery and delivery.stock_count(db, product.id) <= 0:
+            return err("该商品已缺货,暂无法购买", 409)
+
         remark = f"{product.category}&{product.title}&{product.sku_name}&{product.price}"
         # 无人自动化下单:自动取/续登消费者 token;token 失效会自动重登再试
         pay_type = (afd_live.PAY_TYPES.get(channel) or {}).get("py_type", "wpy_qr")
@@ -689,8 +778,13 @@ async def shop_buy(request: Request):
             order_no=order_no, product_id=product.id, merchant_id=merchant.id,
             category=product.category, title=product.title, sku=product.sku_name,
             total=product.price, channel=channel, remark=remark,
-            buyer_account=s.consumer_account, status="pending", created_at=datetime.now(),
+            buyer_account=s.consumer_account, buyer_email=buyer_email,
+            status="pending", created_at=datetime.now(),
         ))
+        # 平台发货·卡密:下单即锁定一个卡密(未付款 3 小时后清单时释放回库存)
+        if _card_delivery and not delivery.lock_card(db, product.id, order_no):
+            db.rollback()
+            return err("该商品已缺货,暂无法购买", 409)
         db.commit()
         # 统计:创建订单数(独立累计,不会因过期未付单被清理而减少)
         try:

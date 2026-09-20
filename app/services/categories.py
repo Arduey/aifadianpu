@@ -7,7 +7,7 @@
 """
 import logging
 
-from ..db import Product, ProductCategory
+from ..db import Product, ProductCategory, StockCard
 
 log = logging.getLogger("afdianpu.category")
 
@@ -104,21 +104,50 @@ def update_category(db, merchant_id: int, cat_id: int, name: str = None,
     return {"ok": True, "message": "分类已更新"}
 
 
-def delete_category(db, merchant_id: int, cat_id: int) -> dict:
-    """删除分类。若该分类下仍有商品则拒绝(避免商品悬空)。"""
+def delete_category(db, merchant_id: int, cat_id: int, with_products: bool = False) -> dict:
+    """删除分类。
+
+    - 默认：分类下还有商品则拒绝（避免误删）；
+    - with_products=True：连同该分类下所有商品一起删除（含其卡密库存）。
+      订单表 orders 不动 —— 里面存的是下单时的分类/标题/SKU 快照，历史留档。
+    """
     row = db.get(ProductCategory, cat_id)
     if not row or row.merchant_id != merchant_id:
         return {"ok": False, "message": "分类不存在或无权操作"}
-    n = (
+    _prods = (
         db.query(Product)
         .filter(Product.merchant_id == merchant_id, Product.category_id == row.id)
-        .count()
+        .all()
     )
-    if n > 0:
-        return {"ok": False, "message": f"该分类下还有 {n} 个商品，请先删除或移走这些商品"}
+    if _prods and not with_products:
+        return {"ok": False, "message": f"该分类下还有 {len(_prods)} 个商品，请先删除或移走这些商品",
+                "product_count": len(_prods), "need_confirm": True}
+    _deleted_products = 0
+    _deleted_cards = 0
+    for p in _prods:
+        _deleted_cards += delete_product_cascade(db, p)
+        _deleted_products += 1
     db.delete(row)
     db.commit()
+    if _deleted_products:
+        return {"ok": True,
+                "message": f"分类及 {_deleted_products} 个商品已删除（含 {_deleted_cards} 条卡密）"}
     return {"ok": True, "message": "分类已删除"}
+
+
+def delete_product_cascade(db, product) -> int:
+    """删除商品并清理其卡密库存，返回删除的卡密条数。调用方负责 commit。"""
+    n = 0
+    try:
+        n = (
+            db.query(StockCard)
+            .filter(StockCard.product_id == product.id)
+            .delete(synchronize_session=False)
+        ) or 0
+    except Exception:  # noqa: BLE001
+        n = 0
+    db.delete(product)
+    return int(n)
 
 
 def sort_categories(db, merchant_id: int, ids: list) -> dict:

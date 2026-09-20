@@ -7,7 +7,7 @@
 """
 import logging
 
-from ..db import Product, ProductCategory, SessionLocal
+from ..db import Product, ProductCategory
 
 log = logging.getLogger("afdianpu.category")
 
@@ -30,13 +30,6 @@ def map_by_id(db, merchant_id: int) -> dict:
 def map_by_name(db, merchant_id: int) -> dict:
     """{分类名: ProductCategory}"""
     return {c.name: c for c in list_categories(db, merchant_id)}
-            continue
-        db.add(ProductCategory(merchant_id=merchant_id, name=_c,
-                               icon_url=icon.get(_c, ""), sort_order=_s))
-        added += 1
-    if added:
-        db.commit()
-    return added
 
 
 def get_by_id(db, merchant_id: int, cat_id: int) -> ProductCategory | None:
@@ -72,8 +65,10 @@ def create_category(db, merchant_id: int, name: str, icon_url: str = "") -> dict
         .first()
     )
     _next = (int(_max.sort_order or 0) + 100) if _max else 0
-    row = ProductCategory(merchant_id=merchant_id, name=name,
-                          icon_url=(icon_url or "").strip()[:500], sort_order=_next)
+    row = ProductCategory(
+        merchant_id=merchant_id, name=name,
+        icon_url=(icon_url or "").strip()[:500], sort_order=_next,
+    )
     db.add(row)
     db.commit()
     return {"ok": True, "message": "分类已创建", "id": row.id}

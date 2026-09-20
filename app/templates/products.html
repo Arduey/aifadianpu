@@ -3,11 +3,10 @@
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
   <div style="flex:1;min-width:260px">
     <h1 class="display" style="font-size:20px">商品管理</h1>
-    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类与 SKU 分开管理：分类在「添加分类 / 编辑分类」维护(名称+图标)，SKU 在「新增商品 / 编辑」维护 · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额) · 「API充值」分类仅管理员可创建</p>
+    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类与 SKU 分开管理：先在「添加分类」建分类，再在分类卡片里「添加商品」挂 SKU · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额) · 「API充值」分类仅管理员可创建</p>
   </div>
   <div style="display:flex;gap:8px;flex:none;margin-left:auto">
     <button class="btn btn-outline" onclick="openCatForm()">＋ 添加分类</button>
-    <button class="btn btn-primary" onclick="openForm()" {% if not configured %}disabled{% endif %}>＋ 新增商品</button>
   </div>
 </div>
 <script>setTimeout(function(){ if(window.toast) toast('warn','请勿创建违法商品,轻则删除商品,重则关闭账户。','爱发电平台规范'); }, 900);</script>
@@ -43,7 +42,8 @@
     .chev{transition:transform .22s;color:var(--ink-400);font-size:12px;line-height:1;margin-left:10px}
     .cat-mv{display:inline-flex;gap:4px;margin-left:auto}
     .cat-ed{display:inline-flex;gap:4px;margin-left:8px}
-    .cat-ed .btn, .cat-mv .btn{padding:2px 8px;line-height:1.5;display:inline-flex;align-items:center;gap:3px}
+    .cat-add{display:inline-flex;gap:4px;margin-left:6px}
+    .cat-ed .btn, .cat-mv .btn, .cat-add .btn{padding:2px 8px;line-height:1.5;display:inline-flex;align-items:center;gap:3px}
     .cat-mv .btn{padding:2px 8px;line-height:1.5}
     .cat-block.collapsed .chev{transform:rotate(-90deg)}
     .cat-block-body{display:block}
@@ -86,8 +86,8 @@
     .hint-tip::after{content:"";position:absolute;left:var(--ax,50%);top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--ink-900)}
     .hint-tip.up::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--ink-900)}
   </style>
-  {% if not products %}
-  <div style="text-align:center;padding:48px;color:var(--ink-400)"><morph-icon data-name="package" size="26"></morph-icon> 还没有商品,点击右上角「新增商品」创建</div>
+  {% if not cat_items %}
+  <div style="text-align:center;padding:48px;color:var(--ink-400)"><morph-icon data-name="package" size="26"></morph-icon> 还没有分类,点击右上角「＋ 添加分类」创建，再在分类卡片里添加商品</div>
   {% else %}
   <div id="cat-blocks">
     {% for c in cat_items %}
@@ -106,6 +106,9 @@
         </span>
         <span class="cat-ed" title="编辑分类（名称 / 图标）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='editCat(event, {{ c.id }})'><morph-icon data-name="pencil" size="12"></morph-icon> 编辑分类</span>
+        </span>
+        <span class="cat-add" title="在这个分类下添加商品">
+          <span class="btn btn-primary btn-sm" role="button" tabindex="0" onclick='addProduct(event, {{ c.id }})'>＋ 添加商品</span>
         </span>
         <span class="chev">▾</span>
       </button>
@@ -148,6 +151,11 @@
             </td>
           </tr>
           {% endfor %}
+          {% if not rows %}
+          <tr><td colspan="6" style="text-align:center;padding:18px 0;color:var(--ink-400);font-size:12px">
+            这个分类下还没有商品 · 点上方「＋ 添加商品」新建
+          </td></tr>
+          {% endif %}
           </tbody>
         </table>
       </div>
@@ -412,10 +420,13 @@ var _sall_t = null;
 })();
 const isAdmin = {{ 'true' if is_admin else 'false' }};
 const form = document.getElementById('p-form');
-function openForm(p){
+function openForm(p, presetCatId){
   form.reset(); form.id.value = p?p.id:0;
   document.getElementById('form-title').textContent = p?'编辑商品':'新增商品';
-  if(p){ form.category_id.value=p.category_id; form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  if(p){ form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  // 所属分类:编辑时用商品原分类;从分类卡片「添加商品」进入时预选该分类
+  var _wantCat = p ? p.category_id : (presetCatId || 0);
+  if(_wantCat) form.category_id.value = _wantCat;
   // 分类图标由「编辑分类」维护,SKU 表单不涉及分类字段
 
   // 发货方式回填
@@ -429,6 +440,14 @@ function openForm(p){
   window.__curStock = p ? (p.stock||0) : 0;
   dvToggle();
   updateTip(); openModal('form-modal');
+}
+/* 从分类卡片进入:在该分类下新建商品(分类已锁定,避免选错) */
+function addProduct(ev, cid){
+  if(ev){ ev.stopPropagation(); ev.preventDefault(); }
+  {% if not configured %}
+  toast('warn','请先在个人中心完成爱发电绑定,才能创建商品'); return;
+  {% endif %}
+  openForm(null, cid);
 }
 /* 发货方式联动:平台发货才显示类型;卡密才显示库存管理;链接才显示链接输入 */
 function dvToggle(){

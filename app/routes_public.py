@@ -690,13 +690,17 @@ def shop_page(request: Request, uid: str):
                 .all()
             )
             grouped: dict[str, list] = {}
+            _lim_products = []
             for g in goods:
                 _is_card = delivery.is_card_type(g)
+                if delivery.is_limited(g):
+                    _lim_products.append(g)
                 grouped.setdefault(g.category, []).append({
                     "id": g.id, "category": g.category, "title": g.title,
                     "sku_name": g.sku_name, "price": g.price,
                     "delivery_kind": (g.delivery_kind if g.delivery_type == "platform" else "") or "",
                     "is_card": _is_card,
+                    "is_limited": bool(delivery.is_limited(g)),
                     "stock": 0,  # 下面按需填充
                     "_sort": g.sort_order,
                 })
@@ -708,6 +712,13 @@ def shop_page(request: Request, uid: str):
                     for x in lst:
                         if x.get("is_card"):
                             x["stock"] = int(_smap.get(x["id"], 0))
+            # 限购类(商户发货/链接发货设了上限):批量算剩余可售量
+            if _lim_products:
+                _lmap = delivery.limited_left_map(db, _lim_products)
+                for _c, lst in grouped.items():
+                    for x in lst:
+                        if x.get("is_limited"):
+                            x["stock"] = int(_lmap.get(x["id"], 0))
             # 分类顺序 = 该分类下最靠前商品的 sort_order(即商户在后台调的分类顺序)
             _order = {}
             for _c, _lst in grouped.items():
@@ -772,6 +783,9 @@ async def shop_buy(request: Request):
         _card_delivery = delivery.is_card_type(product)
         if _card_delivery and delivery.stock_count(db, product.id) <= 0:
             return err("该商品已缺货,暂无法购买", 409)
+        # 商户发货/链接发货的「限购总量」:卖完(已付款数达上限)即拒
+        if delivery.is_limited(product) and delivery.limited_left(db, product) <= 0:
+            return err("该商品已售罄,暂无法购买", 409)
 
         remark = f"{product.category}&{product.title}&{product.sku_name}&{product.price}"
         # 无人自动化下单:自动取/续登消费者 token;token 失效会自动重登再试

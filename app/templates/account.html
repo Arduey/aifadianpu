@@ -41,9 +41,9 @@
         <div class="field" style="margin:0"><label>微信</label><input id="wechat" value="{{ user.wechat }}" placeholder="选填,展示于店铺" autocomplete="off"></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px" id="contact-live">
-        {% if user.email %}<span class="badge badge-neutral" role="button" title="点击复制邮箱" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ user.email }}','邮箱')"><morph-icon data-name="mail" size="12"></morph-icon>{{ user.email }}</span>{% endif %}
-        {% if user.qq %}<span class="badge badge-neutral" role="button" title="点击复制 QQ 号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ user.qq }}','QQ号')"><img class="icon" src="/static/qq-official.svg" alt="QQ" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0">{{ user.qq }}</span>{% endif %}
-        {% if user.wechat %}<span class="badge badge-neutral" role="button" title="点击复制微信号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ user.wechat }}','微信号')"><img class="icon" src="/static/wechat-official.svg" alt="微信" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0">{{ user.wechat }}</span>{% endif %}
+        {% if user.email %}<span class="badge badge-neutral" role="button" data-tip="点击复制邮箱" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ user.email }}','邮箱')"><morph-icon data-name="mail" size="12"></morph-icon>{{ user.email }}</span>{% endif %}
+        {% if user.qq %}<span class="badge badge-neutral" role="button" data-tip="点击复制 QQ 号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ user.qq }}','QQ号')"><img class="icon" src="/static/qq-official.svg" alt="QQ" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0">{{ user.qq }}</span>{% endif %}
+        {% if user.wechat %}<span class="badge badge-neutral" role="button" data-tip="点击复制微信号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ user.wechat }}','微信号')"><img class="icon" src="/static/wechat-official.svg" alt="微信" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0">{{ user.wechat }}</span>{% endif %}
       </div>
       <div style="text-align:right;margin-top:14px"><button class="btn btn-primary" onclick="saveProfile()">保存店铺信息</button></div>
     </div>
@@ -114,7 +114,7 @@
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
               <b style="font-size:12px;color:var(--ink-600)">请求体 Body</b>
               <span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                <select id="wh_bodytype" style="width:auto;max-width:190px" title="格式速记；发送始终用正文原文，真正编码请用请求头 Content-Type 控制">
+                <select id="wh_bodytype" style="width:auto;max-width:190px" data-tip="格式速记；发送始终用正文原文，真正编码请用请求头 Content-Type 控制">
                   <option value="json" {% if user.webhook_encode == 'json' %}selected{% endif %}>JSON</option>
                   <option value="form" {% if user.webhook_encode == 'form' %}selected{% endif %}>form-urlencoded</option>
                   <option value="file" {% if user.webhook_encode == 'file' %}selected{% endif %}>文件/二进制</option>
@@ -140,7 +140,7 @@
       <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
         <div><b style="font-size:12px">订单邮件通知</b><div class="muted" style="font-size:11px">每笔付款成功后发送卡片式邮件</div></div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="previewOrderMail()" title="不发送,即时渲染订单邮件版式">预览模板</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="previewOrderMail()" data-tip="不发送,即时渲染订单邮件版式">预览模板</button>
           <button class="btn btn-outline btn-sm" onclick="testOrderMail(this)">发送测试</button>
           <input type="checkbox" id="email_notify" {% if user.email_notify %}checked{% endif %} style="width:18px;height:18px">
         </div>
@@ -154,8 +154,8 @@
         <div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px;font-size:11px;font-weight:700;color:var(--ink-500);display:flex;align-items:center;gap:6px">
           提醒阈值:余额低于 <input id="threshold" type="number" min="0" step="0.1" value="{{ "%.2f"|format(user.balance_threshold_cents/100) }}" style="width:76px;padding:4px 8px;text-align:center"> 元时提醒(默认 1)
           <span style="flex:1"></span>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="previewBalanceMail()" title="不发送,即时预览本提醒邮件版式">预览模板</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="sendBalanceMail(this)" title="向自己邮箱发送测试(每日 1 次)">发送测试</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="previewBalanceMail()" data-tip="不发送,即时预览本提醒邮件版式">预览模板</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="sendBalanceMail(this)" data-tip="向自己邮箱发送测试(每日 1 次)">发送测试</button>
         </div>
         <div class="muted" id="low-bal-res" style="font-size:11px;margin-top:6px"></div>
       </div>
@@ -191,7 +191,7 @@
 
 {% if user.role == 'admin' %}
 <div class="card" style="padding:20px;margin-top:16px;border-color:var(--brand-200)" id="platform-config-card">
-  <span style="cursor:pointer;display:inline-flex;align-items:center;gap:8px" onclick="togglePlatConfig()" title="点击展开/收起"><morph-icon data-name="shield" size="15"></morph-icon> <b>平台配置(仅管理员)</b> <span class="badge badge-brand">必填</span></span> <button type="button" class="btn btn-ghost btn-sm" onclick="togglePlatConfig();event.stopPropagation()" id="pc-toggle" style="float:right;display:inline-block">收起</button>
+  <span style="cursor:pointer;display:inline-flex;align-items:center;gap:8px" onclick="togglePlatConfig()" data-tip="点击展开/收起"><morph-icon data-name="shield" size="15"></morph-icon> <b>平台配置(仅管理员)</b> <span class="badge badge-brand">必填</span></span> <button type="button" class="btn btn-ghost btn-sm" onclick="togglePlatConfig();event.stopPropagation()" id="pc-toggle" style="float:right;display:inline-block">收起</button>
   <div class="muted" style="background:var(--warn-100);border-radius:8px;padding:8px 12px;font-size:11px;margin:12px 0;color:var(--warn)">爱发电(消费者)账号用于平台代下单;<b>未配置前所有商户的商品均无法创建订单</b>。</div>
   <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:14px;margin-bottom:12px">
     <b style="font-size:12px">爱发电(消费者)账号</b>
@@ -266,8 +266,8 @@
             <input id="smtp_user" value="{{ settings.smtp_user }}" placeholder="you@qq.com" style="flex:1;min-width:0">
           </div>
           <div style="display:flex;align-items:center;gap:10px">
-            <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)" title="发件显示名;发件地址固定为上方邮箱账号(否则邮箱商可能判定伪造域)">发件昵称<span style="color:var(--ink-300);font-weight:400">(From)</span></label>
-            <input id="smtp_from" value="{{ settings.smtp_from or '爱发电铺' }}" placeholder="爱发电铺" title="发件地址固定为上方邮箱账号" style="flex:1;min-width:0">
+            <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)" data-tip="发件显示名;发件地址固定为上方邮箱账号(否则邮箱商可能判定伪造域)">发件昵称<span style="color:var(--ink-300);font-weight:400">(From)</span></label>
+            <input id="smtp_from" value="{{ settings.smtp_from or '爱发电铺' }}" placeholder="爱发电铺" data-tip="发件地址固定为上方邮箱账号" style="flex:1;min-width:0">
           </div>
         </div>
       </div>
@@ -321,7 +321,7 @@
           <div style="font-size:15px;font-weight:700">等待支付</div>
           <div style="flex:none;display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--brand);background:#FFF4EC;border:1px solid #FFD9C2;border-radius:999px"><span style="width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 1.6s infinite"></span> 每5秒自动查询</div>
         </div>
-        <div style="text-align:center;margin-bottom:12px"><span id="r-no" onclick="copyOrderNo('r-no')" title="点击复制订单号" style="font-size:12px;font-weight:700;color:var(--ink-700);cursor:pointer"></span></div>
+        <div style="text-align:center;margin-bottom:12px"><span id="r-no" onclick="copyOrderNo('r-no')" data-tip="点击复制订单号" style="font-size:12px;font-weight:700;color:var(--ink-700);cursor:pointer"></span></div>
         <div style="display:flex;flex-direction:column;align-items:center">
           <div style="padding:12px;border-radius:20px;border:1.5px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#FFB27A,#F95D1F) border-box;box-shadow:0 18px 34px -22px rgba(249,93,31,.85)">
             <div style="position:relative;display:inline-block;line-height:0">
@@ -476,7 +476,7 @@ function _whRow(box, emptyId, k, v, isHeader, phK, phV){
   row.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
   row.innerHTML='<input class="wh-k" value="'+esc(k)+'" placeholder="'+esc(phK)+'" style="flex:1;min-width:0;font-family:monospace;font-size:12px" autocomplete="off">'+
     '<input class="wh-v" value="'+esc(v)+'" placeholder="'+esc(phV)+'" style="flex:1.4;min-width:0;font-family:monospace;font-size:12px" autocomplete="off">'+
-    '<button type="button" class="btn btn-ghost btn-sm" title="删除" style="color:#e5484d" onclick="delWHRow(this)">×</button>';
+    '<button type="button" class="btn btn-ghost btn-sm" data-tip="删除" style="color:#e5484d" onclick="delWHRow(this)">×</button>';
   wrap.appendChild(row); if(em) em.style.display='none';
 }
 function addWHRow(box, emptyId, isHeader, phK, phV){ _whRow(box, emptyId, '', '', !!isHeader, phK, phV); }

@@ -79,12 +79,6 @@
     .modal-body::-webkit-scrollbar-track{background:transparent}
     .modal-body::-webkit-scrollbar-thumb{background:var(--line-dark);border-radius:999px;border:2px solid transparent;background-clip:content-box}
     .modal-body::-webkit-scrollbar-thumb:hover{background:var(--brand-200);background-clip:content-box}
-    /* 问号悬浮提示(JS 定位的 fixed 气泡,不受 .modal-body 裁剪) */
-    .hint-icon{cursor:help;display:inline-flex;vertical-align:middle}
-    .hint-tip{position:fixed;max-width:min(280px,80vw);background:var(--ink-900);color:var(--paper);font-size:11.5px;font-weight:400;line-height:1.7;text-align:left;padding:8px 11px;border-radius:9px;box-shadow:0 10px 26px rgba(0,0,0,.24);white-space:normal;pointer-events:none;z-index:200;opacity:0;transition:opacity .16s;font-family:inherit}
-    .hint-tip.on{opacity:1}
-    .hint-tip::after{content:"";position:absolute;left:var(--ax,50%);top:100%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--ink-900)}
-    .hint-tip.up::after{top:auto;bottom:100%;border-top-color:transparent;border-bottom-color:var(--ink-900)}
   </style>
   {% if not cat_items %}
   <div style="text-align:center;padding:48px;color:var(--ink-400)"><morph-icon data-name="package" size="26"></morph-icon> 还没有分类,点击右上角「＋ 添加分类」创建，再在分类卡片里添加商品</div>
@@ -99,15 +93,15 @@
         {% if cat_icon or platformLogo %}<img src="{{ cat_icon or platformLogo }}" alt="" class="cat-ico" loading="lazy" onerror="this.remove()">{% else %}<span class="cat-ico cat-ico-empty"><morph-icon data-name="package" size="12"></morph-icon></span>{% endif %}
         <b>{{ cat }}</b>
         <span class="badge badge-neutral">{{ rows|length }} 个商品</span>
-        <span class="badge badge-good" title="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(c.id, 0) }} 件 · ¥{{ cat_amount.get(c.id, 0) }}</span>
-        <span class="cat-mv" title="调整分类顺序（影响前台店铺分类目录）">
+        <span class="badge badge-good" data-tip="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(c.id, 0) }} 件 · ¥{{ cat_amount.get(c.id, 0) }}</span>
+        <span class="cat-mv" data-tip="调整分类顺序（影响前台店铺分类目录）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'>↑</span>
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'>↓</span>
         </span>
-        <span class="cat-ed" title="编辑分类（名称 / 图标）">
+        <span class="cat-ed" data-tip="编辑分类（名称 / 图标）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='editCat(event, {{ c.id }})'><morph-icon data-name="pencil" size="12"></morph-icon> 编辑分类</span>
         </span>
-        <span class="cat-add" title="在这个分类下添加商品">
+        <span class="cat-add" data-tip="在这个分类下添加商品">
           <span class="btn btn-primary btn-sm" role="button" tabindex="0" onclick='addProduct(event, {{ c.id }})'>＋ 添加商品</span>
         </span>
         <span class="chev">▾</span>
@@ -124,7 +118,7 @@
           <tr data-cat="{{ p.category }}" data-id="{{ p.id }}" class="prow">
             <td><b>{{ p.title }}</b> {% if p.is_recharge %}<span class="badge badge-warn">充值</span>{% endif %}</td>
             <td>{{ p.sku_name }}</td>
-            <td style="text-align:right;font-weight:700;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" title="历史已付款：件数 / 金额">
+            <td style="text-align:right;font-weight:700;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" data-tip="历史已付款：件数 / 金额">
               {% if p.sold %}{{ p.sold }} 件<div style="font-size:10.5px;font-weight:600;color:var(--ink-400)">¥{{ p.sold_amount }}</div>{% else %}0{% endif %}
             </td>
             <td class="dv-col">
@@ -135,7 +129,7 @@
                 </span>
                 <button class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick='openCardsFor({{ p.id }}, {{ p.title|tojson }})'>管理</button>
               {% elif p.delivery_type == 'platform' and p.delivery_kind == 'link' %}
-                <span class="badge badge-good"{% if p.delivery_link %} title="{{ p.delivery_link }}"{% endif %}><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
+                <span class="badge badge-good"{% if p.delivery_link %} data-tip="{{ p.delivery_link }}"{% endif %}><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
                 {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% else %}
                 <span class="muted" style="font-size:11px">商户发货</span>
@@ -144,8 +138,8 @@
             </td>
             <td class="money" style="text-align:right">¥{{ p.price }}</td>
             <td class="ops-col" style="text-align:right">
-              <button class="btn btn-ghost btn-sm" title="上移" onclick='moveRow(this,"up")'>↑</button>
-              <button class="btn btn-ghost btn-sm" title="下移" onclick='moveRow(this,"down")'>↓</button>
+              <button class="btn btn-ghost btn-sm" data-tip="上移" onclick='moveRow(this,"up")'>↑</button>
+              <button class="btn btn-ghost btn-sm" data-tip="下移" onclick='moveRow(this,"down")'>↓</button>
               <button class="btn btn-ghost btn-sm" onclick='openForm({{ p|tojson }})'><morph-icon data-name="pencil" size="13"></morph-icon> 编辑</button>
               <button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="del({{ p.id }})"><morph-icon data-name="trash" size="13"></morph-icon></button>
             </td>
@@ -268,7 +262,7 @@
           </label>
           <div style="display:flex;align-items:center;gap:10px">
             <input name="icon_url" id="c-icon" placeholder="https://…（可选）" autocomplete="off" style="flex:1;min-width:0">
-            <span title="图标预览" style="flex:none;width:38px;height:38px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper)">
+            <span data-tip="图标预览" style="flex:none;width:38px;height:38px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper)">
               <b id="c-icon-hint" style="grid-area:1/1;font-size:10px;font-weight:400;color:var(--ink-300)">预览</b>
               <img id="c-icon-img" src="" alt="" style="grid-area:1/1;width:100%;height:100%;object-fit:contain;padding:3px;display:none">
             </span>
@@ -312,29 +306,6 @@
 {% endblock %}
 {% block script %}
 <script>
-/* 问号悬浮提示:fixed 气泡(不受 .modal-body overflow 裁剪) */
-(function(){
-  var tip=null, cur=null;
-  function ensure(){ if(!tip){ tip=document.createElement('div'); tip.className='hint-tip'; document.body.appendChild(tip); } return tip; }
-  function show(el){
-    var txt=el.getAttribute('data-tip'); if(!txt){ return; }
-    var t=ensure(); t.textContent=txt; t.style.visibility='hidden'; t.classList.add('on');
-    var r=el.getBoundingClientRect(), tr=t.getBoundingClientRect();
-    var left=r.left + r.width/2 - tr.width/2;
-    left=Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
-    var top=r.top - tr.height - 12;
-    if(top<8){ top=r.bottom + 12; t.classList.add('up'); } else { t.classList.remove('up'); }
-    t.style.left=left+'px'; t.style.top=top+'px';
-    var ax=(r.left + r.width/2) - left; ax=Math.max(10, Math.min(ax, tr.width-10));
-    t.style.setProperty('--ax', ax+'px');
-    t.style.visibility=''; cur=el;
-  }
-  function hide(){ if(tip){ tip.classList.remove('on'); } cur=null; }
-  document.addEventListener('mouseover', function(e){ var el=e.target&&e.target.closest?e.target.closest('.hint-icon[data-tip]'):null; if(el){ if(el!==cur){ show(el); } } else if(cur && !(e.target&&e.target.closest&&e.target.closest('.hint-icon[data-tip]'))){ hide(); } });
-  document.addEventListener('mouseout', function(e){ var el=e.target&&e.target.closest?e.target.closest('.hint-icon[data-tip]'):null; if(el && !(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('.hint-icon[data-tip]'))){ hide(); } });
-  document.addEventListener('scroll', function(){ if(cur){ hide(); } }, true);
-  window.addEventListener('resize', function(){ if(cur){ hide(); } });
-})();
 var PCAT_KEY='afp_pcat';
 window.moveCat = function(ev, dir){
   if(ev){ ev.stopPropagation(); ev.preventDefault(); }

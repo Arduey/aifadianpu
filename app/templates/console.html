@@ -37,22 +37,22 @@
     <div style="display:flex;align-items:center;gap:8px;font-weight:700">
       {% if me.shop_logo_url %}<span class="logo-box" style="width:26px;height:26px;overflow:hidden;background:transparent;padding:0"><img src="{{ me.shop_logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px" onerror="this.parentElement.style.background='var(--brand)';this.remove()"></span>{% else %}<span class="logo-box" style="width:26px;height:26px;font-size:12px">{{ me.shop_name[:3] }}</span>{% endif %}
       <span>{{ me.shop_name }}</span>
-      {% if me.email %}<span class="badge badge-neutral" title="登录邮箱" style="cursor:default;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ me.email }}</span>{% endif %}
+      {% if me.email %}<span class="badge badge-neutral" data-tip="登录邮箱" style="cursor:default;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ me.email }}</span>{% endif %}
       {% if me.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <div style="position:relative">
-        <button type="button" class="btn btn-ghost btn-sm" id="bell-btn" onclick="toggleBell(event)" style="position:relative;padding:6px 8px" title="平台通知">
+        <button type="button" class="btn btn-ghost btn-sm" id="bell-btn" onclick="toggleBell(event)" style="position:relative;padding:6px 8px" data-tip="平台通知">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
           <span id="bell-dot" style="display:none;position:absolute;top:4px;right:4px;width:8px;height:8px;border-radius:50%;background:var(--bad);border:2px solid var(--card)"></span>
         </button>
         <div id="bell-menu" style="display:none;position:absolute;right:0;top:34px;width:300px;max-height:360px;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.12);padding:8px;z-index:90"></div>
       </div>
-      <a href="/console/fees{{ qs }}" class="card" title="点击前往「API 费用」页查看扣费明细与余额流水" style="padding:6px 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:inherit">
+      <a href="/console/fees{{ qs }}" class="card" data-tip="点击前往「API 费用」页查看扣费明细与余额流水" style="padding:6px 10px;font-size:12px;font-weight:700;display:inline-flex;align-items:center;gap:4px;text-decoration:none;color:inherit">
         <morph-icon data-name="wallet" size="13"></morph-icon> API 余额 <span style="{% if me.api_balance_cents < 20 %}color:var(--bad){% else %}color:var(--good){% endif %}">¥{{ "%.2f"|format(me.api_balance_cents/100) }}</span> <span style="font-size:10px;color:var(--ink-400)">可下 {{ me.api_balance_cents // (api_fee_cents if api_fee_cents and api_fee_cents>0 else 10000) }} 单</span>
       </a>
       {% if me.role != 'admin' %}<button type="button" class="btn btn-outline btn-sm" onclick="startTour()" id="tour-btn"><morph-icon data-name="bookOpen" size="13"></morph-icon> 导览</button>{% endif %}
-      {% if me.role != 'admin' and request.url.path in ['/console/dashboard','/console/products','/console/orders','/console/fees','/console/account'] %}<button type="button" class="btn btn-outline btn-sm" onclick="startPageTour()" title="本页专属导览"><morph-icon data-name="map" size="13"></morph-icon> 本页导览</button>{% endif %}
+      {% if me.role != 'admin' and request.url.path in ['/console/dashboard','/console/products','/console/orders','/console/fees','/console/account'] %}<button type="button" class="btn btn-outline btn-sm" onclick="startPageTour()" data-tip="本页专属导览"><morph-icon data-name="map" size="13"></morph-icon> 本页导览</button>{% endif %}
       <a href="/console/tasks{{ qs }}" class="btn btn-outline btn-sm" id="task-menu-btn"><morph-icon data-name="clipboardCopy" size="13"></morph-icon> 任务清单</a>
     </div>
   </header>

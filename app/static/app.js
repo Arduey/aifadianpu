@@ -168,3 +168,29 @@ function fmtTime(s) { return s ? String(s).replace('T', ' ').slice(0, 19) : '-';
     } catch(e){}
   };
 })();
+
+/* ── 全局悬浮提示:任何带 data-tip 的元素都会弹出气泡(替代原生 title) ──
+   气泡用 position:fixed 定位,因此不会被 .modal-body 等 overflow 容器裁剪;空间不足时自动翻到下方。 */
+(function(){
+  var tip = null, cur = null;
+  function ensure(){ if(!tip){ tip = document.createElement('div'); tip.className = 'hint-tip'; document.body.appendChild(tip); } return tip; }
+  function show(el){
+    var txt = el.getAttribute('data-tip'); if(!txt){ return; }
+    var t = ensure(); t.textContent = txt; t.style.visibility = 'hidden'; t.classList.add('on');
+    var r = el.getBoundingClientRect(), tr = t.getBoundingClientRect();
+    var left = r.left + r.width/2 - tr.width/2;
+    left = Math.max(8, Math.min(left, window.innerWidth - tr.width - 8));
+    var top = r.top - tr.height - 12;
+    if(top < 8){ top = r.bottom + 12; t.classList.add('up'); } else { t.classList.remove('up'); }
+    t.style.left = left + 'px'; t.style.top = top + 'px';
+    var ax = (r.left + r.width/2) - left; ax = Math.max(10, Math.min(ax, tr.width - 10));
+    t.style.setProperty('--ax', ax + 'px');
+    t.style.visibility = ''; cur = el;
+  }
+  function hide(){ if(tip){ tip.classList.remove('on'); } cur = null; }
+  function hit(e){ return (e && e.target && e.target.closest) ? e.target.closest('[data-tip]') : null; }
+  document.addEventListener('mouseover', function(e){ var el = hit(e); if(el){ if(el !== cur){ show(el); } } else if(cur){ hide(); } });
+  document.addEventListener('mouseout', function(e){ var el = hit(e); if(el && !(e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('[data-tip]'))){ hide(); } });
+  document.addEventListener('scroll', function(){ if(cur){ hide(); } }, true);
+  window.addEventListener('resize', function(){ if(cur){ hide(); } });
+})();

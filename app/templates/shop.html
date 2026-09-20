@@ -62,7 +62,7 @@ html,body{height:100%}
   </div>
   {% if not notFound %}
   <div style="display:flex;align-items:center;gap:8px">
-    <a href="/pickup" class="btn btn-outline btn-sm" title="已购买？用订单号自助查询卡密/链接"><morph-icon data-name="package" size="13"></morph-icon> 自助提货</a>
+    <a href="/pickup" class="btn btn-outline btn-sm" data-tip="已购买？用订单号自助查询卡密/链接"><morph-icon data-name="package" size="13"></morph-icon> 自助提货</a>
     {% if isOwner %}<a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>{% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
   </div>
   {% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
@@ -88,16 +88,16 @@ html,body{height:100%}
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;font-size:14px">
         <span class="badge badge-neutral"><morph-icon data-name="phone" size="11"></morph-icon> 商家联系方式</span>
-        {% if shop.email %}<span class="badge badge-neutral" role="button" title="点击复制邮箱" style="cursor:pointer" onclick="copyContact('{{ shop.email }}','邮箱')"><morph-icon data-name="mail" size="12"></morph-icon> {{ shop.email }}</span>{% endif %}
-        {% if shop.qq %}<span class="badge badge-neutral" role="button" title="点击复制 QQ 号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ shop.qq }}','QQ号')"><img class="icon" src="/static/qq-official.svg" alt="QQ" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0"> {{ shop.qq }}</span>{% endif %}
-        {% if shop.wechat %}<span class="badge badge-neutral" role="button" title="点击复制微信号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ shop.wechat }}','微信号')"><img class="icon" src="/static/wechat-official.svg" alt="微信" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0"> {{ shop.wechat }}</span>{% endif %}
+        {% if shop.email %}<span class="badge badge-neutral" role="button" data-tip="点击复制邮箱" style="cursor:pointer" onclick="copyContact('{{ shop.email }}','邮箱')"><morph-icon data-name="mail" size="12"></morph-icon> {{ shop.email }}</span>{% endif %}
+        {% if shop.qq %}<span class="badge badge-neutral" role="button" data-tip="点击复制 QQ 号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ shop.qq }}','QQ号')"><img class="icon" src="/static/qq-official.svg" alt="QQ" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0"> {{ shop.qq }}</span>{% endif %}
+        {% if shop.wechat %}<span class="badge badge-neutral" role="button" data-tip="点击复制微信号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ shop.wechat }}','微信号')"><img class="icon" src="/static/wechat-official.svg" alt="微信" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0"> {{ shop.wechat }}</span>{% endif %}
       </div>
     </div>
     {% if adminEmail %}
     <div style="flex-shrink:0">
       <div style="display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:var(--card);box-shadow:0 2px 10px rgba(0,0,0,.04)">
         <div style="font-size:11px;font-weight:700;color:var(--ink-500);display:flex;align-items:center;gap:4px;white-space:nowrap"><morph-icon data-name="lifeBuoy" size="12"></morph-icon>平台客服</div>
-        <span class="badge badge-neutral" role="button" title="点击复制客服邮箱" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ adminEmail }}','客服邮箱')"><morph-icon data-name="mail" size="12"></morph-icon> {{ adminEmail }}</span>
+        <span class="badge badge-neutral" role="button" data-tip="点击复制客服邮箱" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ adminEmail }}','客服邮箱')"><morph-icon data-name="mail" size="12"></morph-icon> {{ adminEmail }}</span>
       </div>
     </div>
     {% endif %}
@@ -265,7 +265,7 @@ window.copyContact=function(v,l){
           <div style="font-size:15px;font-weight:700">等待支付</div>
           <div style="flex:none;display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--brand);background:#FFF4EC;border:1px solid #FFD9C2;border-radius:999px"><span style="width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 1.6s infinite"></span> 每5秒自动查询</div>
         </div>
-        <div style="text-align:center;margin-bottom:12px"><span id="qr-no" onclick="copyOrderNo('qr-no')" title="点击复制订单号" style="font-size:12px;font-weight:700;color:var(--ink-700);cursor:pointer"></span></div>
+        <div style="text-align:center;margin-bottom:12px"><span id="qr-no" onclick="copyOrderNo('qr-no')" data-tip="点击复制订单号" style="font-size:12px;font-weight:700;color:var(--ink-700);cursor:pointer"></span></div>
         <div style="display:flex;flex-direction:column;align-items:center">
           <div style="padding:12px;border-radius:20px;border:1.5px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#FFB27A,#F95D1F) border-box;box-shadow:0 18px 34px -22px rgba(249,93,31,.85)">
             <div style="position:relative;display:inline-block;line-height:0">

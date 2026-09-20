@@ -154,3 +154,12 @@ input[type="password"]::-ms-clear  { display: none; }
 .date-mask { position: fixed; inset: 0; z-index: 35; }
 @keyframes popIn { from { opacity: 0; transform: scale(.96); } to { opacity: 1; transform: scale(1); } }
 .all-done { background: var(--good) !important; border-color: var(--good) !important; color: #fff !important; }
+
+/* ── 全局悬浮提示:任何带 data-tip 的元素都会弹出气泡 ──
+   样式与逻辑已从 products.html 提升为全局,用来替代原生 title,
+   优势:深色气泡样式统一、position:fixed 不会被 .modal-body 等 overflow 容器裁剪、可自动上下翻转。 */
+.hint-icon { cursor: help; display: inline-flex; vertical-align: middle; }
+.hint-tip { position: fixed; max-width: min(280px, 80vw); background: var(--ink-900); color: var(--paper); font-size: 11.5px; font-weight: 400; line-height: 1.7; text-align: left; padding: 8px 11px; border-radius: 9px; box-shadow: 0 10px 26px rgba(0,0,0,.24); white-space: normal; pointer-events: none; z-index: 200; opacity: 0; transition: opacity .16s; font-family: inherit; }
+.hint-tip.on { opacity: 1; }
+.hint-tip::after { content: ""; position: absolute; left: var(--ax, 50%); top: 100%; transform: translateX(-50%); border: 6px solid transparent; border-top-color: var(--ink-900); }
+.hint-tip.up::after { top: auto; bottom: 100%; border-top-color: transparent; border-bottom-color: var(--ink-900); }

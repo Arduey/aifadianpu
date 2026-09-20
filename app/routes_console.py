@@ -515,9 +515,9 @@ async def product_delete(request: Request):
             return err("商品不存在", 404)
         if product.merchant_id != me.id and me.role != "admin":
             return err("无权操作该商品", 403)
-        db.delete(product)
+        _cards = categories.delete_product_cascade(db, product)
         db.commit()
-    return {"ok": True, "message": "商品已删除"}
+    return {"ok": True, "message": f"商品已删除（含 {_cards} 条卡密）" if _cards else "商品已删除"}
 
 
 # ═══════════════ JSON:卡密库存(SKU 级) ═══════════════
@@ -1413,7 +1413,10 @@ async def category_save(request: Request):
 
 @router.post("/console/api/category/delete")
 async def category_delete(request: Request):
-    """删除分类(分类下仍有商品时拒绝)。"""
+    """删除分类。传 with_products=true 则连同该分类下所有商品(及其卡密)一起删除。
+
+    不传时:分类下还有商品会被拒绝,并返回 product_count(供前端二次确认)。
+    """
     me = _me(request)
     if not me:
         return err("未登录", 401)
@@ -1424,9 +1427,17 @@ async def category_delete(request: Request):
         cid = 0
     if not cid:
         return err("缺分类 id")
+    _with = bool(b.get("with_products"))
     with SessionLocal() as db:
-        r = categories.delete_category(db, me.id, cid)
+        r = categories.delete_category(db, me.id, cid, with_products=_with)
     if not r.get("ok"):
+        # 分类下有商品且未确认级联 → 返回 409 + 数量,前端据此弹二次确认
+        if r.get("need_confirm"):
+            return JSONResponse(
+                {"ok": False, "message": r.get("message"), "product_count": r.get("product_count", 0),
+                 "need_confirm": True},
+                status_code=409,
+            )
         return err(r.get("message") or "删除失败")
     return {"ok": True, "message": r.get("message") or "分类已删除"}
 

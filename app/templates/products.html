@@ -556,11 +556,39 @@ async function delCat(){
   var cf=document.getElementById('c-form');
   var cid=parseInt(cf.id.value||'0',10);
   if(!cid) return;
-  if(!confirm('确定删除分类「'+(cf.name.value||'')+'」？（分类下若还有商品将无法删除）')) return;
+  var cname=cf.name.value||'';
+  if(!confirm('确定删除分类「'+cname+'」？')) return;
+  // 第一次尝试:不级联。若分类下有商品,后端返回 409 + product_count,再弹二次确认。
+  async function call(withProducts){
+    var res=await fetch(withPreview('/console/api/category/delete'),{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Requested-With':'fetch'},
+      body:JSON.stringify({id:cid, with_products:!!withProducts})
+    });
+    var data={}; try{ data=await res.json(); }catch(e){}
+    return {status:res.status, data:data};
+  }
   try{
-    var d=await api('/console/api/category/delete',{method:'POST',body:JSON.stringify({id:cid})});
-    toast('success',d.message); closeModal('cat-modal'); setTimeout(function(){ location.reload(); },600);
-  }catch(e){ toast('error','删除失败',e.message); }
+    var r=await call(false);
+    if(r.status===409 && r.data && r.data.need_confirm){
+      var n=r.data.product_count||0;
+      if(!confirm('分类「'+cname+'」下还有 '+n+' 个商品。\n\n点「确定」= 连同这 '+n+' 个商品及其卡密一起删除（订单记录会保留）\n点「取消」= 放弃删除')){
+        return;
+      }
+      r=await call(true);
+      if(!(r.status>=200 && r.status<300)){
+        toast('error','删除失败',(r.data&&r.data.message)||('HTTP '+r.status)); return;
+      }
+      toast('success',(r.data&&r.data.message)||'已删除');
+      closeModal('cat-modal'); setTimeout(function(){ location.reload(); },600); return;
+    }
+    if(r.status>=200 && r.status<300){
+      toast('success',(r.data&&r.data.message)||'分类已删除');
+      closeModal('cat-modal'); setTimeout(function(){ location.reload(); },600);
+    }else{
+      toast('error','删除失败',(r.data&&r.data.message)||('HTTP '+r.status));
+    }
+  }catch(e){ toast('error','删除失败',e&&e.message); }
 }
 (function(){
   var cf=document.getElementById('c-form');

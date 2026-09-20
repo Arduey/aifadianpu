@@ -23,7 +23,7 @@
       {% for m in merchants %}
       <tr data-name="{{ m.shop_name|lower }}" data-email="{{ m.email|lower }}" data-prod="{{ m.product_count }}" data-paid="{{ m.paid_order_count }}" data-bal="{{ m.api_balance_cents }}" data-st="{{ m.status }}" {% if m.status == 'disabled' %}style="opacity:.6"{% endif %}>
         <td>{% if m.afdian_user_id %}<a href="/shop/{{ m.afdian_user_id }}" target="_blank" rel="noopener" class="mch-link" data-tip="点击进入该商户的前台店铺">{{ m.shop_name }} <morph-icon data-name="externalLink" size="12"></morph-icon></a>{% else %}<b>{{ m.shop_name }}</b>{% endif %} {% if m.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}<div class="muted">{{ m.email }}</div></td>
-        <td class="code">{{ m.afdian_user_id or '-' }}</td>
+        <td>{{ m.afdian_user_id or '-' }}</td>
         <td style="text-align:right;font-weight:700">{{ m.product_count }}</td>
         <td style="text-align:right;font-weight:700">{{ m.paid_order_count }}</td>
         <td style="text-align:right;font-weight:700;{% if m.api_balance_cents < 20 %}color:var(--bad){% else %}color:var(--good){% endif %}">¥{{ "%.2f"|format(m.api_balance_cents/100) }}</td>

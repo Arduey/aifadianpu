@@ -213,10 +213,10 @@
     <b style="font-size:12px">Webhook 回调地址</b>
     <div class="field" style="margin:6px 0 0"><label>爱发电 Webhook 平台域名(不含末尾 /)</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-      <input id="webhook_base_url" value="{{ settings.webhook_base_url }}" placeholder="https://test.arduey.top" style="flex:1;min-width:0">
+      <input id="webhook_base_url" value="{{ settings.webhook_base_url }}" placeholder="https://你的域名" style="flex:1;min-width:0">
       <button type="button" class="btn btn-outline btn-sm" id="wh-copy-btn" onclick="copyWebhookUrl()" style="box-sizing:border-box">复制回调地址</button>
     </div>
-    <div class="muted" id="afd-wh-hint" style="font-size:11px;line-height:1.7">在爱发电开发者后台填的 Webhook 地址是:<br><b id="afd-wh-full" style="color:var(--ink-700);word-break:break-all">{{ (settings.webhook_base_url or 'https://test.arduey.top') }}/api/afdian/webhook</b><br>留空域名默认 <span class="code">https://test.arduey.top</span>。</div>
+    <div class="muted" id="afd-wh-hint" style="font-size:11px;line-height:1.7">在爱发电开发者后台填的 Webhook 地址是:<br><b id="afd-wh-full" style="color:var(--ink-700);word-break:break-all">{{ (settings.webhook_base_url or request.base_url|string).rstrip('/') }}/api/afdian/webhook</b></div>
   </div>
   </div>
   <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:14px;margin-bottom:12px">
@@ -433,11 +433,11 @@ function initAccountCollapse(){
 (function(){ if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded', initAccountCollapse); } else { initAccountCollapse(); } })();
 function copyOrderNo(id){ var el=document.getElementById(id); if(!el) return; var t=(el.textContent||'').trim(); if(!t){ toast('warn','暂无订单号'); return; } try{ navigator.clipboard.writeText(t).then(function(){ toast('success','订单号已复制'); },function(){ toast('error','复制失败,请手动选择'); }); }catch(e){ toast('error','复制失败,请手动选择'); } }
 function copyBind(){ var uid=(val('afdian_user_id')||'').trim(); if(!uid) return; navigator.clipboard?.writeText(location.origin+'/shop/'+uid); toast('success','店铺链接已复制'); }
-const WB_FALLBACK='https://test.arduey.top';
+const WB_FALLBACK=location.origin;
 function afdWhFull(){ var base=(val('webhook_base_url')||'').trim().replace(/\/+$/,'').replace(/^\/+/,''); return ((base||WB_FALLBACK))+'/api/afdian/webhook'; }
 function paintWhHint(){ var el=document.getElementById('afd-wh-full'); if(el) el.textContent=afdWhFull(); }
 function copyWebhookUrl(){ navigator.clipboard?.writeText(afdWhFull()); toast('success','Webhook 回调地址已复制'); }
-(function(){ var inp=document.getElementById('webhook_base_url'); if(inp){ inp.addEventListener('input',paintWhHint); } })();
+(function(){ var inp=document.getElementById('webhook_base_url'); if(inp){ inp.addEventListener('input',paintWhHint); } paintWhHint(); })();
 function setAfdCfg(ok){ var c=document.getElementById('afd-cfg'); if(c){ c.className='badge '+(ok?'badge-good':'badge-bad'); c.textContent=ok?'已配置':'未配置'; } }
 function syncAfdView(){ var uid=(val('afdian_user_id')||'').trim(), row=document.getElementById('afd-shoprow'), link=document.getElementById('afd-shoplink'); var ok=!!uid; setAfdCfg(ok); if(row){ row.style.display=ok?'flex':'none'; } if(link){ link.textContent='/shop/'+uid; } }
 async function afdTestAfterSave(){ var uid=(val('afdian_user_id')||'').trim(), tok=(val('afdian_token')||'').trim(); afdBadgeSet('校验中','neutral',''); if(!uid||!tok){ afdBadgeSet('校验未通过','bad','尚未完整填写 user_id/token'); bindPane(''); return; } try{ var d=await api('/console/api/account/test_afdian',{method:'POST',body:JSON.stringify({afdian_user_id:uid,afdian_token:tok})}); if(d&&d.connected){ afdBadgeSet('已通过签名校验','good',''); bindPane(''); } else { bindPane((typeof d==='object'&&d.detail)?d.detail:''); afdBadgeSet('校验未通过','bad','请检查 user_id/token'); } }catch(e){ afdBadgeSet('校验暂不可用','warn',(e&&String(e.message))||''); bindPane(''); } }

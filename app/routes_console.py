@@ -530,7 +530,10 @@ async def product_cards_import(request: Request):
     msg = f"已导入 {r['added']} 条"
     if r["dup"]:
         msg += f",跳过重复 {r['dup']} 条"
-    return {"ok": True, "message": msg, "added": r["added"], "dup": r["dup"], "stats": stats}
+        if r.get("dup_other"):
+            msg += f"(其中 {r['dup_other']} 条是你其它商品已用过的卡密)"
+    return {"ok": True, "message": msg, "added": r["added"], "dup": r["dup"],
+            "dup_other": r.get("dup_other", 0), "stats": stats}
 
 
 @router.post("/console/api/product/cards/clean")

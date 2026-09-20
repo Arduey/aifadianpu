@@ -83,33 +83,41 @@ def stock_map(db, product_ids) -> dict:
 # ── 卡密导入 / 删除 ───────────────────────────────────────
 
 def import_cards(db, product_id: int, merchant_id: int, text: str) -> dict:
-    """按行导入卡密,同一商品内去重(与已有卡密及本批次内部均去重)。
+    """按行导入卡密,**同一商户下所有商品之间去重**(与已有卡密及本批次内部均去重)。
 
-    返回 {added, dup, empty}  added=新增条数, dup=重复跳过, empty=空行跳过
+    返回 {added, dup, empty, dup_other}  added=新增, dup=重复跳过, empty=空行跳过,
+    dup_other=其中属于「本商户其它商品已有」的重复数(便于提示商户)。
     """
     if not product_id:
-        return {"added": 0, "dup": 0, "empty": 0}
-    lines = [ln.strip() for ln in str(text or "").splitlines()]
+        return {"added": 0, "dup": 0, "empty": 0, "dup_other": 0}
+    raw_lines = str(text or "").splitlines()
+    lines = [ln.strip() for ln in raw_lines]
     lines = [ln for ln in lines if ln]
-    empty_skipped = len(str(text or "").splitlines()) - len(lines) if text else 0
+    empty_skipped = len(raw_lines) - len(lines) if text else 0
     if not lines:
-        return {"added": 0, "dup": 0, "empty": 0}
+        return {"added": 0, "dup": 0, "empty": 0, "dup_other": 0}
 
-    existing = {
-        (r.content or "").strip()
-        for r in db.query(StockCard.content).filter(StockCard.product_id == product_id).all()
-    }
+    # 同商户全部商品的已有卡密(含其它商品) —— 卡密在商户内全局唯一
+    _existing = db.query(StockCard.content, StockCard.product_id).filter(
+        StockCard.merchant_id == merchant_id
+    ).all()
+    existing_all = {(c or "").strip() for c, _pid in _existing}
+    existing_other = {(c or "").strip() for c, _pid in _existing if _pid != product_id}
+
     seen = set()
     added = 0
     dup = 0
+    dup_other = 0
     for ln in lines:
-        if ln in existing or ln in seen:
+        if ln in existing_all or ln in seen:
             dup += 1
+            if ln in existing_other:
+                dup_other += 1
             continue
         seen.add(ln)
         db.add(StockCard(product_id=product_id, merchant_id=merchant_id, content=ln))
         added += 1
-    return {"added": added, "dup": dup, "empty": empty_skipped}
+    return {"added": added, "dup": dup, "empty": empty_skipped, "dup_other": dup_other}
 
 
 def list_cards(db, product_id: int, limit: int = 500) -> list:
@@ -149,11 +157,20 @@ def delete_unused_cards(db, product_id: int, merchant_id: int) -> int:
     return n
 
 
-def prune_duplicate_cards(db, product_id: int) -> int:
-    """清理同一商品内重复的卡密(保留最早一条),返回删除数"""
+def prune_duplicate_cards(db, product_id: int, merchant_id: int | None = None) -> int:
+    """清理重复卡密(保留最早一条),返回删除数。
+
+    默认按**该商品所属商户的全部商品**去重(与导入规则一致);
+    只删除「未锁定且未售出」的重复项,已售出/已锁定的永远保留。
+    """
+    if not merchant_id:
+        _p = db.get(Product, product_id)
+        merchant_id = getattr(_p, "merchant_id", 0) if _p else 0
+    if not merchant_id:
+        return 0
     rows = (
         db.query(StockCard)
-        .filter(StockCard.product_id == product_id)
+        .filter(StockCard.merchant_id == merchant_id)
         .order_by(StockCard.id)
         .all()
     )
@@ -162,8 +179,10 @@ def prune_duplicate_cards(db, product_id: int) -> int:
     for r in rows:
         key = (r.content or "").strip()
         if key in seen:
-            db.delete(r)
-            n += 1
+            # 已被订单占用或已售出的不删,避免影响买家已领取的内容
+            if r.used_at is None and not r.locked:
+                db.delete(r)
+                n += 1
         else:
             seen.add(key)
     return n

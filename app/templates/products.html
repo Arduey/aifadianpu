@@ -55,6 +55,25 @@
     .cs-ok{color:var(--good);border-color:#BFE3CE;background:var(--good-100)}
     .cs-warn{color:var(--warn);border-color:#F2D08A;background:var(--warn-100)}
     .cs-dim{color:var(--ink-400)}
+    /* ── 商品表单:统一排版 ───────────────────────────── */
+    .pform{display:flex;flex-direction:column;gap:14px}
+    .pform-row{display:grid;gap:14px}
+    .pform-row.c2{grid-template-columns:1fr 1fr}
+    .pform .field{margin:0}
+    .pform label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;font-weight:700;color:var(--ink-800);margin-bottom:6px;line-height:1.5}
+    .pform .hint,.pform .fld-hint{font-size:11px;font-weight:400;color:var(--ink-400);line-height:1.6}
+    .pform input,.pform select,.pform textarea{width:100%;box-sizing:border-box;font-family:inherit}
+    .pform textarea{resize:vertical;line-height:1.7}
+    .pform .box{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
+    .pform .box>.box-t{font-size:11px;font-weight:800;color:var(--ink-400);margin-bottom:10px;letter-spacing:.03em}
+    .pform .sub{display:flex;flex-direction:column;gap:12px;margin-top:12px;padding-left:12px;border-left:2px solid var(--line)}
+    .pform .act{display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--line);margin-top:2px;padding-top:14px}
+    /* 弹窗内滚动条美化 */
+    .modal-body{scrollbar-width:thin;scrollbar-color:var(--line-dark) transparent}
+    .modal-body::-webkit-scrollbar{width:8px;height:8px}
+    .modal-body::-webkit-scrollbar-track{background:transparent}
+    .modal-body::-webkit-scrollbar-thumb{background:var(--line-dark);border-radius:999px;border:2px solid transparent;background-clip:content-box}
+    .modal-body::-webkit-scrollbar-thumb:hover{background:var(--brand-200);background-clip:content-box}
     /* 问号悬浮提示(JS 定位的 fixed 气泡,不受 .modal-body 裁剪) */
     .hint-icon{cursor:help;display:inline-flex;vertical-align:middle}
     .hint-tip{position:fixed;max-width:min(280px,80vw);background:var(--ink-900);color:var(--paper);font-size:11.5px;font-weight:400;line-height:1.7;text-align:left;padding:8px 11px;border-radius:9px;box-shadow:0 10px 26px rgba(0,0,0,.24);white-space:normal;pointer-events:none;z-index:200;opacity:0;transition:opacity .16s;font-family:inherit}
@@ -131,73 +150,90 @@
 
 <!-- 新增/编辑弹窗 -->
 <div class="modal-mask" id="form-modal" data-lock-close-outside style="display:none">
-  <div class="modal">
+  <div class="modal" style="max-width:600px">
     <div class="modal-head"><span id="form-title">新增商品</span><button data-close-modal="form-modal" style="color:var(--ink-400)"><morph-icon data-name="x" size="13"></morph-icon></button></div>
     <div class="modal-body">
-      <form id="p-form">
+      <form id="p-form" class="pform">
         <input type="hidden" name="id" value="0">
-        <div class="field"><label>分类(≤16 字,禁&)</label><input name="category" maxlength="16" placeholder="如:图标素材" required></div>
+
+        <div class="pform-row c2">
+          <div class="field"><label>分类 <span class="fld-hint">≤16 字 · 禁 &amp;</span></label><input name="category" maxlength="16" placeholder="如：图标素材" required></div>
+          <div class="field"><label>商品标题 <span class="fld-hint">≤24 字 · 禁 &amp;</span></label><input name="title" maxlength="24" placeholder="如：Morph 线性图标包" required></div>
+        </div>
+        <div class="pform-row c2">
+          <div class="field"><label>SKU 名 <span class="fld-hint">≤12 字 · 禁 &amp;</span></label><input name="sku_name" maxlength="12" placeholder="如：SVG全量版" required></div>
+          <div class="field"><label>价格 <span class="fld-hint">整数 ≥5 元</span></label><input name="price" type="number" min="5" step="1" placeholder="如：18" required></div>
+        </div>
+
         <div class="field">
-          <label>分类图标链接 <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400);vertical-align:middle"
-            data-tip="可选 · 同一分类共用一个图标，此处修改即改整个分类；未设置时前台回退平台 LOGO"></morph-icon></label>
+          <label>分类图标链接
+            <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400)"
+              data-tip="可选 · 同一分类共用一个图标，此处修改即改整个分类；未设置时前台回退平台 LOGO"></morph-icon>
+          </label>
           <div style="display:flex;align-items:center;gap:10px">
-            <input name="category_icon_url" id="cf_icon_url" placeholder="https://…" autocomplete="off" style="flex:1;min-width:0">
-            <span title="分类图标预览" id="cf_icon_prev" style="flex:none;width:36px;height:36px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper)">
+            <input name="category_icon_url" id="cf_icon_url" placeholder="https://…（可选）" autocomplete="off" style="flex:1;min-width:0">
+            <span title="分类图标预览" id="cf_icon_prev" style="flex:none;width:38px;height:38px;display:inline-grid;place-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden;background:var(--paper)">
               <b id="cf_icon_hint" style="grid-area:1/1;font-size:10px;font-weight:400;color:var(--ink-300)">预览</b>
-              <img id="cf_icon_img" src="" alt="" style="grid-area:1/1;width:100%;height:100%;object-fit:contain;padding:2px;display:none">
+              <img id="cf_icon_img" src="" alt="" style="grid-area:1/1;width:100%;height:100%;object-fit:contain;padding:3px;display:none">
             </span>
           </div>
         </div>
-        <div class="field"><label>商品标题(≤24 字,禁 &amp;)</label><input name="title" maxlength="24" placeholder="如:Morph 线性图标包" required></div>
-        <div class="grid g2">
-          <div class="field" style="margin:0"><label>SKU 名(≤12 字,禁&)</label><input name="sku_name" maxlength="12" placeholder="如:SVG全量版" required></div>
-          <div class="field" style="margin:0"><label>价格(元,正整数)</label><input name="price" type="number" min="5" step="1" required></div>
-        </div>
+
         {% if is_admin %}
-        <div id="recharge-tip" style="display:none;background:var(--brand-50);border:1px solid var(--brand-200);border-radius:8px;padding:12px;margin-bottom:12px">
+        <div id="recharge-tip" class="box" style="display:none;background:var(--brand-50);border-color:var(--brand-200)">
           <div style="font-size:12px;font-weight:700;color:var(--brand-700)"><morph-icon data-name="zap" size="13"></morph-icon> 自动识别为「API 充值商品」</div>
-          <div class="muted" style="font-size:11px;margin:4px 0 8px">管理员创建且分类为「API充值」的商品永不进入前台店铺,商户购买支付成功后余额直接到账。</div>
-          <div class="field" style="margin:0"><label>支付成功到账金额(元)</label><input name="recharge_grant" type="number" min="0" step="0.5" placeholder="留空按售价 1:1"></div>
+          <div class="fld-hint" style="margin:4px 0 10px">管理员创建且分类为「API充值」的商品永不进入前台店铺，商户购买支付成功后余额直接到账。</div>
+          <div class="field"><label>支付成功到账金额 <span class="fld-hint">元 · 留空按售价 1:1</span></label><input name="recharge_grant" type="number" min="0" step="0.5" placeholder="留空按售价 1:1"></div>
         </div>
         {% endif %}
-        <div class="field">
-          <label>发货方式 <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400);vertical-align:middle"
-            data-tip="商户发货=平台只通知你，由你自行发货；平台发货=买家付款后在「自助提货」页自动领取卡密或链接"></morph-icon></label>
-          <select name="delivery_type" id="dv-type" onchange="dvToggle()">
-            <option value="merchant">商户发货（平台只回调通知，你自行发放）</option>
-            <option value="platform">平台发货（买家自助提货）</option>
-          </select>
-        </div>
-        <div id="dv-platform" style="display:none">
+
+        <div class="box">
+          <div class="box-t">发货设置</div>
           <div class="field">
-            <label>平台发货类型</label>
-            <select name="delivery_kind" id="dv-kind" onchange="dvToggle()">
-              <option value="card">卡密（有库存限制，售完即缺货）</option>
-              <option value="link">链接（无库存限制，固定一个链接）</option>
+            <label>发货方式
+              <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400)"
+                data-tip="商户发货=平台只通知你，由你自行发货；平台发货=买家付款后在「自助提货」页自动领取卡密或链接"></morph-icon>
+            </label>
+            <select name="delivery_type" id="dv-type" onchange="dvToggle()">
+              <option value="merchant">商户发货（平台只回调通知，你自行发放）</option>
+              <option value="platform">平台发货（买家自助提货）</option>
             </select>
           </div>
-          <div class="field" id="dv-link-box" style="display:none">
-            <label>发货内容 <span class="hint">买家付款后在提货页会看到这里的内容；可填链接，也可填兑换提示文字（如「请到 xx 网站使用卡密兑换」）</span></label>
-            <textarea name="delivery_link" id="dv-link" rows="2" placeholder="https://… 或 兑换提示文字" autocomplete="off" style="width:100%;box-sizing:border-box;resize:vertical"></textarea>
-          </div>
-          <div class="field" id="dv-card-box">
-            <label>卡密库存 <span class="hint" id="dv-stock-hint">保存商品后可在此管理卡密</span></label>
-            <div id="dv-card-actions">
-              <button type="button" class="btn btn-outline btn-sm" id="dv-manage" onclick="openCards()" disabled>
-                <morph-icon data-name="key" size="13"></morph-icon> 管理卡密
-              </button>
-              <span class="muted" style="font-size:11px;margin-left:8px">先保存商品，再点「管理卡密」粘贴导入（一行一个，自动去重）</span>
+
+          <div id="dv-platform" class="sub" style="display:none">
+            <div class="field">
+              <label>平台发货类型</label>
+              <select name="delivery_kind" id="dv-kind" onchange="dvToggle()">
+                <option value="card">卡密（有库存限制，售完即缺货）</option>
+                <option value="link">链接 / 提示（无库存限制）</option>
+              </select>
+            </div>
+            <div class="field" id="dv-link-box" style="display:none">
+              <label>发货内容 <span class="fld-hint">提货页展示 · 可填链接，也可填兑换提示文字</span></label>
+              <textarea name="delivery_link" id="dv-link" rows="2" placeholder="https://… 或「请到 xx 网站使用卡密兑换」" autocomplete="off"></textarea>
+            </div>
+            <div class="field" id="dv-card-box">
+              <label>卡密库存 <span class="fld-hint" id="dv-stock-hint">保存商品后可在此管理卡密</span></label>
+              <div id="dv-card-actions" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <button type="button" class="btn btn-outline btn-sm" id="dv-manage" onclick="openCards()" disabled>
+                  <morph-icon data-name="key" size="13"></morph-icon> 管理卡密
+                </button>
+                <span class="fld-hint">先保存商品，再点「管理卡密」粘贴导入（一行一个，自动去重）</span>
+              </div>
             </div>
           </div>
+
+          <div class="field" id="dv-limit-box" style="margin-top:12px">
+            <label>限购总量 <span class="fld-hint">可选 · 0 或留空 = 不限量；填数字则卖完显示「已售罄」（卡密型不用此项）</span></label>
+            <input name="stock_limit" id="dv-limit" type="number" min="0" step="1" placeholder="0 = 不限量" autocomplete="off">
+          </div>
+          <div class="field" style="margin-top:12px">
+            <label>提货说明 <span class="fld-hint">可选 · 显示在提货页给买家看</span></label>
+            <input name="delivery_tip" maxlength="500" placeholder="例如：请登录 xx.com 使用卡密兑换" autocomplete="off">
+          </div>
         </div>
-        <div class="field" id="dv-limit-box">
-          <label>限购总量 <span class="hint">可选 · 0 或留空 = 不限量；填数字则卖完自动显示「已售罄」不可购买（卡密型不用此项，按卡密库存算）</span></label>
-          <input name="stock_limit" id="dv-limit" type="number" min="0" step="1" placeholder="0 = 不限量" autocomplete="off">
-        </div>        <div class="field">
-          <label>提货说明 <span class="hint">可选 · 显示在提货页，如「请到 xx 网站兑换」</span></label>
-          <input name="delivery_tip" maxlength="500" placeholder="例如：请登录 https://xx.com 使用卡密兑换" autocomplete="off">
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:8px">
+
+        <div class="act">
           <button type="button" class="btn btn-ghost" data-close-modal="form-modal">取消</button>
           <button type="submit" class="btn btn-primary" id="form-save">保存</button>
         </div>

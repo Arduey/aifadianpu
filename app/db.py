@@ -97,6 +97,8 @@ class Product(Base):
     delivery_kind = Column(String(16), nullable=False, default="")
     delivery_link = Column(String(1000), nullable=False, default="")   # kind=link 时的内容
     delivery_tip = Column(String(500), nullable=False, default="")     # 提货页给买家的说明(可选)
+    # 商户发货/链接发货的「限购总量」:0=不限量;>0 时可售数量=stock_limit-已付款单数(卖完即缺货)
+    stock_limit = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, default=datetime.now)
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 

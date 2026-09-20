@@ -63,6 +63,29 @@ def products_page(request: Request):
         for p in rows:
             if p.delivery_type == "platform" and p.delivery_kind == "card":
                 _stats[p.id] = delivery.cards_stats(db, p.id)
+        # 历史销量(仅已付款订单):按 product_id 匹配,兼容历史无 product_id 的单据按「分类+标题+SKU」兜底
+        _sold = {}       # product_id -> 件数
+        _sold_amt = {}   # product_id -> 金额(元)
+        _sold_key = {}   # "分类|标题|SKU" -> 件数
+        _sold_key_amt = {}
+        _orders = (
+            db.query(Order.product_id, Order.category, Order.title, Order.sku, Order.total)
+            .filter(Order.merchant_id == me.id, Order.status == "paid")
+            .all()
+        )
+        for _pid, _cat, _title, _sku, _total in _orders:
+            _k = f"{_cat}|{_title}|{_sku}"
+            _sold_key[_k] = _sold_key.get(_k, 0) + 1
+            _sold_key_amt[_k] = _sold_key_amt.get(_k, 0) + int(_total or 0)
+            if _pid:
+                _sold[_pid] = _sold.get(_pid, 0) + 1
+                _sold_amt[_pid] = _sold_amt.get(_pid, 0) + int(_total or 0)
+        # 分类销量汇总(用于分类头部显示)
+        _cat_sold = {}
+        for p in rows:
+            _k = f"{p.category}|{p.title}|{p.sku_name}"
+            _n = _sold.get(p.id, 0) or _sold_key.get(_k, 0)
+            _cat_sold[p.category] = _cat_sold.get(p.category, 0) + _n
         items = [{
             "id": p.id, "category": p.category, "category_icon_url": p.category_icon_url,
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
@@ -74,11 +97,13 @@ def products_page(request: Request):
             "stock": int((_stats.get(p.id) or {}).get("available", 0)),
             "stock_locked": int((_stats.get(p.id) or {}).get("locked", 0)),
             "stock_used": int((_stats.get(p.id) or {}).get("used", 0)),
+            "sold": (lambda _k: (_sold.get(p.id, 0) or _sold_key.get(_k, 0)))(
+                f"{p.category}|{p.title}|{p.sku_name}"),
         } for p in rows]
         _plogo = platform_settings(db).platform_logo_url or ""
     return render(request, "products.html", {
         "products": items, "configured": me.is_afdian_configured(), "is_admin": me.role == "admin",
-        "platformLogo": _plogo,
+        "platformLogo": _plogo, "cat_sold": _cat_sold,
     })
 
 

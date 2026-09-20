@@ -95,8 +95,8 @@
         <span class="badge badge-neutral">{{ rows|length }} 个商品</span>
         <span class="badge badge-good" data-tip="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(c.id, 0) }} 件 · ¥{{ cat_amount.get(c.id, 0) }}</span>
         <span class="cat-mv" data-tip="调整分类顺序（影响前台店铺分类目录）">
-          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'>↑</span>
-          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'>↓</span>
+          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'><morph-icon data-name="arrowUp" size="13"></morph-icon></span>
+          <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'><morph-icon data-name="arrowDown" size="13"></morph-icon></span>
         </span>
         <span class="cat-ed" data-tip="编辑分类（名称 / 图标）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='editCat(event, {{ c.id }})'><morph-icon data-name="pencil" size="12"></morph-icon> 编辑分类</span>
@@ -138,8 +138,8 @@
             </td>
             <td class="money" style="text-align:right">¥{{ p.price }}</td>
             <td class="ops-col" style="text-align:right">
-              <button class="btn btn-ghost btn-sm" data-tip="上移" onclick='moveRow(this,"up")'>↑</button>
-              <button class="btn btn-ghost btn-sm" data-tip="下移" onclick='moveRow(this,"down")'>↓</button>
+              <button class="btn btn-ghost btn-sm" data-tip="上移" onclick='moveRow(this,"up")'><morph-icon data-name="arrowUp" size="13"></morph-icon></button>
+              <button class="btn btn-ghost btn-sm" data-tip="下移" onclick='moveRow(this,"down")'><morph-icon data-name="arrowDown" size="13"></morph-icon></button>
               <button class="btn btn-ghost btn-sm" onclick='openForm({{ p|tojson }})'><morph-icon data-name="pencil" size="13"></morph-icon> 编辑</button>
               <button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="del({{ p.id }})"><morph-icon data-name="trash" size="13"></morph-icon></button>
             </td>

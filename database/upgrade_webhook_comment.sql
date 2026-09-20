@@ -12,9 +12,8 @@ ALTER TABLE `platform_settings`
   MODIFY COLUMN `webhook_base_url` VARCHAR(300) NOT NULL DEFAULT ''
   COMMENT '爱发电 Webhook 平台外部域名,留空用当前访问域名,仅供后台展示拼接';
 
--- ── 自查:应看到新的 COMMENT(不含任何测试域名) ──
-SELECT COLUMN_NAME, COLUMN_COMMENT
-FROM information_schema.COLUMNS
-WHERE TABLE_SCHEMA = DATABASE()
-  AND TABLE_NAME = 'platform_settings'
-  AND COLUMN_NAME = 'webhook_base_url';
+-- ── 自查 ──
+-- 看返回的 Comment 列,应为「爱发电 Webhook 平台外部域名,留空用当前访问域名,仅供后台展示拼接」。
+-- 这里用 SHOW FULL COLUMNS 而不是查 information_schema:
+-- 受限账号(如宝塔为站点建的 'afd')读 information_schema 会报 #1044 Access denied。
+SHOW FULL COLUMNS FROM `platform_settings` LIKE 'webhook_base_url';

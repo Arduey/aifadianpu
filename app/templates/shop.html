@@ -143,14 +143,14 @@ document.addEventListener('click', function (e) {
     <section data-cat="{{ loop.index0 }}" style="margin-bottom:30px{% if not loop.first %};display:none{% endif %}">
       <div class="grid g3 cat-grid">
         {% for p in items %}
-        {% set soldout = p.is_card and p.stock <= 0 %}
+        {% set soldout = (p.is_card or p.is_limited) and p.stock <= 0 %}
         <button class="card p-card{% if soldout %} p-out{% endif %}" {% if soldout %}disabled data-out="1"{% else %}onclick='openBuy({{ p|tojson }})'{% endif %}>
           <div class="p-info">
             <div class="p-titlerow">
               <b class="p-title">{{ p.title }}</b>
-              {% if p.is_card %}
-                {% if p.stock > 0 %}<span class="p-stock">库存 {{ p.stock }}</span>
-                {% else %}<span class="p-stock p-stock-out">缺货</span>{% endif %}
+              {% if p.is_card or p.is_limited %}
+                {% if p.stock > 0 %}<span class="p-stock">{% if p.is_limited %}剩余 {{ p.stock }}{% else %}库存 {{ p.stock }}{% endif %}</span>
+                {% else %}<span class="p-stock p-stock-out">{% if p.is_limited %}已售罄{% else %}缺货{% endif %}</span>{% endif %}
               {% elif p.delivery_kind == 'link' %}
                 <span class="p-stock">自动发货</span>
               {% endif %}
@@ -336,9 +336,11 @@ function openBuy(p) {
     _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:' + (p.stock > 0 ? 'var(--good)' : 'var(--bad)') + '">'
         + (p.stock > 0 ? '自动发货 · 付款后可在提货页领取卡密（库存 ' + p.stock + '）' : '该商品已缺货') + '</div>';
   } else if (p.delivery_kind === 'link') {
-    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:var(--good)">自动发货 · 付款后可在提货页领取链接</div>';
+    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:var(--good)">自动发货 · 付款后可在提货页领取链接'
+        + (p.is_limited ? '（剩余 ' + p.stock + ' 份）' : '') + '</div>';
   } else {
-    _dv = '<div style="margin-top:6px;font-size:11px;color:var(--ink-400)">商家发货 · 付款后请联系商家客服领取</div>';
+    _dv = '<div style="margin-top:6px;font-size:11px;color:var(--ink-400)">商家发货 · 付款后请联系商家客服领取'
+        + (p.is_limited ? '（剩余 ' + p.stock + ' 份）' : '') + '</div>';
   }
   document.getElementById('buy-info').innerHTML =
     '<div class="muted">' + p.category + '</div><b>' + p.title + '</b>' +

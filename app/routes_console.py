@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import auth, config, settings
-from .db import (FeeLedger, Notice, Order, OrderStat, Product, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
+from .db import (FeeLedger, Notice, Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
 from .render import render
 from .services import afdian, afd_login, afd_live, categories, delivery, email_templates, mailer, pipeline
 from .utils import has_amp
@@ -58,23 +58,30 @@ def products_page(request: Request):
     if resp:
         return resp
     with SessionLocal() as db:
-        rows = db.query(Product).filter(Product.merchant_id == me.id).order_by(Product.category, Product.sort_order, Product.id).all()
+        _cats = categories.list_categories(db, me.id)
+        _cat_map = {c.id: c for c in _cats}
+        rows = (
+            db.query(Product)
+            .filter(Product.merchant_id == me.id)
+            .order_by(Product.category_id, Product.sort_order, Product.id)
+            .all()
+        )
         _stats = {}
         for p in rows:
             if p.delivery_type == "platform" and p.delivery_kind == "card":
                 _stats[p.id] = delivery.cards_stats(db, p.id)
-        # 历史销量(仅已付款订单):按 product_id 匹配,兼容历史无 product_id 的单据按「分类+标题+SKU」兜底
+        # 历史销量(仅已付款订单):按 product_id 匹配;历史单据缺 product_id 时按「标题+SKU」兜底
         _sold = {}       # product_id -> 件数
         _sold_amt = {}   # product_id -> 金额(元)
-        _sold_key = {}   # "分类|标题|SKU" -> 件数
+        _sold_key = {}   # "标题|SKU" -> 件数
         _sold_key_amt = {}
         _orders = (
-            db.query(Order.product_id, Order.category, Order.title, Order.sku, Order.total)
+            db.query(Order.product_id, Order.title, Order.sku, Order.total)
             .filter(Order.merchant_id == me.id, Order.status == "paid")
             .all()
         )
-        for _pid, _cat, _title, _sku, _total in _orders:
-            _k = f"{_cat}|{_title}|{_sku}"
+        for _pid, _title, _sku, _total in _orders:
+            _k = f"{_title}|{_sku}"
             _sold_key[_k] = _sold_key.get(_k, 0) + 1
             _sold_key_amt[_k] = _sold_key_amt.get(_k, 0) + int(_total or 0)
             if _pid:
@@ -84,21 +91,19 @@ def products_page(request: Request):
         _cat_sold = {}
         _cat_amount = {}
         for p in rows:
-            _k = f"{p.category}|{p.title}|{p.sku_name}"
+            _k = f"{p.title}|{p.sku_name}"
             _n = _sold.get(p.id, 0) or _sold_key.get(_k, 0)
             _a = _sold_amt.get(p.id, 0) or _sold_key_amt.get(_k, 0)
-            _cat_sold[p.category] = _cat_sold.get(p.category, 0) + _n
-            _cat_amount[p.category] = _cat_amount.get(p.category, 0) + _a
+            _cat_sold[p.category_id] = _cat_sold.get(p.category_id, 0) + _n
+            _cat_amount[p.category_id] = _cat_amount.get(p.category_id, 0) + _a
         # 限购类商品的剩余可售量
         _lim_left = delivery.limited_left_map(db, [p for p in rows if delivery.is_limited(p)])
-        # 独立分类表:用于分类卡片(名称/图标/排序)与「编辑分类」;顺序以分类表为准
-        _cats = categories.list_categories(db, me.id)
-        _cat_order = {c.name: int(c.sort_order or 0) for c in _cats}
-        _cat_icon_map = {c.name: (c.icon_url or "") for c in _cats}
         _cat_items = [{"id": c.id, "name": c.name, "icon_url": c.icon_url or "",
                        "sort_order": int(c.sort_order or 0)} for c in _cats]
         items = [{
-            "id": p.id, "category": p.category, "category_icon_url": p.category_icon_url,
+            "id": p.id, "category_id": p.category_id,
+            "category": (_cat_map.get(p.category_id).name if _cat_map.get(p.category_id) else ""),
+            "category_icon_url": (_cat_map.get(p.category_id).icon_url if _cat_map.get(p.category_id) else ""),
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
             "is_recharge": 1 if p.is_recharge else 0, "recharge_grant_cents": p.recharge_grant_cents,
             "delivery_type": p.delivery_type or "merchant",
@@ -112,15 +117,15 @@ def products_page(request: Request):
             "stock_locked": int((_stats.get(p.id) or {}).get("locked", 0)),
             "stock_used": int((_stats.get(p.id) or {}).get("used", 0)),
             "sold": (lambda _k: (_sold.get(p.id, 0) or _sold_key.get(_k, 0)))(
-                f"{p.category}|{p.title}|{p.sku_name}"),
+                f"{p.title}|{p.sku_name}"),
             "sold_amount": (lambda _k: (_sold_amt.get(p.id, 0) or _sold_key_amt.get(_k, 0)))(
-                f"{p.category}|{p.title}|{p.sku_name}"),
+                f"{p.title}|{p.sku_name}"),
         } for p in rows]
         _plogo = platform_settings(db).platform_logo_url or ""
     return render(request, "products.html", {
         "products": items, "configured": me.is_afdian_configured(), "is_admin": me.role == "admin",
         "platformLogo": _plogo, "cat_sold": _cat_sold, "cat_amount": _cat_amount,
-        "cat_items": _cat_items, "cat_icon_map": _cat_icon_map, "cat_order": _cat_order,
+        "cat_items": _cat_items,
     })
 
 
@@ -356,15 +361,13 @@ def orders_list(request: Request):
             )
         rows = query.order_by(Order.created_at.desc()).limit(500).all()
         cache: dict[int, tuple] = {}
-        # 分类图标映射(商户+分类 -> 图标):取该分类下任一商品的 category_icon_url
+        # 分类图标映射(商户+分类名 -> 图标):来自独立分类表
         _cat_icon: dict[tuple, str] = {}
         try:
-            for _p in db.query(Product).filter(
-                Product.merchant_id.in_([o.merchant_id for o in rows] or [0])
+            for _c in db.query(ProductCategory).filter(
+                ProductCategory.merchant_id.in_([o.merchant_id for o in rows] or [0])
             ).all():
-                _k = (_p.merchant_id, _p.category)
-                if _k not in _cat_icon or (not _cat_icon.get(_k) and (_p.category_icon_url or "").strip()):
-                    _cat_icon[_k] = (_p.category_icon_url or "").strip()
+                _cat_icon[(_c.merchant_id, _c.name)] = (_c.icon_url or "").strip()
         except Exception:  # noqa: BLE001
             _cat_icon = {}
         _plogo = ""
@@ -401,8 +404,10 @@ async def product_save(request: Request):
         return err("请先在个人中心绑定爱发电 user_id 与 token,否则无法创建商品", 403)
     b = await request.json()
     pid = int(b.get("id", 0) or 0)
-    category = str(b.get("category", "")).strip()
-    icon_url = str(b.get("category_icon_url", "")).strip()
+    try:
+        category_id = int(b.get("category_id", 0) or 0)
+    except (TypeError, ValueError):
+        category_id = 0
     title = str(b.get("title", "")).strip()
     sku = str(b.get("sku_name", "")).strip()
     price = b.get("price", "")
@@ -429,16 +434,14 @@ async def product_save(request: Request):
         if not delivery_link:
             return err("链接型发货需填写内容(链接或发货提示文字)")
 
-    if not category or not title or not sku:
-        return err("分类/标题/SKU 均不能为空")
-    if len(category) > 16:
-        return err(f"分类最多16字,当前{len(category)}字")
+    if not category_id or not title or not sku:
+        return err("所属分类/标题/SKU 均不能为空")
     if len(title) > 24:
         return err(f"商品标题最多24字,当前{len(title)}字")
     if len(sku) > 12:
         return err(f"SKU名最多12字,当前{len(sku)}字")
-    if has_amp(category) or has_amp(title) or has_amp(sku):
-        return err("分类/标题/SKU 不允许包含 & 符号")
+    if has_amp(title) or has_amp(sku):
+        return err("标题/SKU 不允许包含 & 符号")
     try:
         price_i = int(price)
         if price_i < 5:
@@ -447,10 +450,16 @@ async def product_save(request: Request):
         return err("价格仅支持不小于 5 的正整数(元)")
 
     with SessionLocal() as db:
+        # 分类必须存在且属于本商户(分类由「添加分类 / 编辑分类」维护)
+        _cat = categories.get_by_id(db, me.id, category_id)
+        if not _cat:
+            return err("请选择所属分类(可先到「添加分类」新建)")
+        category = _cat.name
+
         # 商品重复判定：同一店铺(商家)下 分类+标题+SKU 四元复合唯一 才判定重复
         dup = db.query(Product).filter(
             Product.merchant_id == me.id,
-            Product.category == category,
+            Product.category_id == category_id,
             Product.title == title,
             Product.sku_name == sku,
         )
@@ -469,31 +478,8 @@ async def product_save(request: Request):
             except ValueError:
                 return err("到账金额需为正数(元)")
 
-        # 分类图标统一:同一分类共用一个图标(改动即同步该分类全部商品)
-        _siblings = db.query(Product).filter(Product.merchant_id == me.id, Product.category == category).all()
-        _existing_icon = ""
-        for _s in _siblings:
-            if (_s.category_icon_url or "").strip():
-                _existing_icon = _s.category_icon_url.strip()
-                break
-        if _siblings:
-            # 已存在的分类:提交的图标若与分类现有图标不同 → 视为「修改分类图标」;否则沿用分类图标
-            final_icon = icon_url if (icon_url and icon_url != _existing_icon) else _existing_icon
-        else:
-            final_icon = icon_url
-        # 与独立分类表保持一致:商品用到的新分类自动落表;图标以分类表为准并回写商品
-        try:
-            _cat = categories.get_or_create(db, me.id, category)
-            if _cat is not None:
-                if final_icon:
-                    _cat.icon_url = final_icon
-                elif _cat.icon_url:
-                    final_icon = _cat.icon_url
-        except Exception:  # noqa: BLE001
-            pass
-
         data = dict(
-            merchant_id=me.id, category=category, category_icon_url=final_icon,
+            merchant_id=me.id, category_id=category_id,
             title=title, sku_name=sku, price=price_i,
             is_recharge=is_recharge, recharge_grant_cents=grant_cents if is_recharge else 0,
             delivery_type=delivery_type, delivery_kind=delivery_kind,
@@ -512,9 +498,6 @@ async def product_save(request: Request):
             _new_sort = (_last.sort_order if _last else 0) + 100  # 新增商品默认排在最后
             db.add(Product(**data, sort_order=_new_sort))
             msg = "API 充值商品创建成功(不进前台店铺)" if is_recharge else "商品创建成功"
-        if _siblings and final_icon and final_icon != _existing_icon:
-            for _s in _siblings:
-                _s.category_icon_url = final_icon
         db.commit()
     return JSONResponse({"ok": True, "message": msg}, status_code=200 if pid else 201)
 
@@ -1135,7 +1118,9 @@ async def recharge_create(request: Request):
         if not seller or seller.status != "active":
             return err("充值商品卖家已停用", 403)
         grant = product.recharge_grant_cents or product.price * 100
-        remark = f"{product.category}&{product.title}&{product.sku_name}&{product.price}"
+        _rcat = db.get(ProductCategory, product.category_id)
+        _rcat_name = _rcat.name if _rcat else ""
+        remark = f"{_rcat_name}&{product.title}&{product.sku_name}&{product.price}"
         # 无人自动化充值:自动取/续登消费者 token;token 失效自动重登再试
         pay_type = (afd_live.PAY_TYPES.get(channel) or {}).get("py_type", "wpy_qr")
         r = afd_live.live_create_auto(seller.afdian_user_id or str(seller.id), product.price, remark, pay_type)
@@ -1148,7 +1133,7 @@ async def recharge_create(request: Request):
             return err("充值下单失败:爱发电未返回订单号", 500)
         db.add(Order(
             order_no=order_no, product_id=product.id, merchant_id=seller.id,
-            category=product.category, title=product.title, sku=product.sku_name,
+            category=_rcat_name, title=product.title, sku=product.sku_name,
             total=product.price, channel=channel, remark=remark,
             buyer_account=me.afdian_user_id or me.email, status="pending",
             recharge_for_id=me.id, recharge_grant_cents=grant, created_at=datetime.now(),
@@ -1201,20 +1186,21 @@ def admin_products(request: Request):
         return err("仅管理员可操作", 403)
     with SessionLocal() as db:
         rows = (
-            db.query(Product, User.email, User.shop_name)
+            db.query(Product, User.email, User.shop_name, ProductCategory.name)
             .join(User, User.id == Product.merchant_id)
+            .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
             .order_by(Product.id)
             .all()
         )
         items = [{
-            "id": p.id, "category": p.category, "title": p.title, "sku_name": p.sku_name,
+            "id": p.id, "category": (cat_name or ""), "title": p.title, "sku_name": p.sku_name,
             "price": p.price, "is_recharge": 1 if p.is_recharge else 0,
             "merchant_email": em, "merchant_shop": sn,
             "delivery_type": p.delivery_type or "merchant",
             "delivery_kind": p.delivery_kind or "",
             "stock": (delivery.cards_stats(db, p.id)["available"]
                       if (p.delivery_type == "platform" and p.delivery_kind == "card") else 0),
-        } for p, em, sn in rows]
+        } for p, em, sn, cat_name in rows]
     return {"ok": True, "products": items}
 
 
@@ -1378,33 +1364,20 @@ async def product_sort(request: Request):
 
 @router.post("/console/api/category/sort")
 async def category_sort(request: Request):
-    """保存分类展示顺序(cats 按从前到后)。
-
-    分类顺序写进独立分类表 product_categories.sort_order;
-    同时把该顺序下沉到商品的 sort_order,保证前台按此展示分类目录。
-    """
+    """保存分类展示顺序(ids 按从前到后),写进 product_categories.sort_order。"""
     me = _me(request)
     if not me:
         return err("未登录", 401)
     b = await request.json()
-    cats = b.get("cats")
-    if not isinstance(cats, list) or not cats:
-        return err("无效的排序数据")
-    clean, seen = [], set()
-    for x in cats:
-        c = str(x or "")
-        if c and c not in seen:
-            seen.add(c)
-            clean.append(c)
-    if not clean:
+    ids = b.get("ids")
+    if ids is None:
+        ids = b.get("cats")
+    if not isinstance(ids, list) or not ids:
         return err("无效的排序数据")
     with SessionLocal() as db:
-        categories.sort_categories(db, me.id, clean)
-        for i, cat in enumerate(clean):
-            db.query(Product).filter(
-                Product.merchant_id == me.id, Product.category == cat
-            ).update({"sort_order": i * 100})
-        db.commit()
+        r = categories.sort_categories(db, me.id, ids)
+    if not r.get("ok"):
+        return err(r.get("message") or "排序失败")
     return {"ok": True, "message": "分类排序已保存"}
 
 

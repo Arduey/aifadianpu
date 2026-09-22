@@ -3,6 +3,9 @@
 /* 订单管理表格更紧凑 */
 .console-content table td{padding:8px}
 .console-content table th{padding:8px 10px}
+/* 管理员版:商户名可点击跳转其前台店铺 */
+.mch-link{color:var(--brand);font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.mch-link:hover{text-decoration:underline}
 </style>{% endblock %}
 {% block content %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
@@ -35,6 +38,9 @@
 <script>
 const SCOPE='{{ scope }}'; let q='',channel='',timer=null;
 function escAttr(v){ return String(v==null?'':v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// 外链小图标:morph-icons.js 的 __inject 只在首次 DOMContentLoaded 执行一次,
+// JS 动态插入的 <morph-icon> 不会被渲染,所以这里直接内联 SVG(与库中 externalLink 同源)。
+const EL_ICON='<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>';
 async function load(){
   document.getElementById('fetching').style.display='inline';
   try{
@@ -52,7 +58,7 @@ async function load(){
       <td><span class="badge ${o.channel==='wechat'?'badge-good':'badge-brand'}" style="white-space:nowrap">${o.channel==='wechat'?'微信':'支付宝'}</span></td>
       <td class="money" style="text-align:right">¥${Number(o.total).toFixed(2)}</td>
       <td class="money" style="text-align:right" data-tip="${o.status==='pending'?'待付款未扣费':''}">${o.status==='paid' ? '-¥{{ '%.2f'|format(api_fee) }}' : '0'}</td>
-      ${SCOPE==='all'?`<td><b>${o.merchantShop||'-'}</b><div class="muted">${o.merchantEmail||''}</div></td>`:''}
+      ${SCOPE==='all'?`<td>${o.merchantUid?`<a class="mch-link" href="/shop/${escAttr(o.merchantUid)}" target="_blank" rel="noopener" data-tip="点击进入该商户的前台店铺">${escAttr(o.merchantShop||'-')}${EL_ICON}</a>`:escAttr(o.merchantShop||'-')}<div class="muted">${escAttr(o.merchantEmail||'')}</div></td>`:''}
     </tr>`).join('');
   }catch(e){ toast('error','加载失败',e.message); }
   finally{ document.getElementById('fetching').style.display='none'; }

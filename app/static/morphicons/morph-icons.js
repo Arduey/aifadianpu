@@ -46,6 +46,7 @@ var ICONS = {
   arrowRight: "<path d=\"M5 12h14\" /> <path d=\"m12 5 7 7-7 7\" />",
   arrowUp: "<path d=\"m5 12 7-7 7 7\" /> <path d=\"M12 19V5\" />",
   arrowDown: "<path d=\"M12 5v14\" /> <path d=\"m19 12-7 7-7-7\" />",
+  externalLink: "<path d=\"M15 3h6v6\" /> <path d=\"M10 14 21 3\" /> <path d=\"M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6\" />",
   circleHelp: "<circle cx=\"12\" cy=\"12\" r=\"10\" /> <path d=\"M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3\" /> <path d=\"M12 17h.01\" />",
 };
 function __inject(){

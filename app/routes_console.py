@@ -387,8 +387,9 @@ def orders_list(request: Request):
             if scope_all:
                 if o.merchant_id not in cache:
                     m = db.get(User, o.merchant_id)
-                    cache[o.merchant_id] = (m.email, m.shop_name) if m else ("", "")
-                item["merchantEmail"], item["merchantShop"] = cache[o.merchant_id]
+                    # 一并带上 afdian_user_id:前端据此拼 /shop/{uid},做「点击商户名跳转其前台店铺」
+                    cache[o.merchant_id] = (m.email, m.shop_name, m.afdian_user_id) if m else ("", "", "")
+                item["merchantEmail"], item["merchantShop"], item["merchantUid"] = cache[o.merchant_id]
             out.append(item)
     return {"ok": True, "orders": out, "total": len(out)}
 

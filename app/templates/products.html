@@ -43,6 +43,9 @@
     .cat-mv{display:inline-flex;gap:4px;margin-left:auto}
     .cat-ed{display:inline-flex;gap:4px;margin-left:8px}
     .cat-add{display:inline-flex;gap:4px;margin-left:6px}
+    /* 分类卡片头:分类名与各项统计都用固定宽度 → 分类名长短不一时,统计列仍跨卡片对齐 */
+    .cat-block-head > b{flex:0 0 176px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .cat-stat{flex:0 0 100px;text-align:center;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     /* 分类卡片头按钮:统一高度 —— 纯图标的上/下移按钮原本比带文字的按钮矮 5px,显得扁 */
     .cat-ed .btn, .cat-mv .btn, .cat-add .btn{padding:4px 9px;min-height:26px;box-sizing:border-box;line-height:1.5;display:inline-flex;align-items:center;justify-content:center;gap:3px}
     .cat-block.collapsed .chev{transform:rotate(-90deg)}
@@ -88,12 +91,16 @@
     {% set rows = products|selectattr('category_id','equalto',c.id)|list %}
     {% set cat = c.name %}
     {% set cat_icon = c.icon_url or '' %}
+    {% set _sold = cat_sold.get(c.id, 0) %}
+    {% set _amt = cat_amount.get(c.id, 0) %}
     <div class="cat-block" data-cat="{{ cat }}" data-cid="{{ c.id }}">
       <button type="button" class="cat-block-head" onclick="toggleCat(this)">
         {% if cat_icon or platformLogo %}<img src="{{ cat_icon or platformLogo }}" alt="" class="cat-ico" loading="lazy" onerror="this.remove()">{% else %}<span class="cat-ico cat-ico-empty"><morph-icon data-name="package" size="12"></morph-icon></span>{% endif %}
-        <b>{{ cat }}</b>
-        <span class="badge badge-neutral">{{ rows|length }} 个商品</span>
-        <span class="badge badge-good" data-tip="该分类下所有商品的历史已付款销量合计">销量 {{ cat_sold.get(c.id, 0) }} 件 · ¥{{ cat_amount.get(c.id, 0) }}</span>
+        <b data-tip="{{ cat }}">{{ cat }}</b>
+        <span class="badge badge-neutral cat-stat" data-tip="该分类下的商品数量">商品 {{ rows|length }}</span>
+        <span class="badge badge-good cat-stat" data-tip="该分类下所有商品的历史已付款销量合计">销量 {{ _sold }}</span>
+        <span class="badge badge-good cat-stat" data-tip="该分类下所有商品的历史已付款销售额合计">销售额 ¥{{ _amt }}</span>
+        <span class="badge badge-neutral cat-stat" data-tip="均价 = 销售额 ÷ 销量">均价 {% if _sold %}¥{{ "%.2f"|format(_amt / _sold) }}{% else %}—{% endif %}</span>
         <span class="cat-mv" data-tip="调整分类顺序（影响前台店铺分类目录）">
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"up")'><morph-icon data-name="arrowUp" size="13"></morph-icon></span>
           <span class="btn btn-outline btn-sm" role="button" tabindex="0" onclick='moveCat(event,"down")'><morph-icon data-name="arrowDown" size="13"></morph-icon></span>

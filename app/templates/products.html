@@ -17,20 +17,6 @@
 {% endif %}
 
 <div class="card">
-  <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);flex-wrap:wrap">
-    <morph-icon data-name="filter" size="13"></morph-icon>
-    <div style="position:relative">
-      <button type="button" class="btn btn-outline btn-sm" id="cat-btn" onclick="toggleCatMenu(event)">分类(多选)<span id="cat-selcount" class="badge badge-brand" style="display:none;margin-left:6px"></span></button>
-      <div id="cat-menu" style="display:none;position:absolute;left:0;top:32px;z-index:40;min-width:230px;max-height:260px;overflow:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.14);padding:8px">
-        <div style="display:flex;gap:6px;padding:2px 4px 8px;border-bottom:1px solid var(--line);margin-bottom:6px">
-          <button type="button" class="btn btn-ghost btn-sm" onclick="selAllCat(true)">全选</button>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="selAllCat(false)">清空</button>
-        </div>
-        <div id="cat-options"></div>
-      </div>
-    </div>
-    <span class="muted" id="filter-count" style="font-size:11px"></span>
-  </div>
   <style>
     #cat-blocks{padding:10px 12px 12px}
     .cat-block{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--card)}
@@ -341,27 +327,6 @@ function toggleCat(head){
 })();
 if ({{ products|length }} > 0) { try { localStorage.setItem('afp_hasprod','1'); } catch(e){} }
 (function(){
-  function buildFilter(){
-    var box=document.getElementById('cat-options'); if(!box){ return; }
-    var cats={}; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ var c=tr.getAttribute('data-cat'); if(c) cats[c]=1; });
-    box.innerHTML=Object.keys(cats).map(function(c){ return '<label style="display:flex;align-items:center;gap:9px;width:100%;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:13px;box-sizing:border-box">'+
-      '<input type="checkbox" class="cat-it" style="width:16px;height:16px;flex:none;margin:0" value="'+c.replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/&/g,'&amp;')+'" onchange="applyFilter()"><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+c+'</span></label>'; }).join('');
-    refreshCount();
-  }
-  window.toggleCatMenu=function(e){ if(e) e.stopPropagation(); var m=document.getElementById('cat-menu'); if(!m) return; m.style.display = m.style.display==='block' ? 'none' : 'block'; };
-  window.selAllCat=function(on){ document.querySelectorAll('#cat-options .cat-it').forEach(function(cb){ cb.checked=on; }); applyFilter(); };
-  document.addEventListener('click', function(e){ var m=document.getElementById('cat-menu'); if(m && !e.target.closest('#cat-btn') && !e.target.closest('#cat-menu')) m.style.display='none'; });
-  function refreshCount(){ var n=document.querySelectorAll('#cat-options .cat-it:checked').length; var s=document.getElementById('cat-selcount'); if(s){ if(n){ s.style.display='inline-block'; s.textContent=n; } else { s.style.display='none'; } } }
-  window.clearFilter=function(){ selAllCat(false); };
-  function applyFilter(){
-    var chosen={}; document.querySelectorAll('#cat-options .cat-it:checked').forEach(function(cb){ chosen[cb.value]=1; });
-    var rows=document.querySelectorAll('tbody tr.prow');
-    rows.forEach(function(tr){ tr.style.display = Object.keys(chosen).length ? (chosen[tr.getAttribute('data-cat')]?'':'none') : ''; });
-    refreshCount();
-    var cnt=document.getElementById('filter-count');
-    if(cnt){ var shown=Array.from(rows).filter(function(r){ return r.style.display!=='none'; }).length; cnt.textContent=shown+' / '+rows.length; }
-  }
-  window.applyFilter=applyFilter;
   function saveOrder(){ var ids=[]; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ ids.push(tr.getAttribute('data-id')); }); localStorage.setItem('afp_porder', JSON.stringify(ids)); }
   function loadOrder(){ try{ var ord=JSON.parse(localStorage.getItem('afp_porder')||'[]'); if(!ord.length) return; var map={}; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ map[tr.getAttribute('data-id')]=tr; }); var frag=document.createDocumentFragment(); ord.forEach(function(id){ if(map[id]){ frag.appendChild(map[id]); delete map[id]; } }); Object.keys(map).forEach(function(id){ frag.appendChild(map[id]); }); var tb=document.querySelector('tbody'); if(tb) tb.appendChild(frag); }catch(e){} }
 var _sall_t = null;
@@ -393,8 +358,6 @@ var _sall_t = null;
     if(window.toast) toast('success', dir==='up'?'已上移':'已下移');
     window.saveAll();
   }
-  function init(){ buildFilter(); applyFilter(); }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
 const isAdmin = {{ 'true' if is_admin else 'false' }};
 const form = document.getElementById('p-form');

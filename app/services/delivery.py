@@ -345,7 +345,15 @@ def ensure_delivery(db, order) -> dict:
         kind = "link"
         content = getattr(p, "delivery_link", "") or ""
 
-    if kind:
+    # 落库条件 —— 这里放宽是为了堵一个坑:
+    #   ① kind 非空   :确实发出了卡密/链接;
+    #   ② 商品已删除  :落一条空记录,把「此单不发放」这个结论钉死;
+    #   ③ 商户发货    :同样落一条空记录。否则商品日后被改成「平台发货」时,
+    #                  拿这张旧订单来查会按新配置现场抢卡密,凭白消耗库存,
+    #                  而且商户本来压根没打算在平台上发货。
+    # 注意「平台发货但当前抢不到卡密」**不落库**,保留「补货后再查仍能领」的行为。
+    _record = bool(kind) or (p is None) or (not is_platform_delivery(p))
+    if _record:
         db.add(DeliveryRecord(order_no=order_no, product_id=getattr(order, "product_id", None),
                               merchant_id=getattr(order, "merchant_id", 0) or 0,
                               kind=kind, content=content))

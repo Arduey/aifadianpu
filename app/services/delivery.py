@@ -306,11 +306,13 @@ def ensure_delivery(db, order) -> dict:
         return {"kind": "", "content": "", "tip": "", "needs_manual": True}
 
     rec = db.query(DeliveryRecord).filter(DeliveryRecord.order_no == order_no).first()
-    tip = ""
     p = None
     if getattr(order, "product_id", None):
         p = db.get(Product, order.product_id)
-    if p is not None:
+    # 提货说明优先取「下单时的快照」——商品后来改了说明,历史订单保持原样;
+    # 快照为空(本列上线前的老订单)时回退到商品当前值,保证仍有说明可看。
+    tip = getattr(order, "delivery_tip", "") or ""
+    if not tip and p is not None:
         tip = getattr(p, "delivery_tip", "") or ""
 
     if rec is not None:

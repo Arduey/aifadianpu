@@ -137,6 +137,7 @@ class Order(Base):
     status = Column(String(16), nullable=False, default="pending")  # pending|paid
     paid_at = Column(DateTime, nullable=True)
     delivered_at = Column(DateTime, nullable=True)                  # 卡密/链接发放时间
+    delivery_tip = Column(String(500), nullable=False, default="")  # 下单时的「提货说明」快照(商品日后改动不影响历史订单)
     recharge_for_id = Column(Integer, nullable=True)
     recharge_grant_cents = Column(Integer, nullable=True)
     created_at = Column(DateTime, nullable=False, default=datetime.now, index=True)

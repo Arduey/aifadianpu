@@ -823,6 +823,7 @@ async def shop_buy(request: Request):
             category=_cat_name, title=product.title, sku=product.sku_name,
             total=product.price, channel=channel, remark=remark,
             buyer_account=s.consumer_account, buyer_email=buyer_email,
+            delivery_tip=product.delivery_tip or "",   # 下单快照:商品日后改提货说明不影响本单
             status="pending", created_at=datetime.now(),
         ))
         # 平台发货·卡密:下单即锁定一个卡密(未付款 3 小时后清单时释放回库存)

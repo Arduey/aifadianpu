@@ -1137,6 +1137,7 @@ async def recharge_create(request: Request):
             category=_rcat_name, title=product.title, sku=product.sku_name,
             total=product.price, channel=channel, remark=remark,
             buyer_account=me.afdian_user_id or me.email, status="pending",
+            delivery_tip=product.delivery_tip or "",   # 下单快照:商品日后改提货说明不影响本单
             recharge_for_id=me.id, recharge_grant_cents=grant, created_at=datetime.now(),
         ))
         db.commit()

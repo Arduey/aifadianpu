@@ -110,6 +110,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `buyer_account` VARCHAR(120) NOT NULL DEFAULT '',
   `status` VARCHAR(16) NOT NULL DEFAULT 'pending' COMMENT 'pending|paid',
   `paid_at` DATETIME NULL,
+  `delivery_tip` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '下单时的提货说明快照',
   `recharge_for_id` INT UNSIGNED NULL COMMENT '充值订单:充值商户(买家)',
   `recharge_grant_cents` INT NULL COMMENT '充值到账金额(分)',
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

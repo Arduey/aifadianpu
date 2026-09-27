@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from . import auth, config, settings
 from .db import (FeeLedger, Notice, Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
 from .render import render
-from .services import afdian, afd_login, afd_live, categories, delivery, email_templates, mailer, pipeline
+from .services import afdian, afd_login, afd_live, categories, delivery, email_templates, mailer, pipeline, reconcile
 from .utils import has_amp
 
 router = APIRouter()
@@ -29,6 +29,12 @@ def _need(request: Request, admin: bool = False):
         return None, RedirectResponse("/login", status_code=302)
     if admin and me.role != "admin":
         return None, render(request, "noadmin.html")
+    # 顺手跑一次「平台订单对账」——兜底 Webhook 漏推(官方文档承认 Webhook 不保证必达)。
+    # 内部带节流(默认 90 秒)且自吞异常,绝不会影响页面渲染。
+    try:
+        reconcile.reconcile_platform_orders()
+    except Exception:  # noqa: BLE001
+        pass
     return me, None
 
 

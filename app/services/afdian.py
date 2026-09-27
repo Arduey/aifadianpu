@@ -100,3 +100,69 @@ def test_connection(user_id: str, token: str):
             continue
     joined = " | ".join(last_notices)
     return False, "无法连到爱发电服务器(逐一尝试失败):详见 detail", joined
+
+
+# ── 平台侧订单拉取(用「平台消费者账号」的 auth_token,不是商户 token)──
+# 这是网页后台的内部接口(非公开开放 API),靠 cookie auth_token 认证,
+# 与上面 test_connection 那套「user_id + token 签名」完全是两回事。
+_SPONSORED_BASES = (
+    "https://ifdian.net",
+    "https://afdian.com",   # 登录走 afdian.com,这里两个域名都试,兼容会话域名差异
+)
+_UA_BILL = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
+
+
+def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2, timeout: int = 12):
+    """用平台消费者账号的 auth_token 拉「我买过(已支付)」的账单。
+
+    接口(网页后台内部接口):
+        GET /api/my/sponsored-bill-out-filter
+            ?page=&sort_field=update_time&sort_value=desc&is_redeem=0&plan_id=&sign_status=&status=2
+    status=2 表示只取自「已支付」的,所以返回的每一条都已是付款状态。
+
+    返回 (ok: bool, items: list[dict], message: str),items 即 data.list。
+    只读,不改任何东西;失败不抛异常,交给调用方决定怎么处理。
+    """
+    tok = (auth_token or "").strip()
+    if not tok:
+        return False, [], "缺少 auth_token(平台消费者账号尚未登录)"
+    qs = ("page=" + str(int(page)) +
+          "&sort_field=update_time&sort_value=desc" +
+          "&is_redeem=0&plan_id=&sign_status=&status=" + str(int(status)))
+    last_err = []
+    for base in _SPONSORED_BASES:
+        url = base + "/api/my/sponsored-bill-out-filter?" + qs
+        req = urllib.request.Request(url, method="GET", headers={
+            "accept": "application/json, text/plain, */*",
+            "accept-language": "zh-CN,zh;q=0.9",
+            "user-agent": _UA_BILL,
+            "referer": base + "/dashboard/order?order_status=2",
+            "locale-lang": "zh-CN",
+            "cookie": "auth_token=" + tok,
+        })
+        raw = None
+        for ctx in (ssl.create_default_context(), ssl._create_unverified_context()):
+            try:
+                with urllib.request.urlopen(req, context=ctx, timeout=timeout) as resp:
+                    raw = resp.read().decode("utf-8", "replace")
+                break
+            except Exception as e:  # noqa: BLE001
+                last_err.append(base + " => " + type(e).__name__ + ":" + str(getattr(e, "reason", e)))
+        if raw is None:
+            continue
+        try:
+            j = json.loads(raw)
+        except (ValueError, TypeError):
+            last_err.append(base + " => 返回不是 JSON: " + str(raw)[:120])
+            continue
+        ec = int(j.get("ec") or 0)
+        if ec != 200:
+            last_err.append(base + " => ec=" + str(ec) + " em=" + str(j.get("em") or ""))
+            continue
+        data = j.get("data") or {}
+        items = data.get("list")
+        if not isinstance(items, list):
+            items = []
+        return True, items, "已取回 " + str(len(items)) + " 条"
+    return False, [], " | ".join(last_err) or "拉取失败"

@@ -48,8 +48,12 @@ def is_platform_order(row: dict) -> bool:
     return (_SELF_MARK in title) and (remark.count("&") >= _MIN_AMP)
 
 
-def reconcile_platform_orders(min_interval: int = 90, force: bool = False) -> dict:
-    """跑一次平台订单对账(带节流)。返回统计字典;永不抛异常。"""
+def reconcile_platform_orders(min_interval: float = 5.0, force: bool = False) -> dict:
+    """跑一次平台订单对账(带节流,默认 5 秒内不重复)。
+
+    与 afdian.fetch_sponsored_bills 内部的节流并存:这里管「别太频繁走进对账流程」,
+    那里管「别太频繁真去打爱发电」。返回统计字典;永不抛异常。
+    """
     global _last_run
     now = time.time()
     with _lock:
@@ -66,14 +70,29 @@ def reconcile_platform_orders(min_interval: int = 90, force: bool = False) -> di
 
 
 def _run() -> dict:
-    """实际执行:取 token → 拉已支付账单 → 筛本站单 → 补推进。"""
+    """实际执行:取 token → 拉已支付账单 → 筛本站单 → 补推进。
+
+    会话掉线的处理:平台消费者账号的账密存在平台配置里,afd_login.consumer_ensure_token()
+    本身就会在「token 过期」时自动重新登录;这里额外补一层——如果**拉取失败**
+    (常见于会话已被服务端作废、但本地时间戳还没到过期),就强制重登一次再用新 token 重试。
+    """
     got = afd_login.consumer_ensure_token(force=False)
     token = str(got.get("token") or "")
+    if not token:
+        got = afd_login.consumer_ensure_token(force=True)   # 本地压根没 token → 强制登一次
+        token = str(got.get("token") or "")
     if not token:
         return {"ok": False, "skipped": False,
                 "reason": "平台消费者账号未登录:" + str(got.get("em") or ""),
                 "checked": 0, "matched": 0, "fixed": []}
+
     ok, items, msg = afdian.fetch_sponsored_bills(token, page=1)
+    if not ok:
+        # 拉取失败 → 强制重登换新 token 再试一次(min_interval=0 绕过节流,这次是新会话)
+        refreshed = afd_login.consumer_ensure_token(force=True)
+        token2 = str(refreshed.get("token") or "")
+        if token2 and token2 != token:
+            ok, items, msg = afdian.fetch_sponsored_bills(token2, page=1, min_interval=0)
     if not ok:
         return {"ok": False, "skipped": False, "reason": msg,
                 "checked": 0, "matched": 0, "fixed": []}

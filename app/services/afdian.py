@@ -11,6 +11,7 @@ user_id + token 真请求一次订单查询,`ec=200` 即判定能连通并读取
 import hashlib
 import json
 import ssl
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -112,8 +113,14 @@ _SPONSORED_BASES = (
 _UA_BILL = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
             "(KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36")
 
+# ★ 节流(全平台共享):记录「上次真正发起请求」的时间戳,距上次不足 min_interval 秒
+#   就直接跳过。这样无论从哪里、被多频繁地调用,最快也只是每 min_interval 秒打一次爱发电。
+_fetch_lock = threading.Lock()
+_last_fetch = 0.0
 
-def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2, timeout: int = 12):
+
+def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2,
+                          timeout: int = 12, min_interval: float = 5.0):
     """用平台消费者账号的 auth_token 拉「我买过(已支付)」的账单。
 
     接口(网页后台内部接口):
@@ -121,9 +128,19 @@ def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2, timeo
             ?page=&sort_field=update_time&sort_value=desc&is_redeem=0&plan_id=&sign_status=&status=2
     status=2 表示只取自「已支付」的,所以返回的每一条都已是付款状态。
 
+    ★ 节流:被节流时不发请求,返回 (True, [], "节流跳过...") —— 用 ok=True 表示
+      「没出错,只是这次没去取」,调用方据此正常往下走即可。
+      传 min_interval=0 可强制发起(用于重新登录后的重试)。
+
     返回 (ok: bool, items: list[dict], message: str),items 即 data.list。
     只读,不改任何东西;失败不抛异常,交给调用方决定怎么处理。
     """
+    global _last_fetch
+    now = time.time()
+    with _fetch_lock:
+        if min_interval and (now - _last_fetch) < min_interval:
+            return True, [], "节流跳过:距上次请求不足 " + str(min_interval) + " 秒"
+        _last_fetch = now
     tok = (auth_token or "").strip()
     if not tok:
         return False, [], "缺少 auth_token(平台消费者账号尚未登录)"

@@ -569,6 +569,7 @@ def api_pickup(request: Request):
                 "kind": info.get("kind") or "",
                 "content": info.get("content") or "",
                 "tip": info.get("tip") or "",
+                "tip_now": info.get("tip_now") or "",
                 "needs_manual": bool(info.get("needs_manual")),
             },
             "contact": (auth.first_admin_email() or ""),

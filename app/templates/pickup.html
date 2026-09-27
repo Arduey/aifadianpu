@@ -125,7 +125,16 @@ async function doPickup(){
       box.innerHTML='<div class="pk-empty">本商品由<b>商家手动发货</b>，平台不自动发放内容。请联系商家客服领取：</div>';
       window.__pkContent = '';
     }
-    if(dv.tip){ box.innerHTML += '<div class="pk-tip">'+escH(dv.tip)+'</div>'; }
+    // 提货说明:下单快照 + 商品最新说明。两者一致(或只有一个)时只显示一条,不同则并列并标注来源。
+    var _tipSnap=String(dv.tip||'').trim(), _tipNow=String(dv.tip_now||'').trim();
+    if(_tipSnap || _tipNow){
+      if(_tipSnap && _tipNow && _tipSnap!==_tipNow){
+        box.innerHTML += '<div class="pk-tip"><b>下单时的说明：</b><br>'+escH(_tipSnap)+'</div>';
+        box.innerHTML += '<div class="pk-tip"><b>商家最新说明：</b><br>'+escH(_tipNow)+'</div>';
+      } else {
+        box.innerHTML += '<div class="pk-tip">'+escH(_tipSnap||_tipNow)+'</div>';
+      }
+    }
     var ct=[];
     if(d.merchant_email) ct.push('商家客服：<b>'+escH(d.merchant_email)+'</b>');
     if(d.contact) ct.push('平台客服：'+escH(d.contact));

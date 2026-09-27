@@ -303,20 +303,22 @@ def ensure_delivery(db, order) -> dict:
     """
     order_no = getattr(order, "order_no", "") or ""
     if not order_no:
-        return {"kind": "", "content": "", "tip": "", "needs_manual": True}
+        return {"kind": "", "content": "", "tip": "", "tip_now": "", "needs_manual": True}
 
     rec = db.query(DeliveryRecord).filter(DeliveryRecord.order_no == order_no).first()
     p = None
     if getattr(order, "product_id", None):
         p = db.get(Product, order.product_id)
-    # 提货说明优先取「下单时的快照」——商品后来改了说明,历史订单保持原样;
-    # 快照为空(本列上线前的老订单)时回退到商品当前值,保证仍有说明可看。
+    # 提货说明返回两份,提货页并列展示:
+    #   tip_now = 商品当前的说明(商户可能事后改过)
+    #   tip     = 下单时的快照;老订单(本列上线前)快照为空 → 回退到 tip_now,保证仍有说明可看
+    tip_now = (getattr(p, "delivery_tip", "") or "") if p is not None else ""
     tip = getattr(order, "delivery_tip", "") or ""
-    if not tip and p is not None:
-        tip = getattr(p, "delivery_tip", "") or ""
+    if not tip:
+        tip = tip_now
 
     if rec is not None:
-        return {"kind": rec.kind, "content": rec.content, "tip": tip,
+        return {"kind": rec.kind, "content": rec.content, "tip": tip, "tip_now": tip_now,
                 "needs_manual": rec.kind == ""}
 
     kind = ""
@@ -359,4 +361,4 @@ def ensure_delivery(db, order) -> dict:
         db.add(DeliveryRecord(order_no=order_no, product_id=getattr(order, "product_id", None),
                               merchant_id=getattr(order, "merchant_id", 0) or 0,
                               kind=kind, content=content))
-    return {"kind": kind, "content": content, "tip": tip, "needs_manual": kind == ""}
+    return {"kind": kind, "content": content, "tip": tip, "tip_now": tip_now, "needs_manual": kind == ""}

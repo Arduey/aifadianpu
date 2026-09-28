@@ -87,8 +87,10 @@ def _run() -> dict:
                 "checked": 0, "matched": 0, "fixed": []}
 
     ok, items, msg = afdian.fetch_sponsored_bills(token, page=1)
-    if not ok:
-        # 拉取失败 → 强制重登换新 token 再试一次(min_interval=0 绕过节流,这次是新会话)
+    if (not ok) and afdian.is_session_invalid(msg):
+        # 明确是「会话失效」(爱发电返回 {"ec":40101,"em":"请重新登录"})→ 强制重登换新 token,
+        # 再用新会话重试一次(min_interval=0 绕过节流,这已经是新会话)。
+        # 其它失败(限流/服务端抽风/网络抖动)重登也没用,不白跑一次登录。
         refreshed = afd_login.consumer_ensure_token(force=True)
         token2 = str(refreshed.get("token") or "")
         if token2 and token2 != token:

@@ -118,6 +118,9 @@ _UA_BILL = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
 _fetch_lock = threading.Lock()
 _last_fetch = 0.0
 
+# 爱发电在「会话失效(需重新登录)」时返回的 ec:{"ec":40101,"em":"请重新登录","data":{}}
+_EC_NEED_LOGIN = 40101
+
 
 def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2,
                           timeout: int = 12, min_interval: float = 5.0):
@@ -175,7 +178,13 @@ def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2,
             continue
         ec = int(j.get("ec") or 0)
         if ec != 200:
-            last_err.append(base + " => ec=" + str(ec) + " em=" + str(j.get("em") or ""))
+            if ec == _EC_NEED_LOGIN:
+                # 会话已失效(爱发电返回 {"ec":40101,"em":"请重新登录"})——单独标出,
+                # 让调用方据此强制重新登录后重试;其它错误(限流/服务端异常)不该白登一次。
+                last_err.append(base + " => 会话失效 ec=" + str(_EC_NEED_LOGIN) +
+                                " em=" + str(j.get("em") or ""))
+            else:
+                last_err.append(base + " => ec=" + str(ec) + " em=" + str(j.get("em") or ""))
             continue
         data = j.get("data") or {}
         items = data.get("list")
@@ -183,3 +192,12 @@ def fetch_sponsored_bills(auth_token: str, page: int = 1, status: int = 2,
             items = []
         return True, items, "已取回 " + str(len(items)) + " 条"
     return False, [], " | ".join(last_err) or "拉取失败"
+
+
+def is_session_invalid(message: str) -> bool:
+    """fetch_sponsored_bills 的失败信息是否表示「会话失效,需要重新登录」。
+
+    仅用于判断"要不要强制重登重试":只有真掉线(爱发电返回 ec=40101 请重新登录)才重登,
+    其它失败(限流、服务端抽风、网络抖动)重登也没用,不该白跑一次登录。
+    """
+    return str(_EC_NEED_LOGIN) in str(message or "")

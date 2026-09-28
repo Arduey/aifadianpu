@@ -175,6 +175,7 @@ cd /www/wwwroot/afd
 ## 随代码一起带走的资产
 
 - `deploy_check.py` —— 部署自检脚本(建议每次部署后先跑)
-- `database/schema.sql` —— 表结构(可选手工导入;程序也会自动建)
+- `database/schema.sql` —— **全新建库**的表结构(已与 `app/db.py` 逐列对齐;可选手工导入,程序也会自动建)
+- `database/upgrade_*.sql` —— **存量库升级**脚本(分类独立成表 / 自助提货字段 / `stock_limit` / `orders.delivery_tip` / 历史发货锁 / 列注释),按需在 phpMyAdmin 执行,记得**先跑 SQL 再重启后端**
 - `database/reset.sql` —— 清库重装
 - `DEPLOY-TUTORIAL.md` —— 更详细的操作图解版(若需要)

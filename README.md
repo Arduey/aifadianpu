@@ -21,18 +21,18 @@
 fastapi/
 ├── main.py               # 入口(main:app),启动时幂等建表
 ├── requirements.txt      # 依赖(uvicorn 锁 <0.35,见下方说明)
-├── database/schema.sql   # MySQL 表结构(可选手工导入,程序也会自动建表)
+├── database/             # schema.sql(全新建库) / upgrade_*.sql(存量库升级) / reset.sql(清库重装)
 └── app/
     ├── config.py         # 环境变量读取(.env 优先)
     ├── settings.py       # 平台可调设置(读写 platform_settings 表)
-    ├── db.py             # SQLAlchemy 引擎 + 12 张表模型
+    ├── db.py             # SQLAlchemy 引擎 + 16 张表模型
     ├── auth.py           # PBKDF2 密码 / JWT 会话(Cookie+Bearer)/ 登录锁定
     ├── utils.py          # 校验助手(邮箱、店铺名等)
     ├── render.py         # Jinja2 渲染(自动注入 me/qs/api_fee 等)
-    ├── routes_public.py  # 公开路由 24 个:安装向导/注册登录/店铺页/下单轮询/开放接口
-    ├── routes_console.py # 控制台路由 44 个:页面 + 全部 JSON 接口
+    ├── routes_public.py  # 公开路由 26 个:安装向导/注册登录/店铺页/下单轮询/自助提货/开放接口
+    ├── routes_console.py # 控制台路由 49 个:页面 + 全部 JSON 接口
     ├── services/         # 业务服务(见「开发者指南 · 服务层」)
-    ├── templates/        # 21 个 Jinja2 页面模板
+    ├── templates/        # 22 个 Jinja2 页面模板
     └── static/           # app.css / app.js / morphicons / qrcode.js 等
 ```
 
@@ -92,7 +92,7 @@ python3 -m venv venv && ./venv/bin/pip install -r requirements.txt
 
 ## 日常运维(全图形化)
 
-- **更新**:覆盖代码 → 项目管理器点「重启」即生效(无构建步骤);表结构变更由启动时自动同步。
+- **更新**:覆盖代码 → 项目管理器点「重启」即生效(无构建步骤);新增**表**由启动时自动创建,给**已有表加列**则需先跑 `database/upgrade_*.sql` 对应脚本,再重启。
 - **备份**:计划任务 → 备份数据库(每天)+ 备份项目目录;日志在项目管理器「日志」页(邮件/回调失败可查)。
 - **本地调试**:`uvicorn main:app --reload`(注意 http 下的 `APP_SECURE` 用法,见「开发者指南 · 本地运行」)。
 
@@ -128,7 +128,10 @@ uvicorn main:app --reload
 | 模块 | 职责 |
 |---|---|
 | `pipeline.py` | **支付流水线**:`mark_order_paid()` 幂等标记已付并执行「加充值余额 → 扣服务费写流水 → 发 Webhook → 发邮件」;另含 Webhook 模板渲染(`@变量`)、发送历史修剪、`gc_stale_pending()` 清理过期未付单、`bump_order_stat()` 订单计数 |
-| `afdian.py` | 爱发电对接(仅只读的商户绑定校验 test_connection) |
+| `delivery.py` | **发货服务**:卡密 / 链接 / 限购商品发货、库存扣减、卡密去重与锁定、`ensure_delivery()` 提货幂等(已发放的内容不会再被改写) |
+| `categories.py` | **店铺分类服务**:分类增删改、排序、级联删除(连商品与其卡密;历史订单不动) |
+| `reconcile.py` | **平台订单对账**:兜底 Webhook 漏推,用平台消费者账号拉「已支付」账单,把本地漏掉的订单补推进成已付款(带节流,异常静默) |
+| `afdian.py` | 爱发电只读对接:商户绑定校验 `test_connection()` + 平台对账拉单 `fetch_sponsored_bills()`(含节流与会话失效识别) |
 | `afd_live.py` | 真实下单/查单:优先用 `curl_cffi` 伪装浏览器指纹绕过 Cloudflare,未安装则回退 urllib;含 `live_create_auto / live_check_auto`(token 失效自动重登再试) |
 | `afd_login.py` | 消费者账号登录、`auth_token` 持久化与失效判断(`consumer_ensure_token`) |
 | `mailer.py` | SMTP 发信(smtplib),未配置时降级为仅记日志 |
@@ -137,9 +140,24 @@ uvicorn main:app --reload
 
 ### 数据层
 
-- 12 张表模型集中在 `app/db.py`;建表由 `main.py` 启动时 `Base.metadata.create_all()` 幂等完成,新增模型**无需手工 ALTER**(新增表同理);
-- ⚠️ 给**已有表新增列**时,`create_all` 不会改已存在的表,需自行 `ALTER TABLE` 后再重启;
+- **16 张表**模型集中在 `app/db.py`;建表由 `main.py` 启动时 `Base.metadata.create_all()` 幂等完成,新增**表**无需手工 ALTER;`database/schema.sql` 已与该模型逐列对齐(全新建库可手工导入,也可让程序自动建);
+- ⚠️ 给**已有表新增列**时,`create_all` 不会改已存在的表,需按 `database/upgrade_*.sql` 里对应脚本 `ALTER TABLE`(**先跑 SQL,再重启**,反了会报 `Unknown column`);
 - 平台级可调配置都在 `platform_settings` 表,通过 `app/settings.py` 读取(如 `api_fee_cents()`),**不要**在代码里写死。
+
+### 数据库升级(存量库)
+
+新装库让程序自动建表即可;**已有数据的库**需要新功能时,在 phpMyAdmin 里按需执行 `database/` 下的脚本:
+
+| 脚本 | 作用 |
+|---|---|
+| `upgrade_category.sql` | 分类独立成表(`product_categories` + `products.category_id`),并原地迁移原 `products.category` 的数据(幂等,可重跑) |
+| `upgrade_pickup.sql` | 自助提货:给 `products` 补发货字段(`delivery_type` / `delivery_kind` / `delivery_link` / `delivery_tip`);`stock_cards` / `delivery_records` 两张**新表**由程序启动时自动建 |
+| `upgrade_stock_limit.sql` | 给 `products` 加 `stock_limit`(限购总量,0 = 不限量) |
+| `upgrade_order_tip.sql` | 给 `orders` 加 `delivery_tip`(下单时的提货说明快照,历史订单不随商品改动而变) |
+| `upgrade_delivery_lock.sql` | 给历史「商户发货」已付款订单补一条**空发货记录**,钉住「此单不自动发放」,避免商品后来被改成卡密后被误发 |
+| `upgrade_webhook_comment.sql` | 仅修正 `platform_settings.webhook_base_url` 的列注释(不动数据) |
+
+> ⚠️ 两条硬规则:**① 先跑 SQL、再重启后端**;**② `CREATE TABLE IF NOT EXISTS` 不会修正已存在表的列定义**,所以这些脚本对旧表一律用 `ALTER TABLE ... MODIFY COLUMN` 把默认值补齐(否则会报 `#1364 Field 'x' doesn't have a default value`)。
 
 ### 鉴权
 
@@ -174,6 +192,7 @@ python deploy_check.py   # 部署前环境检查
 
 ### 已知边界(不要当 bug)
 
-- **下单/查单走 `afd_live.py`(真实接口)**,不是 `afdian.py`;后者里的 `create_order / order_paid` 是**历史占位且已无调用方**,属死代码,别混淆;
+- **下单/查单走 `afd_live.py`(真实接口)**;`afdian.py` 现只保留只读能力(商户绑定校验 `test_connection` + 对账拉单 `fetch_sponsored_bills`),原 `create_order / order_paid` 占位实现**已删除**;
+- **Webhook 不保证必达**(爱发电官方说明建议结合 API 使用),故新增 `reconcile.py`:用平台消费者账号拉「已支付」账单,把本地漏掉的订单补推进成已付款。它在控制台请求上**惰性触发**(5 秒节流,异常静默),不是常驻定时器;
 - 下单依赖 `curl_cffi` 伪装指纹绕 Cloudflare:未安装时可回退 urllib,但**很可能被 1010 拦截**;
 - 未支付订单**超过 3 小时会被物理清除**(`gc_stale_pending`),因此「创建订单数」由独立的 `order_stats` 表累计保障,不受清理影响。

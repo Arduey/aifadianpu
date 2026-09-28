@@ -162,3 +162,4 @@ Python 项目管理器 → `afd` → **重启**。
 | 打开还是首页、不进安装向导 | 数据库里 `platform_settings` 有旧 `installed=1`，清空该表后重启 |
 | STEP1 连接失败 | MySQL 没启动 / 库名密码填错 / 端口不对 |
 | 重启后再进仍是 STEP1 | 没真正重启，回「重启」再试 |
+| 报 `Unknown column 'xxx'` | 用的是**旧数据库**（以前装过本程序）：按 `database/upgrade_*.sql` 补齐对应列，**先跑 SQL 再重启** |

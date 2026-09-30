@@ -12,3 +12,7 @@ pyjwt>=2.8
 python-dotenv>=1.0
 jinja2>=3.1
 python-multipart>=0.0.9
+# 可选但建议:用浏览器 TLS/JA3 指纹发爱发电请求(curl_cffi 的 impersonate=chrome)。
+# 缺它会回退到 urllib;实测从机房 IP 发 urllib 请求时,「微信 >100 元的发电」会被爱发电风控拒
+# (ec=400 不支持发电),而 ≤100 元与支付宝不受影响。
+curl_cffi>=0.7

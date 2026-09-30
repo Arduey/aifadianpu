@@ -1,25 +1,77 @@
 """爱发电「网页会话 auth_token」登录 + 持久化 + 失效判断。
 
-真实路由(已被用户实测可用):
-   POST https://afdian.com/api/passport/login
-   JSON: {"account": <账号>, "password": <密码>, "mp_token": "-1"}
+真实路由:
+   POST https://ifdian.net/api/passport/login
+   JSON: {"account": <加密串>, "password": <加密串>, "mp_token": "-1", "ar_ept": <RSA 加密的 AES 密钥>}
    成功: {"ec":200,"em":"登录成功","data":{"auth_token":"..."}}
+
+⚠️ 官网前端(afd-fe-version 1.24.x,module 71861)已把登录改成「AES + RSA」加密:
+   - 每次登录随机生成 16 字节密钥,取十六进制 32 字符作为 AES-256-CBC 的密钥(明文 UTF-8)
+   - IV 固定 "7brVHncu7wIDAQAB",PKCS7 填充,密文 Base64
+   - 该密钥串再用官网内置 RSA 公钥(PKCS#1 v1.5)加密成 Base64,放入正文 ar_ept
+   旧版明文提交网页端已不再受理(实测返回 ec=404 账号不正确,与“账号不存在”同文案),
+   所以本模块默认走加密通道,仅在失败时兜底再试一次明文(老协议)。
 
 持久化放在 platform_settings.consumer_auth_token / consumer_token_at。
 本模块只做: 登录一个 token / 存库 / 取回 / "是否已失效" 判断 —— 不负责调用方的下游重试流程。
 """
+import base64
 import json
+import os
 import ssl
 import urllib.error
 import urllib.request
 from datetime import datetime
 
+from cryptography.hazmat.primitives import padding as _sym_pad
+from cryptography.hazmat.primitives import serialization as _serial
+from cryptography.hazmat.primitives.asymmetric import padding as _asym_pad
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
 from ..db import SessionLocal, platform_settings
 
-_LOGIN_URL = "https://afdian.com/api/passport/login"
+AFDIAN_HOST = "https://ifdian.net"
+_LOGIN_URL = f"{AFDIAN_HOST}/api/passport/login"
 _UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-       "(KHTML, like Gecko) Chrome/112.0.0.0 Safari/537.36")
+       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+# 与官网当前前端一致(旧值 20220508 对应明文协议,服务端已不再受理)
+_AFD_FE_VERSION = "1.24.2"
+# 以下两项直接取自官网前端源码:登录加密用的 RSA 公钥与固定 IV
+_AFD_LOGIN_PUBKEY_PEM = """-----BEGIN PUBLIC KEY-----
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4Top/Mt2ofZeAIMh9AHw
+4d6Q+iyBxXbou+1mbhclLsB3YSMbFD+X6QnlAY1vMHO7fteKevn25iVIELBXsmcQ
+S5/oA2hO3VHi9uTG3XmYVcrw94cK5ppODeBOV0hV0dFS/NOT66pqPAuLW6HgRrnt
+gznl4ju6ttOddDNJ7e97RH9qrZEpzjl9GqVZQ2sFdmmw4dNET9fP9HWq8VlfW+BF
+G7TuxzEjZNcxAgrG/f41Z0+G3RxAccF8LOxu4Ztk1ZDdv5xukdx2ukoEhgdmKUkD
+v/W5r3HPj1uX+buzDi/UsumMblWXb0Bys7ENhZ/n4+naZ3b3rJ32DnTF7brVHncu
+7wIDAQAB
+-----END PUBLIC KEY-----"""
+_AFD_LOGIN_AES_IV = b"7brVHncu7wIDAQAB"
 _DEFAULT_MAX_AGE = 7 * 24 * 3600  # 无平台侧超时字段时,保守默认 7 天内视为有效
+
+
+def _aes_encrypt(plain: str, key_hex: str) -> str:
+    """AES-256-CBC(密钥=32 字符十六进制串的 UTF-8 字节,IV 固定,PKCS7)→ Base64。"""
+    padder = _sym_pad.PKCS7(128).padder()
+    data = padder.update((plain or "").encode("utf-8")) + padder.finalize()
+    enc = Cipher(algorithms.AES(key_hex.encode("utf-8")), modes.CBC(_AFD_LOGIN_AES_IV)).encryptor()
+    return base64.b64encode(enc.update(data) + enc.finalize()).decode("ascii")
+
+
+def _rsa_encrypt(plain: str) -> str:
+    """RSA(PKCS#1 v1.5)加密 → Base64(官网 JSEncrypt 同款填充)。"""
+    pub = _serial.load_pem_public_key(_AFD_LOGIN_PUBKEY_PEM.encode("utf-8"))
+    return base64.b64encode(pub.encrypt(plain.encode("utf-8"), _asym_pad.PKCS1v15())).decode("ascii")
+
+
+def _encrypt_login_fields(account: str, password: str) -> dict:
+    """按官网协议把 account/password 加密,并生成 ar_ept(承载本次 AES 密钥)。"""
+    key_hex = os.urandom(16).hex()  # 等价前端 WordArray.random(16).toString():32 位十六进制串
+    return {
+        "account": _aes_encrypt(account, key_hex),
+        "password": _aes_encrypt(password, key_hex),
+        "ar_ept": _rsa_encrypt(key_hex),
+    }
 
 
 def _post(url: str, body: bytes, headers: dict, timeout: int = 12):
@@ -48,18 +100,36 @@ def consumer_login(account: str, password: str) -> dict:
     password = (password or "").strip()
     if not account or not password:
         return {"ok": False, "ec": 0, "em": "consumer 账号/密码不能为空", "token": "", "at": None, "raw": ""}
-    body = json.dumps({"account": account, "password": password, "mp_token": "-1"},
-                      ensure_ascii=True).encode("utf-8")
     headers = {
         "accept": "application/json, text/plain, */*",
         "content-type": "application/json",
         "user-agent": _UA,
-        "afd-fe-version": "20220508",
-        "origin": "https://afdian.com",
-        "referer": "https://afdian.com/login",
+        "afd-fe-version": _AFD_FE_VERSION,
+        "locale-lang": "zh-CN",
+        "origin": AFDIAN_HOST,
+        "referer": f"{AFDIAN_HOST}/login",
     }
+    # 1) 官网现协议:account/password 走 AES 加密,ar_ept 携带 RSA 加密的本次密钥
     try:
-        raw = _post(_LOGIN_URL, body, headers).decode("utf-8", "replace")
+        enc = _encrypt_login_fields(account, password)
+        first = _post_login({**enc, "mp_token": "-1"}, headers)
+    except Exception as e:  # noqa: BLE001
+        first = {"ok": False, "ec": 0, "em": f"登录加密失败: {e}", "token": "", "at": None, "raw": ""}
+    if first.get("ok"):
+        return first
+    # 2) 兜底:旧版明文协议(服务端仍可能受理;失败时把两条错误都带回去便于定位)
+    plain = _post_login({"account": account, "password": password, "mp_token": "-1"}, headers)
+    if plain.get("ok"):
+        plain["em"] = "登录成功(明文兼容通道)"
+        return plain
+    first["em"] = f"{first.get('em')}; 明文兼容通道同样失败: {plain.get('em')}"
+    return first
+
+
+def _post_login(body: dict, headers: dict) -> dict:
+    """真正发一次登录请求并解析返回(两条通道共用)。"""
+    try:
+        raw = _post(_LOGIN_URL, json.dumps(body, ensure_ascii=True).encode("utf-8"), headers).decode("utf-8", "replace")
         j = json.loads(raw)
         ec = int(j.get("ec") or 0)
         em = str(j.get("em") or "")

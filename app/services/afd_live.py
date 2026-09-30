@@ -12,6 +12,7 @@ import ssl
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
 try:  # 浏览器指纹伪装(可选依赖);服务器建议 pip install curl_cffi
     from curl_cffi import requests as _curl_requests  # type: ignore
@@ -20,7 +21,11 @@ except Exception:  # noqa: BLE001
 
 # store 源码里同款基址;版本对齐真实浏览器请求
 AFDIAN_API_BASE = "https://ifdian.net"
-_AFD_FE_VERSION = "1.22.2"
+_AFD_FE_VERSION = "1.24.2"
+# 官网每次请求都带的浏览器指纹细节(缺了容易落到风控/老逻辑分支上)
+_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+_STAT_ID = uuid.uuid4().hex  # 32 位十六进制;官网前端每个浏览器固定一个,这里进程内固定
 # curl_cffi 伪装目标(可换 chrome110/chrome120 等)
 _IMPERSONATE = "chrome"
 
@@ -29,6 +34,21 @@ PAY_TYPES = {
     "wechat": {"py_type": "wpy_qr", "label": "微信"},
     "alipay": {"py_type": "apy", "label": "支付宝"},
 }
+# 微信单笔金额线(实测):平台当前这个下单账号 >100 元会被爱发电拒(ec=400 不支持发电)、≤100 元正常,
+# 同一账号走支付宝 10000 元都正常;把下单账号换成另一个「已实名」账号后,同样的 429/1000 元微信可成功。
+# 也就是说这条线是「下单账号自身的限制」而不是微信通道限制,根治办法是换一个已实名的下单账号。
+WECHAT_MAX_YUAN = 100
+
+
+def _em_hint(em: str, py_type: str, amount: float) -> str:
+    """把爱发电的原始报错(em)翻成人话,让前台/后台能直接看出原因与对策;没把握时返回空串。"""
+    if "不支持发电自己" in em:
+        return ("(爱发电不允许同一个账号给自己发电:平台配置的下单(消费者)账号与被购买店铺是同一个爱发电账号,"
+                "请换成与该店铺不同的下单账号)")
+    if "不支持发电" in em and py_type in ("wpy_qr", "wpy_h5", "wpy_js") and float(amount or 0) > WECHAT_MAX_YUAN:
+        return (f"(该下单账号微信单笔上限 {WECHAT_MAX_YUAN} 元:可改用支付宝支付,"
+                "或把平台下单账号换成另一个已实名的爱发电账号)")
+    return ""
 
 
 def _cookie_header(cookies: dict | None) -> dict:
@@ -102,6 +122,9 @@ def live_create(creator_user_id: str, auth_token: str, amount: float, remark: st
         "origin": AFDIAN_API_BASE,
         "referer": f"{AFDIAN_API_BASE}/order/create?user_id={creator_user_id}",
         "afd-fe-version": _AFD_FE_VERSION,
+        "locale-lang": "zh-CN",
+        "afd-stat-id": _STAT_ID,
+        "user-agent": _UA,
     }
     cookies = {"auth_token": auth}
     try:
@@ -112,8 +135,9 @@ def live_create(creator_user_id: str, auth_token: str, amount: float, remark: st
             return {"ok": False, "raw": raw[:500], "data": None, "message": "返回非 JSON"}
         ec = int(j.get("ec") or 0)
         if ec != 200:
+            em = str(j.get("em", ""))
             return {"ok": False, "raw": raw[:1000], "data": None,
-                    "message": f"ec={ec} " + str(j.get("em", ""))}
+                    "message": f"ec={ec} {em}{_em_hint(em, py_type, amount)}"}
         return {"ok": True, "raw": raw, "data": j.get("data") or {}, "message": "已创建"}
     except urllib.error.HTTPError as he:  # 4xx/5xx(如403)把正文放进 raw,便于定位
         try:
@@ -191,6 +215,9 @@ def live_check(out_trade_no: str, auth_token: str) -> dict:
         "accept": "application/json, text/plain, */*",
         "referer": f"{AFDIAN_API_BASE}/order/create",
         "afd-fe-version": _AFD_FE_VERSION,
+        "locale-lang": "zh-CN",
+        "afd-stat-id": _STAT_ID,
+        "user-agent": _UA,
     }
     try:
         raw = _get(url, headers, {"auth_token": auth})

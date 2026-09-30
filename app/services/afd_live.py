@@ -136,7 +136,8 @@ def live_create(creator_user_id: str, auth_token: str, amount: float, remark: st
         ec = int(j.get("ec") or 0)
         if ec != 200:
             em = str(j.get("em", ""))
-            return {"ok": False, "raw": raw[:1000], "data": None,
+            # 带上爱发电自己的业务码:调用方据此把「爱发电明确回绝」与「网络/其它异常」区分开
+            return {"ok": False, "raw": raw[:1000], "data": None, "ec": ec,
                     "message": f"ec={ec} {em}{_em_hint(em, py_type, amount)}"}
         return {"ok": True, "raw": raw, "data": j.get("data") or {}, "message": "已创建"}
     except urllib.error.HTTPError as he:  # 4xx/5xx(如403)把正文放进 raw,便于定位

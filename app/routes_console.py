@@ -1132,7 +1132,9 @@ async def recharge_create(request: Request):
         pay_type = (afd_live.PAY_TYPES.get(channel) or {}).get("py_type", "wpy_qr")
         r = afd_live.live_create_auto(seller.afdian_user_id or str(seller.id), product.price, remark, pay_type)
         if not r.get("ok"):
-            return err(f"充值下单失败: {r.get('message') or '未知错误'}", 503 if r.get("source") == "fail" else 500)
+            # 同 shop/buy:爱发电明确回绝(带 ec)→409;取不到消费者 token→503;其余异常→500
+            _code = 503 if r.get("source") == "fail" else (409 if r.get("ec") else 500)
+            return err(f"充值下单失败: {r.get('message') or '未知错误'}", _code)
         _d = r.get("data") or {}
         order_no = str(_d.get("out_trade_no") or "")
         qr = _d.get("redirect_url") or ""

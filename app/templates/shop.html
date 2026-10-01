@@ -363,7 +363,10 @@ function openBuy(p) {
     else { btn.style.opacity=''; btn.style.cursor=''; }
   }
   // 实测:平台服务器出站请求被爱发电风控,微信「发电」超过单笔上限必被拒 —— 超过上限就直接把微信置灰并说明原因
-  const wMax = Number((w && w.maxAmount) || 100);   // 上限由后端 payMethods.wechat.maxAmount 下发,100 只是兜底
+  // 上限由后端 payMethods.wechat.maxAmount 下发(管理员可在平台配置里改,0=不限制);
+  // 仅当后端未下发(旧进程)时才用 100 兜底;显式 0 表示不拦截
+  const _rawMax = (w && w.maxAmount);
+  const wMax = (_rawMax === undefined || _rawMax === null) ? 100 : Number(_rawMax);
   const overWx = wMax > 0 && Number(p.price) > wMax;
   const wxWhy = overWx
     ? ('本商品 ¥' + p.price + ' 超出微信单笔上限 ¥' + wMax + ',请改用支付宝支付')

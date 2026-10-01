@@ -181,6 +181,7 @@ def account_page(request: Request):
                 "consumer_password": "******" if s.consumer_password else "",
                 "platform_logo_url": s.platform_logo_url,
                 "wechat_enabled": s.wechat_enabled, "wechat_disabled_note": s.wechat_disabled_note,
+                "wechat_max_yuan": int(s.wechat_max_yuan or 0),   # 微信单笔上限(元),0=不限制
                 "alipay_enabled": s.alipay_enabled, "alipay_disabled_note": s.alipay_disabled_note,
                 "allowed_email_domains": s.allowed_email_domains,
                 "webhook_base_url": s.webhook_base_url,
@@ -684,6 +685,15 @@ async def account_save(request: Request):
             for note in ("wechat_disabled_note", "alipay_disabled_note"):
                 if note in b:
                     setattr(s, note, str(b[note]).strip())
+            # 微信单笔上限(元):0=不限制(关闭「超上限置灰微信」的拦截,例如出站改走非机房 IP 之后)
+            if "wechat_max_yuan" in b:
+                try:
+                    _wmy = int(str(b["wechat_max_yuan"]).strip() or 0)
+                except (TypeError, ValueError):
+                    _wmy = -1
+                if _wmy < 0:
+                    return err("微信单笔上限需为不小于 0 的整数(0=不限制)")
+                s.wechat_max_yuan = _wmy
             # SMTP 邮件服务(仅管理员)
             for key in ("smtp_host", "smtp_user", "smtp_from"):
                 if key in b:
@@ -1098,7 +1108,7 @@ def recharge_products(request: Request):
         pay = {
             # maxAmount:微信单笔上限(元),同前台店铺页:超过它的微信下单会被爱发电风控拒,故置灰并提示改用支付宝
             "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
-                       "maxAmount": afd_live.WECHAT_MAX_YUAN},
+                       "maxAmount": int(s.wechat_max_yuan or 0)},   # 0=不限制(管理员可在平台配置里关掉拦截)
             "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
         }
     return {"ok": True, "products": items, "payMethods": pay}

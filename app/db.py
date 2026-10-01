@@ -171,6 +171,9 @@ class PlatformSetting(Base):
     # 微信单笔上限(元):实测平台服务器出站请求被爱发电风控,微信「发电」超此金额必被拒(ec=400 不支持发电),
     # 前台据此把微信按钮置灰并提示改用支付宝。0 = 不限制(关闭该拦截,例如出站改走非机房 IP 之后)。
     wechat_max_yuan = Column(Integer, nullable=False, default=100)
+    # 是否启用上面的「微信大额拦截」:关掉后下发给前台的上限为 0(即不置灰微信)。
+    # 与 wechat_max_yuan 分开做,是为了出站换 IP/上代理后能一键放行而不用记住"填 0"这个约定。
+    wechat_limit_on = Column(Boolean, nullable=False, default=True)
     # 安装向导/后台可填写的业务配置(空则回退 .env 环境变量)
     app_base_url = Column(String(300), nullable=False, default="")
     afdian_live = Column(Boolean, nullable=True)  # ⚠️遗留:代码已不读取(None=跟随 .env);保留列以兼容旧库,勿删

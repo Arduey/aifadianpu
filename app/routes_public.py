@@ -692,7 +692,7 @@ def shop_page(request: Request, uid: str):
                 # maxAmount:微信单笔上限(元)。实测平台服务器出站请求被爱发电风控,>该值的微信「发电」必被拒;
                 # 前台据此把微信按钮置灰并提示改用支付宝。支付宝无此上限。
                 "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
-                           "maxAmount": int(s.wechat_max_yuan or 0)},   # 0=不限制(管理员可在平台配置里关掉拦截)
+                           "maxAmount": (int(s.wechat_max_yuan or 0) if s.wechat_limit_on else 0)},   # 开关关→0=不限制
                 "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
             },
             "groups": [],

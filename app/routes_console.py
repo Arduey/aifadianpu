@@ -182,6 +182,7 @@ def account_page(request: Request):
                 "platform_logo_url": s.platform_logo_url,
                 "wechat_enabled": s.wechat_enabled, "wechat_disabled_note": s.wechat_disabled_note,
                 "wechat_max_yuan": int(s.wechat_max_yuan or 0),   # 微信单笔上限(元),0=不限制
+                "wechat_limit_on": bool(s.wechat_limit_on),       # 是否启用微信大额拦截(关掉=前台不置灰)
                 "alipay_enabled": s.alipay_enabled, "alipay_disabled_note": s.alipay_disabled_note,
                 "allowed_email_domains": s.allowed_email_domains,
                 "webhook_base_url": s.webhook_base_url,
@@ -679,7 +680,7 @@ async def account_save(request: Request):
                 s.consumer_password = str(b["consumer_password"])
             if "platform_logo_url" in b:
                 s.platform_logo_url = str(b["platform_logo_url"]).strip()
-            for flag in ("wechat_enabled", "alipay_enabled"):
+            for flag in ("wechat_enabled", "alipay_enabled", "wechat_limit_on"):
                 if flag in b:
                     setattr(s, flag, bool(int(b[flag])))
             for note in ("wechat_disabled_note", "alipay_disabled_note"):
@@ -1108,7 +1109,7 @@ def recharge_products(request: Request):
         pay = {
             # maxAmount:微信单笔上限(元),同前台店铺页:超过它的微信下单会被爱发电风控拒,故置灰并提示改用支付宝
             "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
-                       "maxAmount": int(s.wechat_max_yuan or 0)},   # 0=不限制(管理员可在平台配置里关掉拦截)
+                       "maxAmount": (int(s.wechat_max_yuan or 0) if s.wechat_limit_on else 0)},   # 开关关→0=不限制
             "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
         }
     return {"ok": True, "products": items, "payMethods": pay}

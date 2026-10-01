@@ -7,4 +7,4 @@
 -- ══════════════════════════════════════════════════════════════
 
 ALTER TABLE platform_settings
-  ADD COLUMN wechat_max_yuan INT NOT NULL DEFAULT 100 COMMENT '微信单笔上限(元):0=不限制;前台据此置灰微信并提示改用支付宝';
+  ADD COLUMN wechat_max_yuan INT NOT NULL DEFAULT 100 COMMENT '微信单笔上限(元),0=不限制,前台据此置灰微信并提示改用支付宝';

@@ -577,8 +577,19 @@ function pickR(el,p){
   document.querySelectorAll('#r-list .card').forEach(c=>{c.style.borderColor='';c.style.background='';});
   el.style.borderColor='var(--brand)'; el.style.background='var(--brand-50)';
   document.getElementById('r-hint').textContent='已选:'+p.sku_name;
-  document.getElementById('r-wechat').disabled=!rPay.wechat.enabled;
-  document.getElementById('r-alipay').disabled=!rPay.alipay.enabled;
+  // 微信单笔上限(元):后端 payMethods.wechat.maxAmount 下发,100 只是兜底;超过上限的档位禁用微信并说明原因
+  var wMax=Number((rPay.wechat&&rPay.wechat.maxAmount)||100);
+  var overWx=wMax>0 && Number(p.price)>wMax;
+  var bw=document.getElementById('r-wechat'), ba=document.getElementById('r-alipay');
+  bw.disabled=!rPay.wechat.enabled||overWx;
+  bw.style.opacity=bw.disabled?.45:'';
+  bw.title=overWx?('本档位 ¥'+p.price+' 超出微信单笔上限 ¥'+wMax+',请改用支付宝支付'):'';
+  ba.disabled=!rPay.alipay.enabled;
+  ba.style.opacity=ba.disabled?.45:'';
+  var note='';
+  if(overWx){ note='微信通道单笔上限 ¥'+wMax+'(本档位 ¥'+p.price+' 超出上限),请改用支付宝支付'; }
+  else{ if(!rPay.wechat.enabled)note+='微信支付:'+(rPay.wechat.note||'暂不可用')+' '; if(!rPay.alipay.enabled)note+='支付宝:'+(rPay.alipay.note||'暂不可用'); }
+  document.getElementById('r-paynote').textContent=note;
 }
 document.getElementById('r-wechat').onclick=()=>payR('wechat');
 document.getElementById('r-alipay').onclick=()=>payR('alipay');

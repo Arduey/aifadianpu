@@ -362,10 +362,23 @@ function openBuy(p) {
     if (!enabled){ btn.setAttribute('data-off','1'); btn.classList.add('pay-off'); btn.style.opacity='.45'; btn.style.cursor='not-allowed'; }
     else { btn.style.opacity=''; btn.style.cursor=''; }
   }
-  paint(bw, w.enabled !== false, '微信支付', w.note || '该支付方式被商家停用');
+  // 实测:平台服务器出站请求被爱发电风控,微信「发电」超过单笔上限必被拒 —— 超过上限就直接把微信置灰并说明原因
+  const wMax = Number((w && w.maxAmount) || 100);   // 上限由后端 payMethods.wechat.maxAmount 下发,100 只是兜底
+  const overWx = wMax > 0 && Number(p.price) > wMax;
+  const wxWhy = overWx
+    ? ('本商品 ¥' + p.price + ' 超出微信单笔上限 ¥' + wMax + ',请改用支付宝支付')
+    : (w.note || '该支付方式被商家停用');
+  paint(bw, w.enabled !== false && !overWx, '微信支付', wxWhy);
   paint(ba, a.enabled !== false, '支付宝', a.note || '该方式暂不可用');
   var pn = document.getElementById('pay-note');
-  if (pn) pn.style.display = 'none'; // 禁用原因只放按钮 title,不占按钮下方空间
+  if (pn) {
+    if (overWx) { // 因金额超上限而禁用:给买家一条看得见的说明(移动端没有 hover)
+      pn.textContent = '微信通道单笔上限 ¥' + wMax + '(本商品 ¥' + p.price + ' 超出上限),请改用支付宝支付';
+      pn.style.display = 'block';
+    } else {
+      pn.style.display = 'none'; // 其它禁用原因只放按钮 title,不占按钮下方空间
+    }
+  }
   bw.onclick = function(){ if (bw.getAttribute('data-off') === '1' || w.enabled === false) return; createOrder('wechat'); };
   ba.onclick = function(){ if (ba.getAttribute('data-off') === '1' || a.enabled === false) return; createOrder('alipay'); };
   openModal('buy-modal');

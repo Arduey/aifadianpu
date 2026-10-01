@@ -689,7 +689,10 @@ def shop_page(request: Request, uid: str):
             "disabled": merchant.status != "active",
             "platformLogo": s.platform_logo_url,
             "payMethods": {
-                "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note},
+                # maxAmount:微信单笔上限(元)。实测平台服务器出站请求被爱发电风控,>该值的微信「发电」必被拒;
+                # 前台据此把微信按钮置灰并提示改用支付宝。支付宝无此上限。
+                "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
+                           "maxAmount": afd_live.WECHAT_MAX_YUAN},
                 "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
             },
             "groups": [],

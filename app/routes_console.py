@@ -1096,7 +1096,9 @@ def recharge_products(request: Request):
         } for p, sn in rows]
         s = platform_settings(db)
         pay = {
-            "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note},
+            # maxAmount:微信单笔上限(元),同前台店铺页:超过它的微信下单会被爱发电风控拒,故置灰并提示改用支付宝
+            "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
+                       "maxAmount": afd_live.WECHAT_MAX_YUAN},
             "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
         }
     return {"ok": True, "products": items, "payMethods": pay}

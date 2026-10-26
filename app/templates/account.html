@@ -210,8 +210,9 @@
   <div id="consumer-login-raw" style="display:none;margin-top:8px"></div>
   </div>
   <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:14px;margin-bottom:12px">
-    <b style="font-size:12px">Webhook 回调地址</b>
-    <div class="field" style="margin:6px 0 0"><label>爱发电 Webhook 平台域名(不含末尾 /)</label>
+    <b style="font-size:12px">平台域名</b>
+    <div class="muted" style="font-size:11px;margin:4px 0 8px">开放接口页的「基础地址」、密码重置链接、爱发电 Webhook 回调地址都用这一个域名;留空 = 跟随当前访问域名。</div>
+    <div class="field" style="margin:6px 0 0"><label>平台对外域名(不含末尾 /)</label>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
       <input id="webhook_base_url" value="{{ settings.webhook_base_url }}" placeholder="https://你的域名" style="flex:1;min-width:0">
       <button type="button" class="btn btn-outline btn-sm" id="wh-copy-btn" onclick="copyWebhookUrl()" style="box-sizing:border-box">复制回调地址</button>

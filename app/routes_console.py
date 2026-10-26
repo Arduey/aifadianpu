@@ -185,7 +185,9 @@ def account_page(request: Request):
                 "wechat_limit_on": bool(s.wechat_limit_on),       # 是否启用微信大额拦截(关掉=前台不置灰)
                 "alipay_enabled": s.alipay_enabled, "alipay_disabled_note": s.alipay_disabled_note,
                 "allowed_email_domains": s.allowed_email_domains,
-                "webhook_base_url": s.webhook_base_url,
+                # 平台对外域名:接口文档「基础地址」+ 重置链接 + 爱发电 Webhook 回调共用同一个域名
+                # (库里为空时回退当前访问域名,与模板里的「Webhook 地址」提示保持一致,避免锁死旧域名)
+                "webhook_base_url": s.webhook_base_url or s.app_base_url or str(request.base_url).rstrip("/"),
                 "smtp_host": s.smtp_host, "smtp_port": s.smtp_port,
                 "smtp_user": s.smtp_user, "smtp_from": s.smtp_from,
             }
@@ -712,7 +714,10 @@ async def account_save(request: Request):
                 _parts = [x.strip().lower().lstrip("@") for x in _dom.split(";") if x.strip()]
                 s.allowed_email_domains = ";".join(_parts)
             if "webhook_base_url" in b:
-                s.webhook_base_url = str(b["webhook_base_url"] or "").strip().rstrip("/")
+                # 平台对外域名(与接口文档基础地址/重置链接共用):同时写两列,保证永远一致
+                _plat = str(b["webhook_base_url"] or "").strip().rstrip("/")
+                s.webhook_base_url = _plat
+                s.app_base_url = _plat
             # 单次API费用(管理台可调;单位:元→存分)
             if "api_fee_cents" in b:
                 try:

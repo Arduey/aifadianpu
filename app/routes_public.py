@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse, RedirectResponse
 from . import auth, config, settings
 from .db import FeeLedger, Order, PasswordReset, PlatformSetting, Product, ProductCategory, SessionLocal, User, platform_settings
 from .render import render
-from .services import afdian, afd_login, afd_live, delivery, mailer, email_templates, pipeline, verification
+from .services import afdian, afd_login, afd_live, delivery, mailer, email_templates, pipeline
 from .utils import shop_name_ok, valid_email, valid_shop_name
 
 router = APIRouter()
@@ -27,129 +27,6 @@ def _client_ip(request: Request) -> str:
         if first:
             return first
     return request.client.host if request.client else "unknown"
-
-
-# ── 主页 + 注册(注册即商户,送 ¥0.20;管理员由安装向导创建) ──
-@router.get("/")
-def home(request: Request):
-    _plogo = ""
-    try:
-        with SessionLocal() as db:
-            _plogo = platform_settings(db).platform_logo_url or ""
-    except Exception:  # noqa: BLE001
-        _plogo = ""
-    return render(request, "index.html", {"error": "", "form": {"email": "", "shop_name": ""}, "platformLogo": _plogo})
-
-
-@router.post("/api/verification/send")
-async def send_verification(request: Request):
-    """注册邮箱验证码:发送前 1 分钟限次(由 verification 服务控制)"""
-    try:
-        b = await request.json()
-    except Exception:
-        b = await request.form()
-    email = str(b.get("email", "")).strip().lower()
-    if not valid_email(email):
-        return err("邮箱格式不正确,仅支持 QQ / 163 邮箱")
-    ok_re, msg = verification.send_code(email)
-    if ok_re:
-        return {"ok": True, "message": msg}
-    return err(msg)
-
-
-@router.post("/")
-async def register(request: Request):
-    """注册。AJAX(带 X-Requested-With: fetch / JSON body)返回 JSON;否则按原 HTML 渲染。"""
-    is_ajax = False
-    body = None
-    try:
-        body = await request.json()
-    except Exception:
-        pass
-    if body is not None:
-        is_ajax = True
-        email = str(body.get("email", "")).strip().lower()
-        shop_name = str(body.get("shop_name", "")).strip()
-        password = str(body.get("password", ""))
-        confirm = str(body.get("confirm", ""))
-        code = str(body.get("code", "")).strip()
-    else:
-        f = await request.form()
-        is_ajax = str(request.headers.get("x-requested-with", "")).lower() == "fetch"
-        email = str(f.get("email", "")).strip().lower()
-        shop_name = str(f.get("shop_name", "")).strip()
-        password = str(f.get("password", ""))
-        confirm = str(f.get("confirm", ""))
-        code = str(f.get("code", "")).strip()
-
-    form = {"email": email, "shop_name": shop_name}
-    error = ""
-    _dom = email.rsplit("@", 1)[-1].lower() if "@" in email else ""
-    _allowed_domains = settings.allowed_email_domains()
-    if _allowed_domains and _dom not in _allowed_domains:
-        error = "该邮箱域名不在允许注册列表(由平台管理员在个人中心配置): " + " / ".join(_allowed_domains)
-    elif not valid_email(email):
-        error = "邮箱格式不正确,仅支持 QQ / 163 邮箱"
-    elif not shop_name_ok(shop_name):
-        error = "店铺名仅支持中文/字母/数字,不含特殊符号;汉字按2字符,最长折合12字符"
-    elif len(password) < 8 or len(password) > 20:
-        error = "密码须为 8~20 位"
-    elif password != confirm:
-        error = "两次输入的密码不一致"
-    elif not code:
-        error = "请输入邮箱验证码"
-    elif not verification.verify_code(email, code):
-        error = "验证码错误或已失效"
-    elif _has_registered(email, shop_name):
-        error = "该邮箱已注册,或店铺名已被占用"
-
-    if error:
-        if is_ajax:
-            return JSONResponse({"ok": False, "message": error, "form": form})
-        return render(request, "index.html", {"error": error, "form": form})
-
-    _grant = settings.api_fee_cents()  # 注册赠送=单次API费用(管理台可调)
-    with SessionLocal() as db:
-        user = User(
-            email=email, shop_name=shop_name,
-            password_hash=auth.hash_password(password),
-            role="merchant", api_balance_cents=_grant,  # 注册即送单次费用
-            email_notify=True, balance_notify=True,     # 新注册默认开启:订单邮件通知 + API 余额不足提醒
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        # 注册赠送,记为"赠送"流水
-        db.add(FeeLedger(
-            merchant_id=user.id, delta_cents=_grant, balance_after_cents=_grant,
-            reason="signup_grant", note="注册赠送",
-            created_at=datetime.now(),
-        ))
-        db.commit()
-        # 新注册商户自动创建一个默认分类 + 默认测试商品,便于立即体验
-        _dc = ProductCategory(merchant_id=user.id, name="默认分类", icon_url="",
-                              sort_order=0, created_at=datetime.now(), updated_at=datetime.now())
-        db.add(_dc)
-        db.flush()
-        db.add(Product(
-            merchant_id=user.id, category_id=_dc.id,
-            title="测试商品", sku_name="默认SKU",
-            price=5, is_recharge=False, recharge_grant_cents=0, sort_order=0,
-            created_at=datetime.now(), updated_at=datetime.now(),
-        ))
-        db.commit()
-        token = auth.sign_token(user)
-    resp = JSONResponse({"ok": True, "redirect": "/console/dashboard"})
-    resp.set_cookie(
-        auth.COOKIE_NAME, token, max_age=7 * 86400, httponly=True,
-        samesite="none" if config.APP_SECURE else "lax", secure=config.APP_SECURE,
-    )
-    return resp
-
-
-def _has_registered(email: str, shop_name: str) -> bool:
-    with SessionLocal() as db:
-        return bool(db.query(User).filter((User.email == email) | (User.shop_name == shop_name)).first())
 
 
 # ── 安装向导(管理员账号不通过注册,由本向导创建) ──
@@ -470,13 +347,6 @@ async def reset(request: Request, token: str):
 
 # ── 使用说明 / 开放接口 / 公开小接口 ──
 # 注意:FastAPI 框架内置 /docs(OpenAPI Swagger)、/redoc、/openapi.json,勿占用这些路径。
-@router.get("/mail-preview/verify")
-async def mail_preview_verify_public():
-    """验证码邮件模板在线预览(仅返回固定样例 HTML,不含任何私密信息)"""
-    from fastapi.responses import HTMLResponse as _h
-    html = verification._html("123456", "请在需要验证邮箱的操作中填写;如非本人操作可忽略")
-    return _h(content=html)
-
 
 @router.get("/guide")
 def guide(request: Request):
@@ -616,28 +486,9 @@ def support():
     return {"ok": True, "email": auth.first_admin_email()}
 
 
-@router.get("/api/shops")
-def shops():
-    with SessionLocal() as db:
-        rows = (
-            db.query(User)
-            .filter(User.status == "active", User.afdian_user_id != "")
-            .order_by(User.id)
-            .all()
-        )
-        out = []
-        for u in rows:
-            count = db.query(Product.id).filter(Product.merchant_id == u.id, Product.is_recharge == False).count()  # noqa: E712
-            out.append({
-                "shop_name": u.shop_name, "shop_logo_url": u.shop_logo_url,
-                "bio": u.bio, "afdian_user_id": u.afdian_user_id, "product_count": count,
-            })
-    return {"ok": True, "shops": out}
-
-
 @router.get("/api/products")
 def api_products(request: Request):
-    """商户在售商品列表(供外部程序获取 product_id)。传 uid(爱发电 user_id) / shop(店铺名) / email(商户邮箱) 三选一。
+    """在售商品列表(供外部程序获取 product_id)。传 uid(爱发电 user_id) / shop(店铺名) / email(商户邮箱) 三选一。
     返回 {ok, shop_name, afdian_user_id, products:[{id, category, title, sku_name, price}]}。"""
     uid = (request.query_params.get("uid") or "").strip()
     shop = (request.query_params.get("shop") or "").strip()
@@ -671,85 +522,88 @@ def api_products(request: Request):
 
 
 # ── 消费者店铺页 ──
-@router.get("/shop/{uid}")
-def shop_page(request: Request, uid: str):
-    with SessionLocal() as db:
-        merchant = db.query(User).filter(User.afdian_user_id == uid).first()
-        if not merchant:
-            return render(request, "shop.html", {"notFound": True})
-        s = platform_settings(db)
-        _me = getattr(request.state, "me", None)
-        _admin_email = auth.first_admin_email() or ""
-        ctx = {
-            "notFound": False,
-            "shop": merchant,
-            "isOwner": bool(_me and _me.id == merchant.id),
-            "adminEmail": _admin_email,
-            "shop_logo_ok": bool((merchant.shop_logo_url or "").strip()),
-            "disabled": merchant.status != "active",
-            "platformLogo": s.platform_logo_url,
-            "payMethods": {
-                # maxAmount:微信单笔上限(元)。实测平台服务器出站请求被爱发电风控,>该值的微信「发电」必被拒;
-                # 前台据此把微信按钮置灰并提示改用支付宝。支付宝无此上限。
-                "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
-                           "maxAmount": (int(s.wechat_max_yuan or 0) if s.wechat_limit_on else 0)},   # 开关关→0=不限制
-                "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
-            },
-            "groups": [],
-        }
-        if merchant.status == "active":
-            _cat_rows = (
-                db.query(ProductCategory)
-                .filter(ProductCategory.merchant_id == merchant.id)
-                .order_by(ProductCategory.sort_order, ProductCategory.id)
-                .all()
-            )
-            goods = (
-                db.query(Product, ProductCategory)
-                .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
-                .filter(Product.merchant_id == merchant.id, Product.is_recharge == False)  # noqa: E712
-                .order_by(ProductCategory.sort_order, Product.sort_order, Product.id)
-                .all()
-            )
-            grouped: dict[str, list] = {}
-            _lim_products = []
-            for g, c in goods:
-                _cname = c.name if c else ""
-                _is_card = delivery.is_card_type(g)
-                if delivery.is_limited(g):
-                    _lim_products.append(g)
-                grouped.setdefault(_cname, []).append({
-                    "id": g.id, "category": _cname, "title": g.title,
-                    "sku_name": g.sku_name, "price": g.price,
-                    "delivery_kind": (g.delivery_kind if g.delivery_type == "platform" else "") or "",
-                    "is_card": _is_card,
-                    "is_limited": bool(delivery.is_limited(g)),
-                    "stock": 0,  # 下面按需填充
-                    "_sort": g.sort_order,
-                })
-            # 卡密型 SKU:批量取可售库存(0 则前台显示缺货、不可购买)
-            _card_ids = [x["id"] for _c, lst in grouped.items() for x in lst if x.get("is_card")]
-            if _card_ids:
-                _smap = delivery.stock_map(db, _card_ids)
-                for _c, lst in grouped.items():
-                    for x in lst:
-                        if x.get("is_card"):
-                            x["stock"] = int(_smap.get(x["id"], 0))
-            # 限购类(商户发货/链接发货设了上限):批量算剩余可售量
-            if _lim_products:
-                _lmap = delivery.limited_left_map(db, _lim_products)
-                for _c, lst in grouped.items():
-                    for x in lst:
-                        if x.get("is_limited"):
-                            x["stock"] = int(_lmap.get(x["id"], 0))
-            # 分类顺序已由 SQL 按 product_categories.sort_order 排好(保持插入顺序)
-            _items = list(grouped.items())
-            for _lst in grouped.values():
-                for _x in _lst:
-                    _x.pop("_sort", None)
-            ctx["groups"] = _items
-            # 分类图标(前台分类目录用)
-            ctx["cat_icon"] = {c.name: (c.icon_url or "") for c in _cat_rows}
+def _shop_merchant(db):
+    """单店模式:返回唯一店铺(管理员)。找不到返回 None。"""
+    return db.query(User).order_by(User.id).first()
+
+
+def _render_shop(request: Request, db, merchant) -> object:
+    """渲染店铺页(单店:GET / 与 /shop/{uid} 共用)"""
+    if not merchant:
+        return render(request, "shop.html", {"notFound": True})
+    s = platform_settings(db)
+    _me = getattr(request.state, "me", None)
+    _admin_email = auth.first_admin_email() or ""
+    ctx = {
+        "notFound": False,
+        "shop": merchant,
+        "isOwner": bool(_me and _me.id == merchant.id),
+        "adminEmail": _admin_email,
+        "shop_logo_ok": bool((merchant.shop_logo_url or "").strip()),
+        "disabled": merchant.status != "active",
+        "platformLogo": s.platform_logo_url,
+        "payMethods": {
+            # maxAmount:微信单笔上限(元)。实测平台服务器出站请求被爱发电风控,>该值的微信「发电」必被拒;
+            # 前台据此把微信按钮置灰并提示改用支付宝。支付宝无此上限。
+            "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
+                       "maxAmount": (int(s.wechat_max_yuan or 0) if s.wechat_limit_on else 0)},   # 开关关→0=不限制
+            "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
+        },
+        "groups": [],
+    }
+    if merchant.status == "active":
+        _cat_rows = (
+            db.query(ProductCategory)
+            .filter(ProductCategory.merchant_id == merchant.id)
+            .order_by(ProductCategory.sort_order, ProductCategory.id)
+            .all()
+        )
+        goods = (
+            db.query(Product, ProductCategory)
+            .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
+            .filter(Product.merchant_id == merchant.id, Product.is_recharge == False)  # noqa: E712
+            .order_by(ProductCategory.sort_order, Product.sort_order, Product.id)
+            .all()
+        )
+        grouped: dict[str, list] = {}
+        _lim_products = []
+        for g, c in goods:
+            _cname = c.name if c else ""
+            _is_card = delivery.is_card_type(g)
+            if delivery.is_limited(g):
+                _lim_products.append(g)
+            grouped.setdefault(_cname, []).append({
+                "id": g.id, "category": _cname, "title": g.title,
+                "sku_name": g.sku_name, "price": g.price,
+                "delivery_kind": (g.delivery_kind if g.delivery_type == "platform" else "") or "",
+                "is_card": _is_card,
+                "is_limited": bool(delivery.is_limited(g)),
+                "stock": 0,  # 下面按需填充
+                "_sort": g.sort_order,
+            })
+        # 卡密型 SKU:批量取可售库存(0 则前台显示缺货、不可购买)
+        _card_ids = [x["id"] for _c, lst in grouped.items() for x in lst if x.get("is_card")]
+        if _card_ids:
+            _smap = delivery.stock_map(db, _card_ids)
+            for _c, lst in grouped.items():
+                for x in lst:
+                    if x.get("is_card"):
+                        x["stock"] = int(_smap.get(x["id"], 0))
+        # 限购类(商户发货/链接发货设了上限):批量算剩余可售量
+        if _lim_products:
+            _lmap = delivery.limited_left_map(db, _lim_products)
+            for _c, lst in grouped.items():
+                for x in lst:
+                    if x.get("is_limited"):
+                        x["stock"] = int(_lmap.get(x["id"], 0))
+        # 分类顺序已由 SQL 按 product_categories.sort_order 排好(保持插入顺序)
+        _items = list(grouped.items())
+        for _lst in grouped.values():
+            for _x in _lst:
+                _x.pop("_sort", None)
+        ctx["groups"] = _items
+        # 分类图标(前台分类目录用)
+        ctx["cat_icon"] = {c.name: (c.icon_url or "") for c in _cat_rows}
     from .auth import current_user as _shop_user
     _cu = None
     try:
@@ -758,6 +612,21 @@ def shop_page(request: Request, uid: str):
         _cu = None
     ctx["shop_is_admin"] = bool(_cu is not None and getattr(_cu, "role", "") == "admin")
     return render(request, "shop.html", ctx)
+
+
+@router.get("/")
+def home(request: Request):
+    """首页 = 商店(单店:不再有注册入驻与店铺广场)"""
+    with SessionLocal() as db:
+        return _render_shop(request, db, _shop_merchant(db))
+
+
+@router.get("/shop/{uid}")
+def shop_page(request: Request, uid: str):
+    """兼容旧链接:/shop/{uid} 仍可访问,但单店模式下 uid 不再参与查询。"""
+    with SessionLocal() as db:
+        merchant = db.query(User).filter(User.afdian_user_id == uid).first() or _shop_merchant(db)
+        return _render_shop(request, db, merchant)
 
 
 @router.post("/shop/buy")
@@ -791,17 +660,10 @@ async def shop_buy(request: Request):
         if not merchant or merchant.status != "active":
             return err("店铺已停用", 403)
         if not merchant.is_afdian_configured():
-            return err("商户尚未完成爱发电绑定,暂无法下单", 503)
+            return err("尚未完成爱发电绑定,暂无法下单", 503)
 
-        # 余额检查:<单次API费用 拦截并邮件提醒;<阈值 仅提醒
-        if merchant.api_balance_cents < settings.api_fee_cents():
-            notified = pipeline.notify_low_balance(merchant.id)
-            return err(
-                "该店铺 API 费用余额不足,暂无法下单(已邮件提醒商户充值)" if notified
-                else "该店铺 API 费用余额不足,暂无法下单", 403,
-            )
-        if merchant.api_balance_cents < merchant.balance_threshold_cents:
-            pipeline.notify_low_balance(merchant.id)
+        # 单店模式:已去掉「API 余额不足拦截」与「每单扣服务费」——
+        # 店主自己收款,没有平台抽成;原逻辑会让余额为 0 的管理员一单都卖不了。
 
         # 平台发货·卡密:下单前先看库存,为 0 直接拒(前台已置灰,此处双保险)
         _card_delivery = delivery.is_card_type(product)

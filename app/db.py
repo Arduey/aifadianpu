@@ -26,7 +26,7 @@ class User(Base):
     email = Column(String(120), unique=True, nullable=False)
     shop_name = Column(String(36), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
-    role = Column(String(16), nullable=False, default="merchant")  # admin|merchant
+    role = Column(String(16), nullable=False, default="admin")  # 单店模式:只有店主(admin),不再有商户注册
     status = Column(String(16), nullable=False, default="active")  # active|disabled
     afdian_user_id = Column(String(120), nullable=False, default="")
     afdian_token = Column(String(255), nullable=False, default="")

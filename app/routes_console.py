@@ -46,17 +46,6 @@ def dashboard(request: Request):
     return resp or render(request, "dashboard.html", {"scope": "mine", "title": "数据预览", "badge": ""})
 
 
-@router.get("/console/admin-stats")
-def admin_stats(request: Request):
-    me, resp = _need(request, admin=True)
-    return resp or render(request, "dashboard.html", {"scope": "all", "title": "数据预览 · 管理员", "badge": "全平台汇总"})
-
-
-@router.get("/console/admin-orders")
-def admin_orders(request: Request):
-    me, resp = _need(request, admin=True)
-    return resp or render(request, "orders.html", {"scope": "all", "title": "订单管理 · 管理员", "badge": "全部商家订单"})
-
 
 @router.get("/console/products")
 def products_page(request: Request):
@@ -162,7 +151,8 @@ def fees_page(request: Request):
         income = sum(r.delta_cents for r in rows if r.delta_cents > 0)
         expense = sum(-r.delta_cents for r in rows if r.delta_cents < 0)
     return render(request, "fees.html", {
-        "rows": items, "balance": me.api_balance_cents, "income": income, "expense": expense,
+        # 单店模式:不再有「API 余额」概念,balance 恒为 0;页面仅作为历史流水查看
+        "rows": items, "balance": 0, "income": income, "expense": expense,
     })
 
 
@@ -201,11 +191,9 @@ def webhook_history_page(request: Request):
     me = _me(request)
     if not me:
         return RedirectResponse("/login", status_code=302)
-    scope_all = me.role == "admin" and request.query_params.get("scope") == "all"
+    # 单店模式:只有一个店铺,始终只看自己的记录
     with SessionLocal() as db:
-        q = db.query(WebhookSend)
-        if not scope_all:
-            q = q.filter(WebhookSend.user_id == me.id)
+        q = db.query(WebhookSend).filter(WebhookSend.user_id == me.id)
         rows = q.order_by(WebhookSend.id.desc()).limit(200).all()
         recs = [{
             "id": r.id, "order_no": r.order_no or "", "url": r.url or "",
@@ -215,7 +203,7 @@ def webhook_history_page(request: Request):
             "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S") if r.created_at else "",
         } for r in rows]
     return render(request, "webhook_history.html", {
-        "scope": "all" if scope_all else "mine", "title": "Webhook 记录", "badge": "", "records": recs,
+        "scope": "mine", "title": "Webhook 记录", "badge": "", "records": recs,
     })
 
 
@@ -230,23 +218,6 @@ def tasks_page(request: Request):
     return render(request, "tasks.html", {"product_count": product_count})
 
 
-@router.get("/console/admin")
-def admin_page(request: Request):
-    me, resp = _need(request, admin=True)
-    if resp:
-        return resp
-    with SessionLocal() as db:
-        users = db.query(User).order_by(User.id).all()
-        items = []
-        for u in users:
-            items.append({
-                "id": u.id, "email": u.email, "shop_name": u.shop_name, "role": u.role,
-                "status": u.status, "afdian_user_id": u.afdian_user_id,
-                "api_balance_cents": u.api_balance_cents,
-                "product_count": db.query(Product.id).filter(Product.merchant_id == u.id).count(),
-                "paid_order_count": db.query(Order.id).filter(Order.merchant_id == u.id, Order.status == "paid").count(),
-            })
-    return render(request, "admin.html", {"merchants": items})
 
 
 # ═══════════════ JSON:统计 / 订单 ═══════════════
@@ -256,13 +227,12 @@ def stats(request: Request):
     me = _me(request)
     if not me:
         return err("未登录", 401)
-    scope_all = me.role == "admin" and request.query_params.get("scope") == "all"
+    # 单店模式:始终只统计自己的订单
     from_s = request.query_params.get("from", "")
     to_s = request.query_params.get("to", "")
     with SessionLocal() as db:
         q = db.query(Order.merchant_id, Order.category, Order.title, Order.sku, Order.total, Order.status, Order.created_at)
-        if not scope_all:
-            q = q.filter(Order.merchant_id == me.id)
+        q = q.filter(Order.merchant_id == me.id)
         if from_s:
             try:
                 q = q.filter(Order.created_at >= datetime.fromisoformat(from_s.replace("Z", "+00:00")).replace(tzinfo=None))
@@ -274,7 +244,6 @@ def stats(request: Request):
             except ValueError:
                 pass
         rows = q.all()
-        merchant_cache: dict[int, tuple] = {}
         created_count = paid_count = paid_amount = 0
         daily: dict[str, dict] = {}
         product_map: dict[str, dict] = {}
@@ -293,11 +262,6 @@ def stats(request: Request):
                 p = product_map.get(pk)
                 if p is None:
                     p = {"category": r.category, "title": r.title, "sku": r.sku, "count": 0, "amount": 0}
-                    if scope_all:
-                        if r.merchant_id not in merchant_cache:
-                            m = db.get(User, r.merchant_id)
-                            merchant_cache[r.merchant_id] = (m.email, m.shop_name) if m else ("", "")
-                        p["merchantEmail"], p["merchantShop"] = merchant_cache[r.merchant_id]
                     product_map[pk] = p
                 p["count"] += 1
                 p["amount"] += r.total
@@ -306,17 +270,13 @@ def stats(request: Request):
     # 用 order_stats 的累计创建数兜底(取二者较大值),并回填到 daily 序列。
     try:
         with SessionLocal() as _db2:
-            _st = _db2.query(OrderStat)
-            if not scope_all:
-                _st = _st.filter(OrderStat.merchant_id == me.id)
+            _st = _db2.query(OrderStat).filter(OrderStat.merchant_id == me.id)
             if from_s:
                 _st = _st.filter(OrderStat.day >= from_s[:10])
             if to_s:
                 _st = _st.filter(OrderStat.day <= to_s[:10])
             _stat_created = sum(int(x.created_count or 0) for x in _st.all())
-            _st2 = _db2.query(OrderStat)
-            if not scope_all:
-                _st2 = _st2.filter(OrderStat.merchant_id == me.id)
+            _st2 = _db2.query(OrderStat).filter(OrderStat.merchant_id == me.id)
             if from_s:
                 _st2 = _st2.filter(OrderStat.day >= from_s[:10])
             if to_s:
@@ -337,7 +297,7 @@ def stats(request: Request):
         "paidAmount": paid_amount,
         "avgAmount": round(paid_amount / paid_count, 2) if paid_count else 0,
         "daily": [daily[k] for k in sorted(daily)],
-        "products": products, "scope": "all" if scope_all else "mine",
+        "products": products, "scope": "mine",
     }
 
 
@@ -352,16 +312,12 @@ def orders_list(request: Request):
         _pipe.gc_stale_pending()
     except Exception:  # noqa: BLE001
         pass
-    scope_all = me.role == "admin" and request.query_params.get("scope") == "all"
+    # 单店模式:只查自己的订单,不再有商户筛选
     q = (request.query_params.get("q") or "").strip()
     channel = request.query_params.get("channel", "")
-    merchant = (request.query_params.get("merchant") or "").strip()
     with SessionLocal() as db:
         query = db.query(Order).filter(Order.status.in_(("paid", "pending")))
-        if not scope_all:
-            query = query.filter(Order.merchant_id == me.id)
-        if scope_all and merchant.isdigit():
-            query = query.filter(Order.merchant_id == int(merchant))
+        query = query.filter(Order.merchant_id == me.id)
         if channel in ("wechat", "alipay"):
             query = query.filter(Order.channel == channel)
         if q:
@@ -394,12 +350,6 @@ def orders_list(request: Request):
                 "created_at": o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else "",
                 "category_icon_url": _cat_icon.get((o.merchant_id, o.category), "") or _plogo,
             }
-            if scope_all:
-                if o.merchant_id not in cache:
-                    m = db.get(User, o.merchant_id)
-                    # 一并带上 afdian_user_id:前端据此拼 /shop/{uid},做「点击商户名跳转其前台店铺」
-                    cache[o.merchant_id] = (m.email, m.shop_name, m.afdian_user_id) if m else ("", "", "")
-                item["merchantEmail"], item["merchantShop"], item["merchantUid"] = cache[o.merchant_id]
             out.append(item)
     return {"ok": True, "orders": out, "total": len(out)}
 
@@ -479,20 +429,15 @@ async def product_save(request: Request):
         if dup.first():
             return err("该店铺的分类下已存在同名 SKU(标题也需不同才可区分)")
 
-        is_recharge = me.role == "admin" and category == "API充值"
-        grant_cents = price_i * 100
-        if is_recharge and grant_yuan:
-            try:
-                g = float(grant_yuan)
-                if g > 0:
-                    grant_cents = round(g * 100)
-            except ValueError:
-                return err("到账金额需为正数(元)")
+        # 单店模式:不再有「API 充值商品」概念,is_recharge 恒为 False。
+        # 历史充值商品保留在库里(前台仍过滤不展示),但新建商品一律当普通商品。
+        is_recharge = False
+        grant_cents = 0
 
         data = dict(
             merchant_id=me.id, category_id=category_id,
             title=title, sku_name=sku, price=price_i,
-            is_recharge=is_recharge, recharge_grant_cents=grant_cents if is_recharge else 0,
+            is_recharge=False, recharge_grant_cents=0,
             delivery_type=delivery_type, delivery_kind=delivery_kind,
             delivery_link=delivery_link, delivery_tip=delivery_tip,
             stock_limit=(0 if (delivery_type == "platform" and delivery_kind == "card") else stock_limit),
@@ -508,7 +453,7 @@ async def product_save(request: Request):
             _last = db.query(Product).filter(Product.merchant_id == me.id).order_by(Product.sort_order.desc(), Product.created_at.desc(), Product.id.desc()).first()
             _new_sort = (_last.sort_order if _last else 0) + 100  # 新增商品默认排在最后
             db.add(Product(**data, sort_order=_new_sort))
-            msg = "API 充值商品创建成功(不进前台店铺)" if is_recharge else "商品创建成功"
+            msg = "商品创建成功"
         db.commit()
     return JSONResponse({"ok": True, "message": msg}, status_code=200 if pid else 201)
 
@@ -660,17 +605,9 @@ async def account_save(request: Request):
             user.webhook_params = _wh_pairs(b["webhook_params"], "=")[:500]
         if "webhook_body" in b:
             user.webhook_body = str(b["webhook_body"])[:2000]
-        for flag in ("email_notify", "balance_notify"):
-            if flag in b:
-                setattr(user, flag, bool(int(b[flag])))
-        if "balance_threshold_yuan" in b and str(b["balance_threshold_yuan"]) != "":
-            try:
-                cents = round(float(b["balance_threshold_yuan"]) * 100)
-                if cents < 0:
-                    raise ValueError
-                user.balance_threshold_cents = cents
-            except ValueError:
-                return err("提醒阈值需为不小于 0 的数字")
+        # 单店模式:只保留邮件通知开关;余额提醒体系已废弃,不再读写
+        if "email_notify" in b:
+            user.email_notify = bool(int(b["email_notify"]))
         db.commit()
 
         # 管理员平台配置
@@ -759,7 +696,6 @@ async def test_smtp(request: Request):
 
 # 订单邮件"发送测试"的每日次数(内存记录;进程重启清零,失败不计数)
 _order_mail_test_daily = {}
-_balance_mail_test_daily = {}
 from datetime import date as _date
 
 
@@ -852,38 +788,10 @@ async def test_order_mail(request: Request):
     return {"ok": True, "message": f"订单通知测试邮件已发送至 {email},请查收"}
 
 
-@router.post("/console/api/account/test_balance_mail")
-async def test_balance_mail(request: Request):
-    """商户:向自己的邮箱发送一封「API 余额不足提醒」真实邮件测试(同账号每天限1次,失败不计)"""
-    me = _me(request)
-    if not me:
-        return err("未登录", 401)
-    today = _date.today().isoformat()
-    if me.role != "admin" and _balance_mail_test_daily.get(me.id) == today:
-        return err("余额提醒邮件测试每日仅限 1 次(管理员不限);预览请用「预览模板」")
-    with SessionLocal() as db:
-        u = db.get(User, me.id)
-        email = u.email
-        shop = (u.shop_name or "").strip() or "店铺"
-        cur_bal = (u.api_balance_cents or 0) / 100  # 用当前真实余额
-    s = settings.smtp()
-    if not (s["host"] and s["user"] and s["pass"]):
-        return err("尚未配置 SMTP,无法发送测试邮件")
-    html = email_templates.low_balance_html(shop, f"{cur_bal:.2f}")  # 以当前余额为展示(非固定样值)
-    try:
-        ok = mailer.send(email, "【爱发电铺】API 余额不足提醒测试", html)
-    except Exception as e:  # noqa: BLE001
-        return err(f"发送失败: {e}")
-    if not ok:
-        return err("邮件发送失败(未配置有效 SMTP 或授权码无效);本次不占用每日次数")
-    if me.role != "admin":
-        _balance_mail_test_daily[me.id] = today
-    return {"ok": True, "message": f"余额提醒测试邮件已发送至 {email},请查收(页面/邮件中余额为当前真实 ¥{cur_bal:.2f})"}
-
 
 @router.post("/console/api/account/mail_preview")
 async def mail_preview(request: Request):
-    """模板预览(纯本地渲染,不发信):body.kind=order(默认)渲染订单邮件,kind=balance 渲染「API 余额不足提醒」"""
+    """模板预览(纯本地渲染,不发信):渲染「订单已支付」通知邮件。"""
     me = _me(request)
     if not me:
         return err("未登录", 401)
@@ -891,21 +799,15 @@ async def mail_preview(request: Request):
         b = await request.json() or {}
     except Exception:  # noqa: BLE001
         b = {}
-    kind = str(b.get("kind") or "order").strip().lower()
     shop = (me.shop_name or "").strip() or "店铺"
-    cur_bal = (getattr(me, "api_balance_cents", 0) or 0) / 100
     try:
         with SessionLocal() as db:
             u = db.get(User, me.id)
             if u and (u.shop_name or "").strip():
                 shop = u.shop_name.strip()
-            if u:
-                cur_bal = (u.api_balance_cents or 0) / 100
     except Exception:  # noqa: BLE001
         pass
-    if kind == "balance":
-        html = email_templates.low_balance_html(shop, f"{cur_bal:.2f}")  # 当前真实余额
-        return JSONResponse({"ok": True, "html": html, "subject": "【爱发电铺】API 余额不足提醒-模板预览"})
+    # 单店模式:余额提醒邮件模板已随余额体系下线,只保留订单通知预览
     html = email_templates.order_email_html({
         "order_id": "TEST-ORDER-0001",
         "creat_time": "2026-01-01 10:24:36",
@@ -914,7 +816,7 @@ async def mail_preview(request: Request):
         "sku": "测试SKU-规格",
         "total": 0.25,
         "seller": (me.afdian_user_id or str(me.id)),
-    }, shop, balance_yuan=50.25)
+    }, shop)
     return JSONResponse({"ok": True, "html": html, "subject": "【爱发电铺】订单邮件-模板预览"})
 
 
@@ -1091,270 +993,9 @@ def account_deactivate(request: Request):
     return resp
 
 
-# ═══════════════ JSON:充值 ═══════════════
-
-@router.get("/console/api/recharge/products")
-def recharge_products(request: Request):
-    me = _me(request)
-    if not me:
-        return err("未登录", 401)
-    with SessionLocal() as db:
-        rows = (
-            db.query(Product, User.shop_name)
-            .join(User, User.id == Product.merchant_id)
-            .filter(Product.is_recharge == True, User.status == "active")  # noqa: E712
-            .order_by(Product.price)
-            .all()
-        )
-        items = [{
-            "id": p.id, "title": p.title, "sku_name": p.sku_name, "price": p.price,
-            "recharge_grant_cents": p.recharge_grant_cents, "seller_shop": sn,
-        } for p, sn in rows]
-        s = platform_settings(db)
-        pay = {
-            # maxAmount:微信单笔上限(元),同前台店铺页:超过它的微信下单会被爱发电风控拒,故置灰并提示改用支付宝
-            "wechat": {"enabled": bool(s.wechat_enabled), "note": s.wechat_disabled_note,
-                       "maxAmount": (int(s.wechat_max_yuan or 0) if s.wechat_limit_on else 0)},   # 开关关→0=不限制
-            "alipay": {"enabled": bool(s.alipay_enabled), "note": s.alipay_disabled_note},
-        }
-    return {"ok": True, "products": items, "payMethods": pay}
-
-
-@router.post("/console/api/recharge/create")
-async def recharge_create(request: Request):
-    me = _me(request)
-    if not me:
-        return err("未登录", 401)
-    b = await request.json()
-    product_id = int(b.get("product_id", 0))
-    channel = b.get("channel", "")
-    if channel not in ("wechat", "alipay"):
-        return err("请选择付款方式")
-    with SessionLocal() as db:
-        s = platform_settings(db)
-        if channel == "wechat" and not s.wechat_enabled:
-            return err(s.wechat_disabled_note or "微信支付暂不可用", 403)
-        if channel == "alipay" and not s.alipay_enabled:
-            return err(s.alipay_disabled_note or "支付宝暂不可用", 403)
-        product = db.get(Product, product_id)
-        if not product or not product.is_recharge:
-            return err("充值商品不存在", 404)
-        seller = db.get(User, product.merchant_id)
-        if not seller or seller.status != "active":
-            return err("充值商品卖家已停用", 403)
-        grant = product.recharge_grant_cents or product.price * 100
-        _rcat = db.get(ProductCategory, product.category_id)
-        _rcat_name = _rcat.name if _rcat else ""
-        remark = f"{_rcat_name}&{product.title}&{product.sku_name}&{product.price}"
-        # 无人自动化充值:自动取/续登消费者 token;token 失效自动重登再试
-        pay_type = (afd_live.PAY_TYPES.get(channel) or {}).get("py_type", "wpy_qr")
-        r = afd_live.live_create_auto(seller.afdian_user_id or str(seller.id), product.price, remark, pay_type)
-        if not r.get("ok"):
-            # 同 shop/buy:爱发电明确回绝(带 ec)→409;取不到消费者 token→503;其余异常→500
-            _code = 503 if r.get("source") == "fail" else (409 if r.get("ec") else 500)
-            return err(f"充值下单失败: {r.get('message') or '未知错误'}", _code)
-        _d = r.get("data") or {}
-        order_no = str(_d.get("out_trade_no") or "")
-        qr = _d.get("redirect_url") or ""
-        if not order_no:
-            return err("充值下单失败:爱发电未返回订单号", 500)
-        db.add(Order(
-            order_no=order_no, product_id=product.id, merchant_id=seller.id,
-            category=_rcat_name, title=product.title, sku=product.sku_name,
-            total=product.price, channel=channel, remark=remark,
-            buyer_account=me.afdian_user_id or me.email, status="pending",
-            delivery_tip=product.delivery_tip or "",   # 下单快照:商品日后改提货说明不影响本单
-            recharge_for_id=me.id, recharge_grant_cents=grant, created_at=datetime.now(),
-        ))
-        db.commit()
-        try:
-            pipeline.bump_order_stat(seller.id, created=1)
-        except Exception:  # noqa: BLE001
-            pass
-    return JSONResponse({"ok": True, "orderNo": order_no, "qrPayload": qr, "total": product.price}, status_code=201)
-
-
-@router.get("/console/api/recharge/poll/{order_no}")
-def recharge_poll(request: Request, order_no: str):
-    me = _me(request)
-    if not me:
-        return err("未登录", 401)
-    with SessionLocal() as db:
-        order = db.query(Order).filter(Order.order_no == order_no).first()
-    if not order:
-        return err("订单不存在", 404)
-    if order.status == "paid":
-        return {"ok": True, "status": "paid"}
-    # 无人工单:自动取/续登消费者 token,失效自动重登
-    r = afd_live.live_check_auto(order_no)
-    if r.get("ok") and r.get("paid"):
-        pipeline.mark_order_paid(order_no)
-        return {"ok": True, "status": "paid"}
-    return {"ok": True, "status": "pending"}
-
-
 # ═══════════════ JSON:后台管理 ═══════════════
 
-@router.get("/console/api/admin/merchants")
-def admin_merchants(request: Request):
-    """仅管理员:返回商户列表(供订单按商户筛选)"""
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    with SessionLocal() as db:
-        rows = db.query(User).filter(User.role == "merchant").order_by(User.id).all()
-        out = [{"id": u.id, "shop_name": u.shop_name, "email": u.email, "status": u.status} for u in rows]
-    return {"ok": True, "merchants": out}
-
-
-@router.get("/console/api/admin/products")
-def admin_products(request: Request):
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    with SessionLocal() as db:
-        rows = (
-            db.query(Product, User.email, User.shop_name, ProductCategory.name)
-            .join(User, User.id == Product.merchant_id)
-            .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
-            .order_by(Product.id)
-            .all()
-        )
-        items = [{
-            "id": p.id, "category": (cat_name or ""), "title": p.title, "sku_name": p.sku_name,
-            "price": p.price, "is_recharge": 1 if p.is_recharge else 0,
-            "merchant_email": em, "merchant_shop": sn,
-            "delivery_type": p.delivery_type or "merchant",
-            "delivery_kind": p.delivery_kind or "",
-            "stock": (delivery.cards_stats(db, p.id)["available"]
-                      if (p.delivery_type == "platform" and p.delivery_kind == "card") else 0),
-        } for p, em, sn, cat_name in rows]
-    return {"ok": True, "products": items}
-
-
-@router.post("/console/api/admin/merchant")
-async def admin_merchant(request: Request):
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    b = await request.json()
-    mid = int(b.get("id", 0))
-    with SessionLocal() as db:
-        target = db.get(User, mid)
-        if not target:
-            return err("商户不存在", 404)
-        status = str(b.get("status", ""))
-        if status:
-            if status not in ("active", "disabled"):
-                return err("状态值无效")
-            if target.role == "admin" and status == "disabled":
-                return err("不可停用管理员账号")
-            target.status = status
-            db.commit()
-            return {"ok": True, "message": "商户已启用" if status == "active" else "商户已停用"}
-        adjust = b.get("adjust_cents", "")
-        if str(adjust) != "":
-            delta = int(adjust)
-            if delta == 0:
-                return err("调整金额不能为 0")
-            after = target.api_balance_cents + delta
-            target.api_balance_cents = after
-            db.add(FeeLedger(
-                merchant_id=target.id, delta_cents=delta, balance_after_cents=after,
-                reason="recharge" if delta > 0 else "admin_adjust",
-                note=str(b.get("note", "") or ("管理员手动充值" if delta > 0 else "管理员调整")),
-                created_at=datetime.now(),
-            ))
-            db.commit()
-            return {"ok": True, "message": "余额已调整", "balanceAfterCents": after}
-    return err("请提供 status 或 adjust_cents")
-
-
-@router.post("/console/api/admin/product/delete")
-async def admin_product_delete(request: Request):
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    b = await request.json()
-    pid = int(b.get("id", 0))
-    with SessionLocal() as db:
-        product = db.get(Product, pid)
-        if not product:
-            return err("商品不存在", 404)
-        db.delete(product)
-        db.commit()
-    return {"ok": True, "message": "商品已删除"}
-
-
 # ═══════════════ 平台通知 ═══════════════
-@router.get("/console/admin-notices")
-def admin_notices_page(request: Request):
-    """管理员:平台通知管理页"""
-    me, resp = _need(request, admin=True)
-    return resp or render(request, "admin_notices.html", {})
-
-
-@router.get("/console/api/notices")
-def api_notices(request: Request):
-    """商户/管理员:通知列表(按时间倒序)"""
-    me = _me(request)
-    if not me:
-        return err("未登录", 401)
-    with SessionLocal() as db:
-        rows = db.query(Notice).order_by(Notice.id.desc()).limit(200).all()
-        out = [{
-            "id": n.id, "title": n.title, "content": n.content,
-            "created_at": n.created_at.strftime("%Y-%m-%d %H:%M") if n.created_at else "",
-        } for n in rows]
-    return {"ok": True, "notices": out}
-
-
-@router.get("/console/api/admin/notices")
-def admin_notices_list(request: Request):
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    with SessionLocal() as db:
-        rows = db.query(Notice).order_by(Notice.id.desc()).limit(200).all()
-        out = [{
-            "id": n.id, "title": n.title, "content": n.content,
-            "created_at": n.created_at.strftime("%Y-%m-%d %H:%M") if n.created_at else "",
-        } for n in rows]
-    return {"ok": True, "notices": out}
-
-
-@router.post("/console/api/admin/notices")
-async def admin_notices_create(request: Request):
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    b = await request.json()
-    title = str(b.get("title", "")).strip()
-    content = str(b.get("content", "")).strip()
-    if not title:
-        return err("请填写通知标题")
-    with SessionLocal() as db:
-        db.add(Notice(title=title[:200], content=content[:2000], created_at=datetime.now()))
-        db.commit()
-    return {"ok": True, "message": "通知已发布"}
-
-
-@router.post("/console/api/admin/notices/delete")
-async def admin_notices_delete(request: Request):
-    me = _me(request)
-    if not me or me.role != "admin":
-        return err("仅管理员可操作", 403)
-    b = await request.json()
-    nid = int(b.get("id", 0))
-    with SessionLocal() as db:
-        row = db.get(Notice, nid)
-        if not row:
-            return err("通知不存在", 404)
-        db.delete(row)
-        db.commit()
-    return {"ok": True, "message": "已删除"}
-
-
 @router.post("/console/api/product/sort")
 async def product_sort(request: Request):
     """保存商品的拖拽展示顺序(全量):ids 按展示从前到后,写库 sort_order。"""

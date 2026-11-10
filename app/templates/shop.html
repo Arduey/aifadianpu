@@ -63,9 +63,9 @@ html,body{height:100%}
   {% if not notFound %}
   <div style="display:flex;align-items:center;gap:8px">
     <a href="/pickup" class="btn btn-outline btn-sm" data-tip="已购买？用订单号自助查询卡密/链接"><morph-icon data-name="package" size="13"></morph-icon> 自助提货</a>
-    {% if isOwner %}<a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>{% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
+    {% if isOwner %}<a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>{% else %}<a href="/login" class="btn btn-outline btn-sm">店主登录</a>{% endif %}
   </div>
-  {% else %}<a href="/" class="btn btn-primary btn-sm">开店</a>{% endif %}
+  {% endif %}
 </header>
 
 <main style="max-width:960px;width:100%;flex:1;margin:0 auto;padding:32px 16px;box-sizing:border-box">
@@ -74,7 +74,7 @@ html,body{height:100%}
     <div style="font-size:30px"><morph-icon data-name="ban" size="30"></morph-icon></div>
     <div style="font-weight:700;margin-top:8px">店铺不存在或地址已变更</div>
     <div class="muted" style="margin-top:4px">店主可能更改了爱发电 user_id,请联系店主获取最新店铺链接</div>
-    <a href="/" class="btn btn-primary btn-sm" style="margin-top:14px">去首页开店 →</a>
+    <a href="/" class="btn btn-primary btn-sm" style="margin-top:14px">返回店铺首页 →</a>
   </div>
   {% else %}
   <div class="shop-head" style="display:flex;gap:16px;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap">
@@ -87,7 +87,7 @@ html,body{height:100%}
         <p class="muted shop-bio-inline">{{ shop.bio or '这家店铺还没有写介绍' }}</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;font-size:14px">
-        <span class="badge badge-neutral"><morph-icon data-name="phone" size="11"></morph-icon> 商家联系方式</span>
+        <span class="badge badge-neutral"><morph-icon data-name="phone" size="11"></morph-icon> 店主联系方式</span>
         {% if shop.email %}<span class="badge badge-neutral" role="button" data-tip="点击复制邮箱" style="cursor:pointer" onclick="copyContact('{{ shop.email }}','邮箱')"><morph-icon data-name="mail" size="12"></morph-icon> {{ shop.email }}</span>{% endif %}
         {% if shop.qq %}<span class="badge badge-neutral" role="button" data-tip="点击复制 QQ 号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ shop.qq }}','QQ号')"><img class="icon" src="/static/qq-official.svg" alt="QQ" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0"> {{ shop.qq }}</span>{% endif %}
         {% if shop.wechat %}<span class="badge badge-neutral" role="button" data-tip="点击复制微信号" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ shop.wechat }}','微信号')"><img class="icon" src="/static/wechat-official.svg" alt="微信" style="width:14px;height:14px;object-fit:contain;vertical-align:middle;flex-shrink:0"> {{ shop.wechat }}</span>{% endif %}
@@ -105,8 +105,8 @@ html,body{height:100%}
 
   {% if disabled %}
   <div class="card fade-up" style="padding:40px;text-align:center;background:var(--warn-100);border-color:rgba(180,83,9,.25)">
-    <div style="font-weight:700;color:var(--warn)">商户已注销</div>
-    <div class="muted" style="margin-top:4px">商户账号已注销,如需恢复请联系平台管理员</div>
+    <div style="font-weight:700;color:var(--warn)">店铺已停用</div>
+    <div class="muted" style="margin-top:4px">店铺当前已停用,如需恢复请联系店主</div>
   </div>
   {% elif not groups %}
   <div class="card" style="padding:48px;text-align:center;border-style:dashed"><morph-icon data-name="store" size="24"></morph-icon><div style="font-weight:700;color:var(--ink-500);margin-top:8px">店铺暂无商品</div></div>
@@ -339,7 +339,7 @@ function openBuy(p) {
     _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:var(--good)">自动发货 · 付款后可在提货页领取链接'
         + (p.is_limited ? '（剩余 ' + p.stock + ' 份）' : '') + '</div>';
   } else {
-    _dv = '<div style="margin-top:6px;font-size:11px;color:var(--ink-400)">商家发货 · 付款后请联系商家客服领取'
+    _dv = '<div style="margin-top:6px;font-size:11px;color:var(--ink-400)">店主发货 · 付款后请联系店主领取'
         + (p.is_limited ? '（剩余 ' + p.stock + ' 份）' : '') + '</div>';
   }
   document.getElementById('buy-info').innerHTML =
@@ -370,7 +370,7 @@ function openBuy(p) {
   const overWx = wMax > 0 && Number(p.price) > wMax;
   const wxWhy = overWx
     ? ('本商品 ¥' + p.price + ' 超出微信单笔上限 ¥' + wMax + ',请改用支付宝支付')
-    : (w.note || '该支付方式被商家停用');
+    : (w.note || '该支付方式已被店主停用');
   paint(bw, w.enabled !== false && !overWx, '微信支付', wxWhy);
   paint(ba, a.enabled !== false, '支付宝', a.note || '该方式暂不可用');
   var pn = document.getElementById('pay-note');
@@ -430,7 +430,7 @@ async function buyCancel(){
   var ok = await appConfirm({
     title: '取消购买',
     message: '确定取消本次购买吗？',
-    lines: ['此订单将不再在本页继续检测支付状态', '若你确实已付款，建议刷新页面确认，必要时联系商户 / 管理员处理'],
+    lines: ['此订单将不再在本页继续检测支付状态', '若你确实已付款，建议刷新页面确认，必要时联系店主处理'],
     okText: '确定取消',
     cancelText: '继续等待',
     danger: true

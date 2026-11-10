@@ -6,7 +6,7 @@
   <nav style="display:flex;gap:8px;flex-wrap:wrap">
     <a href="/api-docs" class="btn btn-outline btn-sm">开放接口</a>
     <a href="/console/dashboard" class="btn btn-primary btn-sm">控制台</a>
-    <a href="/#register" class="btn btn-dark btn-sm">开店</a>
+    <a href="/" class="btn btn-dark btn-sm">返回店铺</a>
   </nav>
 </header>
 <div class="docs-wrap">
@@ -20,7 +20,7 @@
     <a href="#pay">5 · 收款与到账</a>
     <a href="#webhook">6 · 自动发货（Webhook）</a>
     <a href="#mail">7 · 邮件通知</a>
-    <a href="#balance">8 · API 余额与充值</a>
+    <a href="#balance">8 · 收款与费用</a>
     <a href="#orders">9 · 订单管理</a>
     <a href="#pickup">10 · 顾客自助提货</a>
     <a href="#faq">11 · 常见问题</a>
@@ -30,18 +30,18 @@
   <main class="docs-main">
 
   <section class="card fade-up" style="padding:24px;margin-bottom:18px">
-    <h2 class="display" style="font-size:18px;margin-bottom:10px"><morph-icon data-name="bookOpen" size="15"></morph-icon> 商户使用说明</h2>
-    <p style="color:var(--ink-500);font-size:13px;line-height:1.9">爱发电铺帮你把虚拟商品（卡密、授权、素材、教程…）挂到<b>你自己的爱发电账号</b>下销售。消费者<b>无需注册</b>，在你店铺页选商品、扫码付款；<b>钱直达你的爱发电，平台不经手资金</b>。支付成功后平台会自动通知你（Webhook / 邮件），你能据此自动发货。</p>
+    <h2 class="display" style="font-size:18px;margin-bottom:10px"><morph-icon data-name="bookOpen" size="15"></morph-icon> 店主使用说明</h2>
+    <p style="color:var(--ink-500);font-size:13px;line-height:1.9">爱发电铺帮你把虚拟商品（卡密、授权、素材、教程…）挂到<b>你自己的爱发电账号</b>下销售。顾客<b>无需注册</b>，在你的店铺页选商品、扫码付款；<b>钱直达你的爱发电，平台不经手资金</b>。支付成功后平台会自动通知你（Webhook / 邮件），你能据此自动发货。</p>
   </section>
 
   <!-- 1 -->
   <section class="card fade-up doc-sec" id="start">
-    <h2 class="doc-h"><morph-icon data-name="zap" size="15"></morph-icon> 1 · 快速开始（三分钟开店）</h2>
+    <h2 class="doc-h"><morph-icon data-name="zap" size="15"></morph-icon> 1 · 快速开始（三分钟上架）</h2>
     <ol class="doc-steps">
-      <li><b>注册</b>：用 {% if allow_email_domains %}{{ allow_email_domains | join(' / ') }}{% else %}任意{% endif %} 邮箱注册，起一个唯一店铺名（首位注册者即管理员）。注册即送 <b>¥{{ '%.2f'|format(api_fee) }}</b> 体验额度。</li>
+      <li><b>登录</b>：用安装时设置的管理员邮箱与密码登录控制台（本店只有一个店主账号，没有注册入口）。</li>
       <li><b>绑定爱发电</b>：在控制台个人中心填写爱发电 <code class="code">user_id</code> 与 <code class="code">token</code>（<u>必填</u>，否则无法创建和销售商品）。详见 <a href="#bind">第 4 节</a>。</li>
       <li><b>上架商品</b>：填 分类 / 标题 / SKU / 价格（规则见 <a href="#product">第 3 节</a>）。</li>
-      <li><b>拿到店铺链接</b>：形如 <code class="code">/shop/你的爱发电user_id</code>，复制后分享给顾客。</li>
+      <li><b>拿到店铺链接</b>：形如 <code class="code">/shop/你的爱发电user_id</code>（首页 <code class="code">/</code> 就是店铺），复制后分享给顾客。</li>
       <li><b>顾客下单</b>：顾客选商品 → 扫码付款 → 平台每 5 秒确认到账 → 支付成功通知你；<b>平台发货</b>的商品会自动发货，顾客凭订单号到<b>提货页</b>自助领取（见 <a href="#pickup">第 10 节</a>）。</li>
     </ol>
   </section>
@@ -50,7 +50,7 @@
   <section class="card fade-up doc-sec" id="shop">
     <h2 class="doc-h"><morph-icon data-name="store" size="15"></morph-icon> 2 · 店铺设置</h2>
     <ul class="doc-list">
-      <li><b>店铺名</b>：注册时确定，需全平台唯一。</li>
+      <li><b>店铺名</b>：在个人中心修改；本店只有一个店主账号，店铺名不再需要全平台唯一。</li>
       <li><b>LOGO / 简介</b>：在个人中心设置。未设 LOGO 时会回退平台默认 LOGO。简介支持多行。</li>
       <li><b>店铺链接</b>：<code class="code">/shop/{你的爱发电 user_id}</code>。可在个人中心查看复制，也是分享给顾客的地址。</li>
       <li><b>前台长什么样</b>：左侧分类目录、右侧商品卡（只显示 SKU 文本），顶部店铺信息与客服联系方式。</li>
@@ -76,7 +76,7 @@
         <ul class="doc-sub">
           <li><b>平台发货 · 卡密型</b>：先保存商品，再「管理卡密」一行一个粘贴导入（同店铺内自动去重）。卖出一张扣一张，<b>库存不足时前台直接显示「缺货」不可购买</b>。</li>
           <li><b>平台发货 · 链接 / 提示型</b>：填链接或兑换提示文字（<b>不要求是网址</b>，非网址会按纯文本展示），可另设<b>限购总量</b>，卖完显示「已售罄」。</li>
-          <li><b>商户发货</b>：平台不自动发内容，由你线下发货；同样可设<b>限购总量</b>（0 或留空 = 不限量）。</li>
+          <li><b>手动发货</b>：不自动发内容，由你线下发货；同样可设<b>限购总量</b>（0 或留空 = 不限量）。</li>
         </ul>
       </li>
       <li><b>提货说明</b>：可选，填写后会显示在顾客的提货页上（例如「请登录 xx.com 使用卡密兑换」）。</li>
@@ -85,7 +85,7 @@
       <li><b>排序 / 编辑 / 删除</b>：分类与商品都可用<b>排序按钮</b>上移、下移调整顺序（改完自动保存）；每张分类卡片头里也有「编辑分类 / 添加商品」。删除分类时若下面还有商品，会<b>二次确认并写明商品数量</b>，确认后可连商品一起删（已产生的订单不受影响）。</li>
       <li><b>销量 / 销售额</b>：每张分类卡片头显示该分类下的商品数、销量、销售额与均价（按已付款订单统计）。</li>
       <li><b>上架后</b>：商品按分类分组展示在店铺页（左侧分类目录 + 右侧商品卡）。</li>
-      <li><b>「API充值」分类</b>：<b>仅管理员可创建</b>。管理员在该分类下建的商品会自动成为充值项（不在顾客店铺页显示）；普通商户即使建同名分类，也只当普通商品处理。</li>
+      <li><b>充值类商品已下线</b>：单店自营不再有「平台余额」，也不需要充值商品；历史充值类商品不会出现在店铺页。</li>
     </ul>
   </section>
 
@@ -95,7 +95,7 @@
     <ul class="doc-list">
       <li><b>在哪获取</b>：登录爱发电 → 开发者页面 <a href="https://ifdian.net/dashboard/dev" target="_blank" rel="noopener" style="color:var(--brand);font-weight:600">https://ifdian.net/dashboard/dev</a>，<b>user_id</b> 与 <b>token</b> 都在这里查看 / 生成。</li>
       <li><b>user_id</b>：你的爱发电用户 id，用来定位店铺页（前台地址即 <code class="code">/shop/你的user_id</code>）。</li>
-      <li><b>token</b>：开放平台给你的商户凭证，用于<b>查询订单的付款状态与信息</b>（<u>不是用来下单的</u>）。实际下单由平台管理员配置的「消费者账号」完成。</li>
+       <li><b>token</b>：开放平台给你的店铺凭证，用于<b>查询订单的付款状态与信息</b>（<u>不是用来下单的</u>）。实际下单由平台管理员配置的「消费者账号」完成。</li>
       <li><b>不绑定的后果</b>：无法创建商品、无法销售。</li>
       <li><b>绑定失败常见原因</b>：id / token 填反或多了空格；爱发电侧未开通开放平台。</li>
       <li><b>绑定后的状态</b>：控制台个人中心会显示绑定徽标；可点「连接测试」验证是否可用。</li>
@@ -130,7 +130,7 @@
         <tr><td>@title</td><td>商品标题</td></tr>
         <tr><td>@sku</td><td>SKU 名称</td></tr>
         <tr><td>@total</td><td>金额（元）</td></tr>
-        <tr><td>@seller</td><td>商户标识（爱发电 user_id）</td></tr></table>
+        <tr><td>@seller</td><td>卖家标识（爱发电 user_id）</td></tr></table>
       </li>
       <li><b>你该返回什么</b>：HTTP <b>2xx</b> 视为成功；失败可在后台「Webhook 历史」查看原因并重试。</li>
     </ul>
@@ -155,20 +155,17 @@ Content-Type: application/json
     <h2 class="doc-h"><morph-icon data-name="mail" size="15"></morph-icon> 7 · 邮件通知</h2>
     <ul class="doc-list">
       <li><b>订单通知邮件</b>：每笔支付成功给你发一封（可在个人中心开关、预览、发测试，测试每日 1 次）。</li>
-      <li><b>API 余额不足提醒</b>：余额低于阈值时提醒你充值（同样支持开关 / 预览 / 测试）。</li>
       <li>邮件与 Webhook 相互独立，可只开其一，也可都开。</li>
     </ul>
   </section>
 
   <!-- 8 -->
   <section class="card fade-up doc-sec" id="balance">
-    <h2 class="doc-h"><morph-icon data-name="wallet" size="15"></morph-icon> 8 · API 余额与充值</h2>
+    <h2 class="doc-h"><morph-icon data-name="wallet" size="15"></morph-icon> 8 · 收款与费用</h2>
     <ul class="doc-list">
-      <li><b>为什么会扣费</b>：每笔成功订单，平台收取 <b>¥{{ '%.2f'|format(api_fee) }}</b> 服务费（平台对接爱发电接口的服务开销）。</li>
-      <li><b>余额从哪来</b>：注册赠送 + 你自己充值。</li>
-      <li><b>余额不足</b>：会拦下新订单，并给你发余额不足邮件；请及时充值。</li>
-      <li><b>还能下几单</b>：顶栏余额旁边会显示「<b>可下 N 单</b>」（按最新服务费向下取整估算，仅供参考）。</li>
-      <li><b>怎么充值</b>：控制台「充值」→ 选充值商品与付款方式 → 扫码 → 支付成功后即时到账。</li>
+      <li><b>钱去哪了</b>：顾客付款直达<b>你自己的爱发电账号</b>，本店不经手资金，也<b>不收取任何服务费</b>。</li>
+      <li><b>有没有余额限制</b>：没有。本店是单店自营，不存在「平台余额」或「按单扣费」，下单不会被余额拦下。</li>
+      <li><b>提现</b>：在爱发电侧按官方规则提现，与本店无关。</li>
     </ul>
   </section>
 
@@ -177,7 +174,7 @@ Content-Type: application/json
     <h2 class="doc-h"><morph-icon data-name="receiptText" size="15"></morph-icon> 9 · 订单管理</h2>
     <ul class="doc-list">
       <li><b>订单列表</b>：显示<b>已付款</b>与<b>待支付</b>订单，支持按关键词 / 付款方式筛选；<b>待支付超过 3 小时</b>的订单会被自动清理，不再保留。</li>
-      <li><b>字段含义</b>：订单号、下单时间、商品分类 / 标题 / SKU、金额、付款方式、卖家（商户 user_id）。</li>
+      <li><b>字段含义</b>：订单号、下单时间、商品分类 / 标题 / SKU、金额、付款方式、卖家（爱发电 user_id）。</li>
       <li><b>与通知的关系</b>：订单支付成功时，同时触发 Webhook 与订单邮件；订单列表是历史留档。</li>
       <li><b>顾客下单邮箱（选填）</b>：顾客下单时可留邮箱，<b>仅用于付款后把订单号与发货内容发给他</b>，不作为查询凭证；不填也能正常下单、正常提货。</li>
     </ul>
@@ -192,7 +189,7 @@ Content-Type: application/json
       <li><b>怎么用</b>：输入订单号 → 查询 → 页面显示订单信息（订单号 / 下单与支付时间 / 商品分类·标题·SKU / 金额 / 付款方式 / 店铺名）与<b>发货内容</b>（卡密、链接或提示文字，含你填写的提货说明）。</li>
       <li><b>订单号在哪看</b>：付款页面与付款软件的账单里都能看到（爱发电相关订单）。</li>
       <li><b>安全与限流</b>：查询按 IP 限流（约 3 次/秒），已付款订单的发货内容一旦发放就不会被更改或删除。</li>
-      <li><b>你这边要做什么</b>：通常什么都不用做——<b>平台发货</b>的商品会自动发货、自动入库提货页；<b>商户发货</b>的商品需要你自己按订单线下发放。</li>
+      <li><b>你这边要做什么</b>：通常什么都不用做——<b>平台发货</b>的商品会自动发货、自动入库提货页；<b>手动发货</b>的商品需要你自己按订单线下发放。</li>
     </ul>
   </section>
 
@@ -200,13 +197,13 @@ Content-Type: application/json
   <section class="card fade-up doc-sec" id="faq">
     <h2 class="doc-h"><morph-icon data-name="lifeBuoy" size="15"></morph-icon> 11 · 常见问题</h2>
     <dl class="doc-faq">
-      <dt>下单提示“店铺余额不足”？</dt><dd>你账户余额<b>低于单次服务费</b>时会被拦下、无法下单，请到控制台充值；余额<b>低于你设置的提醒阈值</b>时会收到余额不足提醒（不拦单）。</dd>
+      
       <dt>顾客扫码后一直“等待支付”？</dt><dd>多为未真正完成付款；页面会每 5 秒自动确认，付款成功后自动转为已支付。</dd>
       <dt>顾客付了钱却说没收到货？</dt><dd>让他打开提货页（<code class="code">/pickup</code>）输入订单号自助查询；若订单仍显示「待支付」，多为回调延迟，平台会自动对账补齐，稍后再查即可。</dd>
       <dt>顾客把订单号弄丢了？</dt><dd>请联系卖家（你）客服协助；订单号在付款页面与付款软件的账单里都能查到。</dd>
       <dt>没收到 Webhook？</dt><dd>到「Webhook 历史」看投递结果与原因；确认地址可公网访问、返回 2xx。即使漏推，平台也会通过定时对账把订单状态补齐。</dd>
-      <dt>忘记密码怎么办？</dt><dd>登录页「忘记密码」，用注册邮箱收重置链接（10 分钟内有效）。</dd>
-      <dt>店铺没出现在店铺广场？</dt><dd>需满足：店铺状态正常且已绑定爱发电 user_id。</dd>
+      <dt>忘记密码怎么办？</dt><dd>登录页「忘记密码」，用店主邮箱收重置链接（10 分钟内有效）。</dd>
+      <dt>顾客打不开店铺页？</dt><dd>确认店铺状态正常，且在个人中心已绑定爱发电 user_id。</dd>
       <dt>注销账号会怎样？</dt><dd>账号停用、数据保留；仅管理员可重新启用。</dd>
     </dl>
   </section>
@@ -214,7 +211,7 @@ Content-Type: application/json
   <!-- 12 -->
   <section class="card fade-up doc-sec" id="contact">
     <h2 class="doc-h"><morph-icon data-name="phone" size="15"></morph-icon> 12 · 联系与支持</h2>
-    <p class="doc-p">遇到问题请联系平台客服邮箱：</p>
+    <p class="doc-p">遇到问题请联系店主客服邮箱：</p>
     <div class="doc-contact">
       <morph-icon data-name="mail" size="15"></morph-icon>
       <a id="doc-contact-mail" href="mailto:{{ adminEmail }}">{{ adminEmail }}</a>
@@ -288,11 +285,7 @@ function copyContact(btn,t){ function done(){ var o=btn.getAttribute('data-o')||
   fetch('/api/support').then(function(r){ return r.json(); }).then(function(d){ var e=(d&&d.email)||''; if(e){ a.textContent=e; a.href='mailto:'+e; if(c){ c.style.display=''; } } else { a.textContent='暂未设置'; a.style.color='var(--ink-400)'; } }).catch(function(){ a.textContent='暂未设置'; a.style.color='var(--ink-400)'; });
 })();
 (function(){
-  var box=document.getElementById('doc-preview'); var a=document.getElementById('doc-preview-a');
-  if(!box||!a){ return; }
-  var cur=(a.getAttribute('href')||'').replace('/shop/','').trim();
-  if(cur){ return; }
-  fetch('/api/shops').then(function(r){ return r.json(); }).then(function(d){ var s=(d&&d.shops&&d.shops[0])||null; var uid=s&&s.afdian_user_id; if(!uid){ return; } a.setAttribute('href','/shop/'+uid); a.textContent='/shop/'+uid; box.style.display=''; }).catch(function(){});
+  // 单店模式:/api/shops 已下线,预览链接由后端 previewShopUid 直接渲染
 })();
 </script>
 {% endblock %}

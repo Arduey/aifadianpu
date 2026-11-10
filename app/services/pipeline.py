@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 
 from .. import config
 from .. import settings as _settings
-from ..db import FeeLedger, Order, OrderStat, SessionLocal, User, WebhookSend
+from ..db import Order, OrderStat, SessionLocal, User, WebhookSend
 from . import email_templates, mailer
 from . import delivery
 
@@ -23,7 +23,10 @@ FEE_PER_ORDER_CENTS = config.FEE_PER_ORDER_CENTS
 
 
 def fee_cents() -> int:
-    """当前单次 API 费用(分):管理台可调"""
+    """[已废弃] 单店模式不再收服务费。
+
+    保留此函数仅为兼容可能存在的旧调用；新代码请勿使用。
+    """
     try:
         return _settings.api_fee_cents()
     except Exception:
@@ -78,19 +81,10 @@ def mark_order_paid(order_no: str):
         except Exception:  # noqa: BLE001
             log.exception("delivery ensure failed: %s", order_no)
 
-        # ① 充值订单:为充值商户加余额
+        # ① 充值订单:单店模式已取消 API 余额体系,充值订单不再加余额。
+        #    （历史充值订单仍保留在 orders 表里作留档。）
         if order.recharge_for_id and order.recharge_grant_cents:
-            buyer = db.get(User, order.recharge_for_id)
-            if buyer:
-                after = buyer.api_balance_cents + order.recharge_grant_cents
-                buyer.api_balance_cents = after
-                db.add(FeeLedger(
-                    merchant_id=buyer.id, order_id=order.id,
-                    delta_cents=order.recharge_grant_cents, balance_after_cents=after,
-                    reason="recharge",
-                    note=f"购买「{order.title} · {order.sku}」支付成功,充值到账",
-                    created_at=paid_at,
-                ))
+            log.info("[recharge] 单店模式已停用余额充值,订单 %s 跳过加余额", order_no)
 
         merchant = db.get(User, order.merchant_id)
         payload = {
@@ -103,18 +97,9 @@ def mark_order_paid(order_no: str):
             "seller": merchant.afdian_user_id or str(merchant.id) if merchant else "",
         }
         if merchant:
-            # ② 扣服务费(费用由管理台可调)
-            _fee = fee_cents()
-            after_fee = merchant.api_balance_cents - _fee
-            merchant.api_balance_cents = after_fee
-            db.add(FeeLedger(
-                merchant_id=merchant.id, order_id=order.id,
-                delta_cents=-_fee, balance_after_cents=after_fee,
-                reason="order_fee",
-                note=f"订单 {order_no} 支付成功,扣除服务费",
-                created_at=paid_at,
-            ))
-            db.commit()
+            # 单店模式:不再扣「每单服务费」(店主自己收款,无平台抽成)。
+            # 保留下方订单统计,销量/金额看板仍需要。
+            # 历史 fee_ledger 的 order_fee 流水留在库里仅作留档,不再新增。
 
             # 统计:已支付笔数与金额(独立于 orders 表,未付单被清理也不影响创建数)
             bump_order_stat(_stat_merchant, paid=1, amount=_stat_amount)
@@ -430,24 +415,6 @@ def _post_webhook(url: str, payload: dict, method: str = "post", encode: str = "
     ok, msg = send_webhook(url, payload, method, encode, extra_headers, extra_params, body_template)
     if not ok:
         log.warning("[webhook] 回调失败 %s: %s", url, msg)
-
-
-def notify_low_balance(merchant_id: int) -> bool:
-    """余额不足提醒(30 分钟内一次);返回是否发送"""
-    with SessionLocal() as db:
-        m = db.get(User, merchant_id)
-        if not m or not m.balance_notify:
-            return False
-        last = m.last_balance_notify_at
-        if last and datetime.now() - last < timedelta(minutes=30):
-            return False
-        m.last_balance_notify_at = datetime.now()
-        db.commit()
-        return mailer.send(
-            m.email,
-            "【爱发电铺】API 费用余额不足提醒",
-            email_templates.low_balance_html(m.shop_name, f"{m.api_balance_cents / 100:.2f}"),
-        )
 
 
 def gc_stale_pending(max_hours: float = 3.0) -> dict:

@@ -3,18 +3,7 @@
 <h1 class="display" style="font-size:20px;margin-bottom:4px">个人中心</h1>
 <p class="muted" style="margin-bottom:16px">{{ user.email }}</p>
 
-<!-- API 余额 -->
-<div class="card" style="padding:20px;border-color:var(--brand-200);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:16px">
-  <div style="display:flex;gap:14px;align-items:center">
-    <morph-icon data-name="wallet" size="28"></morph-icon>
-    <div>
-      <div class="muted" style="font-size:12px;font-weight:700">API 余额</div>
-      <div class="display" style="font-size:28px" id="balance-num">¥{{ "%.2f"|format(user.api_balance_cents/100) }}</div>
-      <div class="muted" style="font-size:11px">每笔支付成功扣 ¥{{ '%.2f'|format(api_fee) }} · 购买管理员充值商品支付成功后即时到账</div>
-    </div>
-  </div>
-  <button type="button" class="btn btn-primary btn-lg" onclick="openRecharge()"><morph-icon data-name="wallet" size="14"></morph-icon> 充值</button>
-</div>
+{# 单店模式:API 余额体系已下线,不再显示余额卡片与充值入口 #}
 
 <div class="grid g2" style="align-items:start">
   <!-- 店铺信息 -->
@@ -146,19 +135,7 @@
         </div>
       </div>
       <div class="muted" id="order-mail-res" style="font-size:11px;margin:-6px 0 10px 4px"></div>
-      <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:10px 12px;margin-bottom:10px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><b style="font-size:12px">API 余额不足提醒</b><div class="muted" style="font-size:11px">余额不足拦截下单时邮件提醒(30 分钟一次)</div></div>
-          <input type="checkbox" id="balance_notify" {% if user.balance_notify %}checked{% endif %} style="width:18px;height:18px">
-        </div>
-        <div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px;font-size:11px;font-weight:700;color:var(--ink-500);display:flex;align-items:center;gap:6px">
-          提醒阈值:余额低于 <input id="threshold" type="number" min="0" step="0.1" value="{{ "%.2f"|format(user.balance_threshold_cents/100) }}" style="width:76px;padding:4px 8px;text-align:center"> 元时提醒(默认 1)
-          <span style="flex:1"></span>
-          <button type="button" class="btn btn-ghost btn-sm" onclick="previewBalanceMail()" data-tip="不发送,即时预览本提醒邮件版式">预览模板</button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="sendBalanceMail(this)" data-tip="向自己邮箱发送测试(每日 1 次)">发送测试</button>
-        </div>
-        <div class="muted" id="low-bal-res" style="font-size:11px;margin-top:6px"></div>
-      </div>
+      {# 单店模式:余额提醒体系已下线 #}
       <div style="text-align:right"><button class="btn btn-primary" onclick="saveNotify()">保存通知设置</button></div>
     </div>
   </div>
@@ -192,7 +169,7 @@
 {% if user.role == 'admin' %}
 <div class="card" style="padding:20px;margin-top:16px;border-color:var(--brand-200)" id="platform-config-card">
   <span style="cursor:pointer;display:inline-flex;align-items:center;gap:8px" onclick="togglePlatConfig()" data-tip="点击展开/收起"><morph-icon data-name="shield" size="15"></morph-icon> <b>平台配置(仅管理员)</b> <span class="badge badge-brand">必填</span></span> <button type="button" class="btn btn-ghost btn-sm" onclick="togglePlatConfig();event.stopPropagation()" id="pc-toggle" style="float:right;display:inline-block">收起</button>
-  <div class="muted" style="background:var(--warn-100);border-radius:8px;padding:8px 12px;font-size:11px;margin:12px 0;color:var(--warn)">爱发电(消费者)账号用于平台代下单;<b>未配置前所有商户的商品均无法创建订单</b>。</div>
+  <div class="muted" style="background:var(--warn-100);border-radius:8px;padding:8px 12px;font-size:11px;margin:12px 0;color:var(--warn)">爱发电(消费者)账号用于本店代下单;<b>未配置前店铺页无法创建订单</b>。</div>
   <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:14px;margin-bottom:12px">
     <b style="font-size:12px">爱发电(消费者)账号</b>
     <div class="muted" style="font-size:11px;margin:4px 0 10px">平台代下单使用;填好后点「登录测试」验证并持久化登录凭证。</div>
@@ -284,12 +261,7 @@
       </div>
     </div>
     <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:14px;margin-bottom:12px">
-      <b style="font-size:12px">注册允许邮箱域名</b>
-      <div class="field" style="margin:6px 0 0"><label>允许注册的邮箱域名（不填 @，用 ; 分隔）<span class="hint">留空 = 不限制；例：qq.com;163.com</span></label><input id="allowed_email_domains" value="{{ settings.allowed_email_domains or '' }}" placeholder="qq.com;163.com"></div>
-    </div>
-    <div style="border:1px solid var(--line);border-radius:8px;background:var(--paper);padding:14px;margin-bottom:12px">
-      <b style="font-size:12px">单次 API 费用</b>
-      <div class="field" style="margin:6px 0 0"><label>金额(元) <span class="hint">每笔成功订单扣减,同时作为注册赠送金额;注册页/店铺/订单/邮件/使用说明均引用此值</span></label><input id="api_fee_cents" type="number" min="0.01" step="0.01" value="{{ '%g'|format((api_fee_cents if api_fee_cents is defined and api_fee_cents else 0)/100) }}"></div>
+      {# 单店模式:注册已下线,邮箱域名白名单与单次 API 费用不再使用 #}
     </div>
   <div style="text-align:right"><button class="btn btn-primary" onclick="savePlatform()">保存平台配置</button></div>
 </div>
@@ -302,55 +274,6 @@
 </div>
 {% endif %}
 
-<!-- 充值弹窗 -->
-<div class="modal-mask" id="r-modal" style="display:none">
-  <div class="modal" style="max-width:540px">
-    <div class="modal-head"><span>API 余额充值</span><button style="color:var(--ink-400)" onclick="cancelModalX()" data-modal-gate="1"><morph-icon data-name="x" size="13"></morph-icon></button></div>
-    <div class="modal-body" style="padding:14px 16px">
-      <div id="r-pick">
-        <p class="muted" style="margin-bottom:12px">购买管理员上架的充值商品,支付成功后余额 <b>直接到账当前登录商户</b>;档位越高折算越高。</p>
-        <div class="grid g2" id="r-list"></div>
-        <div style="border-top:1px solid var(--line);margin-top:16px;padding-top:12px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-            <b style="font-size:12px">选择付款方式</b>
-            <span class="muted" id="r-hint">请先选择上方充值档位</span>
-          </div>
-          <div class="grid g2">
-            <button id="r-wechat" class="btn btn-wechat btn-lg" disabled>微信支付</button>
-            <button id="r-alipay" class="btn btn-alipay btn-lg" disabled>支付宝</button>
-          </div>
-          <div id="r-paynote" style="font-size:10px;color:var(--warn);font-weight:700;margin-top:8px"></div>
-        </div>
-      </div>
-      <div id="r-pay" style="display:none">
-        <style>@keyframes rqscan{0%{transform:translateY(-110%)}100%{transform:translateY(240%)}}</style>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 2px 12px">
-          <div style="font-size:15px;font-weight:700">等待支付</div>
-          <div style="flex:none;display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--brand);background:#FFF4EC;border:1px solid #FFD9C2;border-radius:999px"><span style="width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 1.6s infinite"></span> 每5秒自动查询</div>
-        </div>
-        <div style="text-align:center;margin-bottom:12px"><span id="r-no" onclick="copyOrderNo('r-no')" data-tip="点击复制订单号" style="font-size:12px;font-weight:700;color:var(--ink-700);cursor:pointer"></span></div>
-        <div style="display:flex;flex-direction:column;align-items:center">
-          <div style="padding:12px;border-radius:20px;border:1.5px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#FFB27A,#F95D1F) border-box;box-shadow:0 18px 34px -22px rgba(249,93,31,.85)">
-            <div style="position:relative;display:inline-block;line-height:0">
-              <div id="r-qr" style="display:block"></div>
-              <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">
-                <div style="position:absolute;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(249,93,31,0),rgba(249,93,31,.18) 50%,rgba(249,93,31,0));animation:rqscan 2.8s ease-in-out infinite"></div>
-              </div>
-            </div>
-          </div>
-          <div style="margin-top:14px;font-size:12px;color:var(--ink-400)">请使用 <b id="r-paymethod" style="color:var(--brand)">微信</b> 扫一扫完成支付</div>
-        </div>
-        <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="cancelFlow()">取消付款</button></div>
-      </div>
-      <div id="r-done" style="display:none;text-align:center;padding:18px 0">
-        <div style="width:56px;height:56px;border-radius:50%;background:var(--good-100);color:var(--good);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:26px"><morph-icon data-name="check" size="22"></morph-icon></div>
-        <b>充值成功,余额已到账</b>
-        <div class="muted" style="margin-top:6px" id="r-done-info"></div>
-        <button class="btn btn-primary btn-block" style="margin-top:14px" onclick="try{localStorage.setItem('afp_recharged','1');}catch(e){};stopRPoll();closeModal('r-modal');location.reload()">完成</button>
-      </div>
-    </div>
-  </div>
-</div>
 {% endblock %}
 {% block script %}
 <script src="/static/qrcode.js"></script>
@@ -510,14 +433,12 @@ function collectWebhook(){
   seed('wh-headers','wh-headers-empty', '{{ user.webhook_headers }}', true, 'Header', 'Value');
   seed('wh-params','wh-params-empty', '{{ user.webhook_params }}', false, 'Param', 'Value');
 })();
-/* 每次进入个人中心(已配置商户):自动做一次爱发电真实签名校验,结果放在「已配置」旁 */
+/* 每次进入个人中心(已配置爱发电):自动做一次爱发电真实签名校验,结果放在「已配置」旁 */
 var AFD_RUN_BADGE={{ 1 if (user.afdian_user_id and (user.afdian_token or '' ).strip()) else 0 }};
 function bindPane(txt){ var b=document.getElementById('afdian-test-res'); if(!b) return; if(!txt){ b.style.display='none'; b.textContent=''; b.title=''; return; } var s=(typeof txt==='string')?txt:JSON.stringify(txt); b.style.cssText='margin:10px 0 0;padding:9px 11px;background:var(--paper);border:1px solid #ecc0be;border-radius:8px;font-family:ui-monospace,Consolas,Menlo,monospace;font-size:11px;line-height:1.6;color:var(--ink-800);white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto'; b.textContent='校验未通过，爱发电原始返回：\n'+s; b.style.display='block'; }
 function afdBadgeSet(label, cls, hint){ var el=document.getElementById('afd-verify'); if(!el) return; el.textContent=label; el.className='badge badge-'+cls; el.title=hint||''; }
 async function autoAfdBadge(){ var el=document.getElementById('afd-verify'); if(!el) return; afdBadgeSet('校验中','neutral','正在连接爱发电'); try{ var d=await api('/console/api/account/test_afdian',{method:'POST',body:'{}'}); if(d&&d.connected){ afdBadgeSet('已通过签名校验','good',''); bindPane(''); } else { bindPane((typeof d==='object'&&d.detail)?d.detail:'校验不通过,无原始返回'); afdBadgeSet('校验未通过','bad','请检查 user_id/token'); } }catch(e){ afdBadgeSet('校验暂不可用','warn',(e&&String(e.message))||''); bindPane(''); } return; }
 (function(){ if(!AFD_RUN_BADGE) return; if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',autoAfdBadge); } else { autoAfdBadge(); } })();
-async function previewBalanceMail(){ try{ var res=await api('/console/api/account/mail_preview',{method:'POST',body:JSON.stringify({kind:'balance'})}); var ov=document.createElement('div'); ov.className='modal-mask'; ov.innerHTML='<div class="modal" style="max-width:480px"><div class="modal-head"><span>API 余额不足提醒 · 模板预览</span><button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-mask\').remove()">关闭</button></div><div class="modal-body" style="padding:0"><iframe title="余额提醒邮件预览" style="width:100%;height:76vh;border:0;background:#fff" sandbox="allow-same-origin"></iframe></div></div>'; document.body.appendChild(ov); var fr=ov.querySelector('iframe'); if(fr){ fr.srcdoc=(res&&res.html)||'<p style="padding:16px">预览不可用</p>'; } }catch(e){ if(window.toast){ toast('error','预览失败',e.message); } } }
-async function sendBalanceMail(btn){ var r=document.getElementById('low-bal-res'); if(btn){ btn.disabled=true; btn.textContent='发送中…'; } if(r){ r.innerHTML=''; r.style.color=''; } try{ var d=await api('/console/api/account/test_balance_mail',{method:'POST',body:'{}'}); if(r){ r.textContent=d.message; r.style.color='var(--good)'; } }catch(e){ if(r){ r.textContent=(e&&e.message)||'发送失败'; r.style.color='var(--bad)'; } } finally{ if(btn){ btn.disabled=false; btn.textContent='发送测试'; } } }
 async function previewOrderMail(){ try{ var res=await api('/console/api/account/mail_preview',{method:'POST',body:'{}'}); var ov=document.createElement('div'); ov.className='modal-mask'; ov.innerHTML='<div class="modal" style="max-width:480px"><div class="modal-head"><span>订单邮件 · 模板预览</span><button class="btn btn-ghost btn-sm" onclick="this.closest(\'.modal-mask\').remove()">关闭</button></div><div class="modal-body" style="padding:0"><iframe title="邮件预览" style="width:100%;height:76vh;border:0;background:#fff" sandbox="allow-same-origin"></iframe></div></div>'; document.body.appendChild(ov); var fr=ov.querySelector('iframe'); if(fr){ fr.srcdoc=(res&&res.html)||'<p style="padding:16px">预览不可用</p>'; } }catch(e){ if(window.toast){ toast('error','预览失败',e.message); } } }
 async function testOrderMail(btn){ var r=document.getElementById('order-mail-res'); if(btn){ btn.disabled=true; btn.textContent='发送中…'; } r.innerHTML=''; try{ var d=await api('/console/api/account/test_order_mail',{method:'POST',body:'{}'}); r.textContent=d.message; r.style.color='var(--good)'; }catch(e){ r.textContent=e.message; r.style.color='var(--bad)'; } finally{ if(btn){ btn.disabled=false; btn.textContent='发送测试'; } } }
 function savePlatform(){ post('/console/api/account/save',{consumer_account:val('consumer_account'),consumer_password:val('consumer_password'),platform_logo_url:val('platform_logo_url'),wechat_enabled:chk('wechat_enabled'),wechat_disabled_note:val('wechat_disabled_note'),wechat_max_yuan:val('wechat_max_yuan')||0,wechat_limit_on:chk('wechat_limit_on'),alipay_enabled:chk('alipay_enabled'),alipay_disabled_note:val('alipay_disabled_note'),smtp_host:val('smtp_host'),smtp_port:val('smtp_port'),smtp_user:val('smtp_user'),smtp_from:val('smtp_from'),smtp_pass:val('smtp_pass')||'******',api_fee_cents:val('api_fee_cents')||0,allowed_email_domains:val('allowed_email_domains')||'',webhook_base_url:val('webhook_base_url')||''},'平台配置已保存'); }
@@ -556,99 +477,5 @@ function copyLink(){ copyBind(); }
   el.addEventListener('input',()=>{ const img=document.getElementById(id==='shop_logo_url'?'logo-prev':'plogo-prev'); img.src=el.value; img.style.display=el.value?'block':'none'; });
 });
 
-/* ── 充值 ── */
-let rSelected=null, rTimer=null, rPay={};
-async function openRecharge(){
-  rSelected=null; openModal('r-modal');
-  document.getElementById('r-pick').style.display='block';
-  document.getElementById('r-pay').style.display='none';
-  document.getElementById('r-done').style.display='none';
-  try{
-    const d=await api('/console/api/recharge/products');
-    rPay=d.payMethods;
-    document.getElementById('r-list').innerHTML=d.products.length?d.products.map(p=>`
-      <button class="card" data-id="${p.id}" style="padding:14px;text-align:left" onclick='pickR(this,${JSON.stringify(p).replace(/'/g,"&#39;")})'>
-        <div style="font-weight:700;font-size:13px">${p.title}</div>
-        <div class="muted" style="font-size:11px;margin:2px 0">${p.sku_name}</div>
-        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:6px"><span class="display" style="font-size:18px;color:var(--ink-900)">¥${p.price}</span><span style="font-size:11px;color:var(--ink-400)">实付</span><span style="font-size:11px;color:var(--good);font-weight:700">到账 ¥${(Number(p.recharge_grant_cents)||Number(p.price)*100)/100}</span></div>
-      </button>`).join(''):'<div style="grid-column:1/-1;text-align:center;color:var(--ink-400);font-size:12px;padding:20px;border:1px dashed var(--line-dark);border-radius:8px">暂无可购买的充值商品(需管理员创建分类「API充值」的商品)</div>';
-    const bw=document.getElementById('r-wechat'),ba=document.getElementById('r-alipay');
-    if(!rPay.wechat.enabled){ bw.disabled=true; bw.style.opacity=.45; }
-    if(!rPay.alipay.enabled){ ba.disabled=true; ba.style.opacity=.45; }
-    let note=''; if(!rPay.wechat.enabled)note+='微信支付:'+(rPay.wechat.note||'暂不可用')+' '; if(!rPay.alipay.enabled)note+='支付宝:'+(rPay.alipay.note||'暂不可用');
-    document.getElementById('r-paynote').textContent=note;
-  }catch(e){ toast('error','充值商品加载失败',e.message); }
-}
-function pickR(el,p){
-  rSelected=p;
-  document.querySelectorAll('#r-list .card').forEach(c=>{c.style.borderColor='';c.style.background='';});
-  el.style.borderColor='var(--brand)'; el.style.background='var(--brand-50)';
-  document.getElementById('r-hint').textContent='已选:'+p.sku_name;
-  // 微信单笔上限(元):后端 payMethods.wechat.maxAmount 下发,100 只是兜底;超过上限的档位禁用微信并说明原因
-  var _rawMax=(rPay.wechat&&rPay.wechat.maxAmount);
-  var wMax=(_rawMax===undefined||_rawMax===null)?100:Number(_rawMax);   // 显式 0 = 不限制(管理员在平台配置里关掉了拦截)
-  var overWx=wMax>0 && Number(p.price)>wMax;
-  var bw=document.getElementById('r-wechat'), ba=document.getElementById('r-alipay');
-  bw.disabled=!rPay.wechat.enabled||overWx;
-  bw.style.opacity=bw.disabled?.45:'';
-  bw.title=overWx?('本档位 ¥'+p.price+' 超出微信单笔上限 ¥'+wMax+',请改用支付宝支付'):'';
-  ba.disabled=!rPay.alipay.enabled;
-  ba.style.opacity=ba.disabled?.45:'';
-  var note='';
-  if(overWx){ note='微信通道单笔上限 ¥'+wMax+'(本档位 ¥'+p.price+' 超出上限),请改用支付宝支付'; }
-  else{ if(!rPay.wechat.enabled)note+='微信支付:'+(rPay.wechat.note||'暂不可用')+' '; if(!rPay.alipay.enabled)note+='支付宝:'+(rPay.alipay.note||'暂不可用'); }
-  document.getElementById('r-paynote').textContent=note;
-}
-document.getElementById('r-wechat').onclick=()=>payR('wechat');
-document.getElementById('r-alipay').onclick=()=>payR('alipay');
-async function payR(channel){
-  if(!rSelected) return toast('warn','请先选择充值档位');
-  try{
-    const d=await api('/console/api/recharge/create',{method:'POST',body:JSON.stringify({product_id:rSelected.id,channel})});
-    document.getElementById('r-pick').style.display='none';
-    document.getElementById('r-pay').style.display='block';
-    rLock(true); // 等待支付阶段禁止点外部关闭(只能走取消付款
-    document.getElementById('r-no').textContent=d.orderNo;
-    document.getElementById('r-paymethod').textContent=(channel==='wechat'?'微信':'支付宝');
-    try { // 渲染真实付款二维码
-      var _rb=document.getElementById('r-qr'); _rb.innerHTML='';
-      if (d.qrPayload && typeof qrcode === 'function') {
-        var _rq=qrcode(0,'M'); _rq.addData(String(d.qrPayload)); _rq.make();
-        _rb.innerHTML=_rq.createImgTag(3,2);
-      }
-    } catch(e){}
-    rTimer=setInterval(async()=>{
-      try{
-        const r=await api('/console/api/recharge/poll/'+d.orderNo);
-        if(r.status==='paid'){
-          stopRPoll();
-          rLock(false); // 支付成功转结果区,解锁(不再限制关闭)
-          document.getElementById('r-pay').style.display='none';
-          document.getElementById('r-done').style.display='block';
-          document.getElementById('r-done-info').innerHTML='订单 <span class="code">'+d.orderNo+'</span> · 到账 <b style="color:var(--good)">+¥'+(rSelected.recharge_grant_cents/100).toFixed(2)+'</b>';
-          toast('success','充值成功,余额已到账');
-        }
-      }catch(e){}
-    },5000);
-  }catch(e){ toast('error','充值下单失败',e.message); }
-}
-function stopRPoll(){ if(rTimer){clearInterval(rTimer);rTimer=null;} }
-function rPayShown(){ var el=document.getElementById('r-pay'); return !!(el && el.style.display==='block'); }
-function rLock(on){ var m=document.getElementById('r-modal'); if(!m) return; if(on){ m.setAttribute('data-lock-close-outside','1'); } else { m.removeAttribute('data-lock-close-outside'); } }
-function rCloseModal(){ rLock(false); stopRPoll(); closeModal('r-modal'); }
-async function cancelFlow(){
-  if (!rPayShown()){ rCloseModal(); return; }
-  // 仅在支付/等待查询阶段提示；用户若选“继续等待”则不中断仍继续轮询
-  var ok = await appConfirm({
-    title: '取消充值',
-    message: '确定取消本次充值吗？',
-    lines: ['该订单将不再检测付款状态', '即使已付款也不会自动充值到账，需联系管理员手动充值'],
-    okText: '确定取消',
-    cancelText: '继续等待',
-    danger: true
-  });
-  if (ok) rCloseModal();
-}
-function cancelModalX(){ if(rPayShown()) cancelFlow(); else rCloseModal(); }
 </script>
 {% endblock %}

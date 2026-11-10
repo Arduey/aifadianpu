@@ -1,11 +1,5 @@
 """邮件 HTML 模板(卡片式)"""
 import html as h
-from .. import settings as _settings
-
-
-def _fee_yuan() -> str:
-    """当前单次API费用(元),文案显示用"""
-    return f"{_settings.api_fee_cents()/100:.2f}"
 
 BRAND = "#F95D1F"
 
@@ -25,9 +19,8 @@ def reset_password_html(email: str, url: str) -> str:
 
 def order_email_html(p: dict, shop_name: str, balance_yuan: float | None = None) -> str:
     es = h.escape(shop_name)
-    fee_note = f"该订单已扣除 API 服务费 ¥{_fee_yuan()}，已出账"
-    if balance_yuan is not None:
-        fee_note += f"<br>剩余 API 服务费 ¥{balance_yuan}"
+    # 单店模式:不再有「API 服务费」扣费,邮件里不再提扣费与剩余余额
+    fee_note = "感谢你的支持，请查收订单信息"
     amount = f'<span style="color:{BRAND};font-size:30px;font-weight:800">{float(p["total"]):.2f}<span style="font-size:14px;color:#B7AFA0;font-weight:600;margin-left:3px">元</span></span>'
     def v(s): return h.escape(str(s))
     rows = ''.join(
@@ -72,11 +65,3 @@ def order_email_html(p: dict, shop_name: str, balance_yuan: float | None = None)
   <tr><td style="padding:15px 30px;border-top:1px dashed #ECE6D8;color:#B4AC99;font-size:11px">此邮件由系统自动发送·请勿直接回复</td></tr>
 </table>
 </td></tr></table></body></html>'''
-
-
-def low_balance_html(shop_name: str, balance_yuan: str) -> str:
-    return f'''<!doctype html><html><body style="margin:0;background:#F3F1EA;padding:32px;font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
-<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;border:1px solid #EAE6DA;">
-<div style="background:#B42318;padding:22px 28px"><div style="color:#fff;font-size:18px;font-weight:700">⚠️ API 费用余额不足</div></div>
-<div style="padding:28px;font-size:13px;color:#6B6558;line-height:1.9">「{h.escape(shop_name)}」你好,<br>有买家尝试下单,但你的 API 费用余额仅剩 <b style="color:#B42318">¥{balance_yuan}</b>(单笔订单需 ¥{_fee_yuan()}),订单已被拦截。<br>请在个人中心购买管理员的「API 费用充值」商品,到账后即可恢复售卖。</div>
-<div style="padding:16px 28px;border-top:1px dashed #EAE6DA;font-size:11px;color:#B0A98F">30 分钟内仅提醒一次 · 爱发电铺</div></div></body></html>'''

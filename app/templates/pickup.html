@@ -14,7 +14,7 @@
       <morph-icon data-name="package" size="18"></morph-icon> 自助提货
     </h1>
     <p class="muted" style="font-size:12.5px;line-height:1.8;margin:0 0 14px">
-      输入下单后的<b>订单号</b>即可查询商品内容（卡密 / 链接 / 商家联系方式）。<b>无需登录</b>；同一订单可重复查询，返回的始终是同一份内容，请妥善保管。
+      输入下单后的<b>订单号</b>即可查询商品内容（卡密 / 链接 / 店主联系方式）。<b>无需登录</b>；同一订单可重复查询，返回的始终是同一份内容，请妥善保管。
     </p>
 
     <div class="pickup-form">
@@ -115,14 +115,14 @@ async function doPickup(){
         box.innerHTML='<div class="pk-empty" style="background:var(--card)"><a class="pk-link" href="'+escH(_c)+'" target="_blank" rel="noopener">'+escH(_c)+'</a></div>'
           + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制链接</button></div>';
       } else {
-        // 商户填的是提示文字(非链接):按文本展示,保留换行,避免误当链接跳转
+        // 店主填的是提示文字(非链接):按文本展示,保留换行,避免误当链接跳转
         box.innerHTML='<div class="pk-empty" style="background:var(--card);white-space:pre-wrap;word-break:break-word">'+escH(_c)+'</div>'
           + '<div style="margin-top:10px"><button class="btn btn-outline btn-sm" onclick="copyPk()">复制内容</button></div>';
       }
       window.__pkContent = _c;
     } else {
       title.textContent='发货说明';
-      box.innerHTML='<div class="pk-empty">本商品由<b>商家手动发货</b>，平台不自动发放内容。请联系商家客服领取：</div>';
+      box.innerHTML='<div class="pk-empty">本商品由<b>店主手动发货</b>，不自动发放内容。请联系店主领取：</div>';
       window.__pkContent = '';
     }
     // 提货说明:下单快照 + 商品最新说明。两者一致(或只有一个)时只显示一条,不同则并列并标注来源。
@@ -130,14 +130,20 @@ async function doPickup(){
     if(_tipSnap || _tipNow){
       if(_tipSnap && _tipNow && _tipSnap!==_tipNow){
         box.innerHTML += '<div class="pk-tip"><b>下单时的说明：</b><br>'+escH(_tipSnap)+'</div>';
-        box.innerHTML += '<div class="pk-tip"><b>商家最新说明：</b><br>'+escH(_tipNow)+'</div>';
+        box.innerHTML += '<div class="pk-tip"><b>店主最新说明：</b><br>'+escH(_tipNow)+'</div>';
       } else {
         box.innerHTML += '<div class="pk-tip">'+escH(_tipSnap||_tipNow)+'</div>';
       }
     }
     var ct=[];
-    if(d.merchant_email) ct.push('商家客服：<b>'+escH(d.merchant_email)+'</b>');
-    if(d.contact) ct.push('平台客服：'+escH(d.contact));
+    // 单店模式:店主与客服是同一个人,同一个邮箱只显示一次
+    var _mEmail=String(d.merchant_email||'').trim(), _contact=String(d.contact||'').trim();
+    if(_mEmail && _contact && _mEmail.toLowerCase()===_contact.toLowerCase()){
+      ct.push('店主客服：<b>'+escH(_mEmail)+'</b>');
+    }else{
+      if(_mEmail) ct.push('店主客服：<b>'+escH(_mEmail)+'</b>');
+      if(_contact) ct.push('平台客服：'+escH(_contact));
+    }
     ct.push('请通过正规渠道核对订单信息，谨防诈骗。');
     document.getElementById('pk-contact').innerHTML=ct.join('<br>');
     document.getElementById('pickup-result').style.display='';

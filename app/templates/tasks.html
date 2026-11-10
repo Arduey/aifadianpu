@@ -3,7 +3,7 @@
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
   <div>
     <h1 class="display" style="font-size:20px">新手任务清单</h1>
-    <p class="muted">按清单逐步完成开店准备;完成项自动保存到本机浏览器。</p>
+    <p class="muted">按清单逐项确认店铺配置完成情况;完成项自动保存到本机浏览器。</p>
   </div>
   <div><span class="badge badge-brand" id="task-progress">0 / 6 已完成</span></div>
 </div>
@@ -39,7 +39,7 @@ var TASKS = [
   { id: 'product', t: '发布商品', d: '创建商品标题/SKU/价格。', href: '/console/products', on: () => PC > 0 },
   { id: 'visit', t: '访问店铺', d: '打开你的前台店铺页面。', href: '', on: () => !!ME.aff && loc('afp_shopvis_'+ME.aff) === '1' },
   { id: 'fee', t: '了解 API 费用', d: '查看余额与费用流水规则。', href: '/console/fees', on: () => loc('afp_fees') === '1' },
-  { id: 'recharge', t: '充值 API 余额', d: '购买管理员发布的充值商品为余额充值。', href: '/console/account', on: () => loc('afp_recharged') === '1' },
+  
   { id: 'tour', t: '完成产品导览', d: '了解控制台各功能入口。', href: '#', on: () => loc('afp_tour_'+ME.id) === '1' },
 ];
 function redraw(){

@@ -125,7 +125,7 @@
                 <span class="badge badge-good"{% if p.delivery_link %} data-tip="{{ p.delivery_link }}"{% endif %}><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
                 {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% else %}
-                <span class="muted" style="font-size:11px">商户发货</span>
+                <span class="muted" style="font-size:11px">手动发货</span>
                 {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% endif %}
             </td>
@@ -177,7 +177,7 @@
         {% if is_admin %}
         <div id="recharge-tip" class="box" style="display:none;background:var(--brand-50);border-color:var(--brand-200)">
           <div style="font-size:12px;font-weight:700;color:var(--brand-700)"><morph-icon data-name="zap" size="13"></morph-icon> 自动识别为「API 充值商品」</div>
-          <div class="fld-hint" style="margin:4px 0 10px">管理员创建且分类为「API充值」的商品永不进入前台店铺，商户购买支付成功后余额直接到账。</div>
+          <div class="fld-hint" style="margin:4px 0 10px">充值类商品已随单店模式下线；如库中仍有历史充值商品，它们不会出现在前台店铺。</div>
           <div class="field"><label>支付成功到账金额 <span class="fld-hint">元 · 留空按售价 1:1</span></label><input name="recharge_grant" type="number" min="0" step="0.5" placeholder="留空按售价 1:1"></div>
         </div>
         {% endif %}
@@ -187,10 +187,10 @@
           <div class="field">
             <label>发货方式
               <morph-icon data-name="circleHelp" size="14" class="hint-icon" style="color:var(--ink-400)"
-                data-tip="商户发货=平台只通知你，由你自行发货；平台发货=买家付款后在「自助提货」页自动领取卡密或链接"></morph-icon>
+                data-tip="手动发货=只通知你，由你自行发货；平台发货=买家付款后在「自助提货」页自动领取卡密或链接"></morph-icon>
             </label>
             <select name="delivery_type" id="dv-type" onchange="dvToggle()">
-              <option value="merchant">商户发货（平台只回调通知，你自行发放）</option>
+              <option value="merchant">手动发货（只回调通知，你自行发放）</option>
               <option value="platform">平台发货（买家自助提货）</option>
             </select>
           </div>
@@ -278,7 +278,7 @@
     <div class="modal-body" style="padding:14px 16px">
       <div id="cards-stats" class="cards-stats"></div>
       <div class="field" style="margin-top:12px">
-        <label>批量导入 <span class="hint">一行一个卡密；与你店铺下<b>所有商品</b>已有的卡密自动去重（同一商户内不允许重复）</span></label>
+        <label>批量导入 <span class="hint">一行一个卡密；与你店铺下<b>所有商品</b>已有的卡密自动去重（本店所有商品间不允许重复）</span></label>
         <textarea id="cards-text" rows="6" placeholder="ABCD-1234-EFGH-5678&#10;IJKL-9012-MNOP-3456" style="width:100%;box-sizing:border-box;font-family:ui-monospace,Consolas,Menlo,monospace;font-size:12px;resize:vertical"></textarea>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -405,7 +405,7 @@ function dvToggle(){
   }
   var sh=document.getElementById('dv-stock-hint');
   if(sh){ sh.textContent = (window.__curPid) ? ('当前可售库存 '+(window.__curStock||0)+'，点「管理卡密」导入') : '保存商品后可在此管理卡密'; }
-  // 限购总量:卡密型不用(按卡密库存算),其余(商户发货/链接发货)可设
+  // 限购总量:卡密型不用(按卡密库存算),其余(手动发货/链接发货)可设
   var lbox=document.getElementById('dv-limit-box');
   if(lbox){ lbox.style.display = (t==='platform' && k==='card') ? 'none' : ''; }
 }

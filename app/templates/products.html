@@ -318,8 +318,6 @@ function toggleCat(head){
   for(var i=0;i<blocks.length;i++){ var c=blocks[i].getAttribute('data-cat')||''; if(st[c]){ blocks[i].classList.add('collapsed'); } }
 })();
 (function(){
-  function saveOrder(){ var ids=[]; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ ids.push(tr.getAttribute('data-id')); }); localStorage.setItem('afp_porder', JSON.stringify(ids)); }
-  function loadOrder(){ try{ var ord=JSON.parse(localStorage.getItem('afp_porder')||'[]'); if(!ord.length) return; var map={}; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ map[tr.getAttribute('data-id')]=tr; }); var frag=document.createDocumentFragment(); ord.forEach(function(id){ if(map[id]){ frag.appendChild(map[id]); delete map[id]; } }); Object.keys(map).forEach(function(id){ frag.appendChild(map[id]); }); var tb=document.querySelector('tbody'); if(tb) tb.appendChild(frag); }catch(e){} }
 var _sall_t = null;
   window.saveAll = function(){ var ids=[]; document.querySelectorAll('tbody tr.prow').forEach(function(r){ if(r.style.display!=='none') ids.push(r.getAttribute('data-id')); }); if(_sall_t) clearTimeout(_sall_t); _sall_t = setTimeout(function(){ try{ api('/console/api/product/sort',{method:'POST',body:JSON.stringify({ids:ids})}).then(function(){ if(window.toast) toast('success','已调整商品顺序','排序已保存'); }).catch(function(){ if(window.toast) toast('error','排序保存失败'); }); }catch(_){ if(window.toast) toast('error','排序保存失败'); } }, 260); };
   var _mvBusy=false;

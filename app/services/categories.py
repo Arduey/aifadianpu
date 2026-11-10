@@ -22,16 +22,6 @@ def list_categories(db, merchant_id: int) -> list:
     )
 
 
-def map_by_id(db, merchant_id: int) -> dict:
-    """{分类id: ProductCategory}"""
-    return {c.id: c for c in list_categories(db, merchant_id)}
-
-
-def map_by_name(db, merchant_id: int) -> dict:
-    """{分类名: ProductCategory}"""
-    return {c.name: c for c in list_categories(db, merchant_id)}
-
-
 def get_by_id(db, merchant_id: int, cat_id: int) -> ProductCategory | None:
     """按 id 取分类(校验归属商户)。"""
     if not cat_id:

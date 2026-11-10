@@ -1,12 +1,11 @@
 """控制台:页面(需登录) + JSON 接口(数据预览/商品/订单/个人中心/后台管理)"""
-import math
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
-from . import auth, config, settings
-from .db import (Notice, Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
+from . import auth, settings
+from .db import (Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
 from .render import render
 from .services import afdian, afd_login, afd_live, categories, delivery, email_templates, mailer, pipeline, reconcile
 from .utils import has_amp
@@ -899,19 +898,6 @@ async def progress_update(request: Request):
             except Exception:  # noqa: BLE001
                 out[r.pkey] = {}
     return JSONResponse({"ok": True, "progress": out})
-
-
-def rm_progress_key(request: Request, key: str) -> None:
-    """（预留）删除某 key 的云端进度,当前登录者为作用域。"""
-    me = _me(request)
-    if not me:
-        return
-    from .db import UserProgress as _P
-    with SessionLocal() as db:
-        row = db.query(_P).filter(_P.user_id == me.id, _P.pkey == key).first()
-        if row:
-            db.delete(row)
-            db.commit()
 
 
 @router.post("/console/api/account/password")

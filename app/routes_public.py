@@ -7,10 +7,10 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import auth, config, settings
-from .db import Order, PasswordReset, PlatformSetting, Product, ProductCategory, SessionLocal, User, platform_settings
+from .db import Order, PasswordReset, Product, ProductCategory, SessionLocal, User, platform_settings
 from .render import render
-from .services import afdian, afd_login, afd_live, delivery, mailer, email_templates, pipeline
-from .utils import shop_name_ok, valid_email, valid_shop_name
+from .services import afdian, afd_live, delivery, mailer, email_templates, pipeline
+from .utils import valid_email, valid_shop_name
 
 router = APIRouter()
 

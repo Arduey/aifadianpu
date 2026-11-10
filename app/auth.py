@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 
 import jwt
 from fastapi import Request
-from sqlalchemy import func
 
 from . import config, settings
 from .db import LoginLock, PlatformSetting, SessionLocal, User

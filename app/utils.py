@@ -27,14 +27,5 @@ def shop_name_ok(name: str) -> bool:
     return 0 < weight <= 12
 
 
-def shop_name_weight(name: str) -> int:
-    """返回店铺名字符权重(汉字2、其他1),供前端计数/后端提示。"""
-    return sum(2 if ord(ch) >= 0x4E00 else 1 for ch in (name or ""))
-
-
 def has_amp(s: str) -> bool:
     return "&" in s
-
-
-def yuan(cents: int) -> str:
-    return f"{cents / 100:.2f}"

@@ -16,7 +16,7 @@
 import logging
 from datetime import datetime
 
-from ..db import DeliveryRecord, Order, Product, SessionLocal, StockCard
+from ..db import DeliveryRecord, Order, Product, StockCard
 
 log = logging.getLogger("afdianpu.delivery")
 

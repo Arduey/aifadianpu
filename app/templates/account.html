@@ -171,28 +171,7 @@
 {% block script %}
 <script src="/static/qrcode.js"></script>
 <script>
-var WVARS=['order_id','creat_time','type','title','sku','total','seller'];
 function toggleWb(){ var zone=document.getElementById('wh_folder'); var btn=document.getElementById('wb_fbtn'); if(!zone) return; var hidden=zone.style.display==='none'; zone.style.display = hidden ? '' : 'none'; if(btn){ btn.textContent = hidden ? '收起' : '展开'; } }
-/* webhook 输入框内 @变量 红色(实时 overlay) */
-(function(){
-  var NAMES=['order_id','creat_time','type','title','sku','total','seller'];
-  function hl(v){ var esc=String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); return esc.replace(/@([A-Za-z0-9_]*)/g,function(m,n){ return NAMES.indexOf(n)!==-1 ? '<span style="color:#e5484d">'+m+'</span>' : m; }); }
-  function setup(ta){
-    if(!ta || ta.dataset.whhl) return; ta.dataset.whhl='1';
-    var pre=document.createElement('pre'); pre.setAttribute('aria-hidden','true');
-    var host=ta.parentNode; host.style.position='relative';
-    var base=window.getComputedStyle(ta);
-    host.appendChild(pre);
-    var st='margin:0;border:0;padding:0;font-family:'+base.fontFamily+';font-size:'+base.fontSize+';line-height:'+base.lineHeight+';white-space:pre-wrap;word-break:break-all;color:#111;position:absolute;top:0;left:0;right:0;min-height:100%;pointer-events:none;z-index:0;overflow:hidden;';
-    pre.style.cssText=st;
-    ta.style.cssText += ';position:relative;background:transparent;color:transparent;caret-color:#000;-webkit-text-fill-color:transparent;resize:vertical;z-index:1;';
-    var show=function(){ var t=ta.value||''; pre.innerHTML = t ? hl(t) : '<span style="opacity:.4">'+(ta.getAttribute('placeholder')||'')+'</span>'; pre.scrollTop=ta.scrollTop; pre.scrollLeft=ta.scrollLeft; };
-    ta.addEventListener('input',show);
-    ta.addEventListener('scroll',function(){ pre.scrollTop=ta.scrollTop; pre.scrollLeft=ta.scrollLeft; });
-    show();
-  }
-  var btn=document.getElementById('wb-toggle-or-default');
-})();
 
 /* w03 正文:contenteditable 高亮 @变量 与 #wh_body 同步(单节点, caret 停顿后重绘) */
 (function(){
@@ -226,7 +205,6 @@ function renderBodyPreview(){ var ta=document.getElementById('wh_body'); var pv=
 function val(id){ return document.getElementById(id).value; }
 function chk(id){ return document.getElementById(id).checked ? 1 : 0; }
 function noCn(s){ return (s||'').replace(/[\u4e00-\u9fa5]/g,''); }
-function tp(id, btn){ var i=document.getElementById(id); var show=i.type==='password'; i.type=show?'text':'password'; var on='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/></svg>'; var off='<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><path d="m1 1 22 22"/></svg>'; btn.innerHTML = show ? off : on; }
 function shopWeight(n){ var w=0; for(var k=0;k<n.length;k++){ w+= n.charCodeAt(k)>=0x4E00?2:1; } return w; }
 function bioCount(){ var t=document.getElementById('bio'); if(!t) return; var c=Array.from(t.value||'').length; var lines=(t.value===''?1:(t.value.split('\n').length)); var h=document.getElementById('bio-count'); if(h) h.textContent=c+'/60 · '+lines+'/3 行'; var hh=document.getElementById('bio-hint'); if(hh){ if(lines>3){ hh.style.color='var(--bad)'; hh.textContent='最多 3 行，超出部分不会被保存'; } else { hh.style.color=''; hh.textContent='最多 3 行、60 字符；回车换行。'; } } }
 /* 简介最多 3 行:输入/粘贴超出时自动截断 */
@@ -240,7 +218,6 @@ async function post(url, data, msg){
   catch(e){ toast('error','保存失败',e.message); return null; }
 }
 function saveProfile(){ post('/console/api/account/save',{shop_name:val('shop_name'),shop_logo_url:val('shop_logo_url'),bio:val('bio'),qq:val('qq'),wechat:val('wechat')},'店铺信息已保存'); }
-function copyOrderNo(id){ var el=document.getElementById(id); if(!el) return; var t=(el.textContent||'').trim(); if(!t){ toast('warn','暂无订单号'); return; } try{ navigator.clipboard.writeText(t).then(function(){ toast('success','订单号已复制'); },function(){ toast('error','复制失败,请手动选择'); }); }catch(e){ toast('error','复制失败,请手动选择'); } }
 function copyBind(){ var uid=(val('afdian_user_id')||'').trim(); if(!uid) return; navigator.clipboard?.writeText(location.origin+'/shop/'+uid); toast('success','店铺链接已复制'); }
 function setAfdCfg(ok){ var c=document.getElementById('afd-cfg'); if(c){ c.className='badge '+(ok?'badge-good':'badge-bad'); c.textContent=ok?'已配置':'未配置'; } }
 function syncAfdView(){ var uid=(val('afdian_user_id')||'').trim(), row=document.getElementById('afd-shoprow'), link=document.getElementById('afd-shoplink'); var ok=!!uid; setAfdCfg(ok); if(row){ row.style.display=ok?'flex':'none'; } if(link){ link.textContent='/shop/'+uid; } }
@@ -321,7 +298,6 @@ async function savePwd(){
   if(d){ ['pwd-current','pwd-next','pwd-confirm'].forEach(i=>document.getElementById(i).value=''); }
 }
 function copyContact(v,l){ var t=String(v||'').trim(); if(!t) return; function done(){ if(window.toast){ try{ toast('success',(l||'内容')+': '+t,'已复制'); }catch(_){ } } } function fb(){ try{ var x=document.createElement('textarea'); x.value=t; x.style.cssText='position:fixed;opacity:0'; document.body.appendChild(x); x.select(); try{ document.execCommand('copy'); }catch(_){ } x.remove(); }catch(_){ } done(); } try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ done(); }, function(){ fb(); }); } else { fb(); } }catch(e){ fb(); } }
-function copyLink(){ copyBind(); }
 ['shop_logo_url'].forEach(id=>{
   const el=document.getElementById(id); if(!el) return;
   el.addEventListener('input',()=>{ const img=document.getElementById('logo-prev'); if(!img) return; img.src=el.value; img.style.display=el.value?'block':'none'; });

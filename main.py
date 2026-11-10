@@ -1,17 +1,25 @@
 """爱发电铺 · FastAPI 入口
-宝塔 Python 项目管理器(面板「启动方式」无 uvicorn 选项,二选一):
-  A. 启动方式=命令行启动,启动命令填:
-     uvicorn main:app --host 127.0.0.1 --port 8000 --workers 2
-  B. 启动方式=gunicorn,通讯协议=asgi,启动文件/应用填 main:app
-     (依赖 requirements.txt 中的 gunicorn;面板会以 uvicorn worker 方式运行)
-本地调试:uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+生产启动（gunicorn + ASGI worker）:
+    gunicorn main:app -c gunicorn_conf.py
+  宝塔「Python 项目管理器」对应填法:
+    启动方式 = 命令行启动
+    启动命令 = gunicorn main:app -c gunicorn_conf.py
+  ⚠️ worker 类由 `uvicorn-worker` 提供(uvicorn_worker.UvicornWorker),
+     因为 uvicorn.workers.UvicornWorker 在 uvicorn 0.34+ 已被移除。
+  ⚠️ 改用 gunicorn 后**不要**再用「gunicorn 启动方式」下拉并填 uvicorn worker 类,
+     否则会 ImportError；要么用上面的命令行方式，要么下拉选 gunicorn 时把 worker 类
+     也指到 uvicorn_worker.UvicornWorker。
+
+本地调试:
+    uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
 import os
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 
-from app import auth, config
+from app import auth
 from app.db import init_db
 from app.routes_console import router as console_router
 from app.routes_public import router as public_router

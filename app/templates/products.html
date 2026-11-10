@@ -9,7 +9,6 @@
     <button class="btn btn-outline" onclick="openCatForm()">＋ 添加分类</button>
   </div>
 </div>
-<script>setTimeout(function(){ if(window.toast) toast('warn','请勿创建违法商品,轻则删除商品,重则关闭账户。','爱发电平台规范'); }, 900);</script>
 {% if not configured %}
 <div class="card fade-up" style="padding:12px 16px;background:var(--warn-100);border-color:rgba(180,83,9,.25);font-size:12px;font-weight:600;color:var(--warn);margin-bottom:14px">
   <morph-icon data-name="alertTriangle" size="13"></morph-icon> 尚未绑定爱发电 user_id 与 token,无法创建和销售商品。<a href="/console/account{{ qs }}" style="text-decoration:underline">前往个人中心绑定</a>

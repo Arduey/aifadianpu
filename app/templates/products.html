@@ -3,7 +3,7 @@
 <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:8px">
   <div style="flex:1;min-width:260px">
     <h1 class="display" style="font-size:20px">商品管理</h1>
-    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类与 SKU 分开管理：先在「添加分类」建分类，再在分类卡片里「添加商品」挂 SKU · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额) · 「API充值」分类仅管理员可创建</p>
+    <p class="muted">同一店铺内「分类+标题+SKU」四者完全一致才判重复 · 分类与 SKU 分开管理：先在「添加分类」建分类，再在分类卡片里「添加商品」挂 SKU · 均禁 &amp; 符号 · 标题≤24 / SKU≤12 / 分类≤16 字 · 价格 ≥5 正整数(5 元为爱发电自选发电最低限额)</p>
   </div>
   <div style="display:flex;gap:8px;flex:none;margin-left:auto">
     <button class="btn btn-outline" onclick="openCatForm()">＋ 添加分类</button>
@@ -109,7 +109,7 @@
           <tbody>
           {% for p in rows %}
           <tr data-cat="{{ p.category }}" data-id="{{ p.id }}" class="prow">
-            <td><b>{{ p.title }}</b> {% if p.is_recharge %}<span class="badge badge-warn">充值</span>{% endif %}</td>
+            <td><b>{{ p.title }}</b></td>
             <td>{{ p.sku_name }}</td>
             <td style="text-align:right;font-weight:700;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" data-tip="历史已付款：件数 / 金额">
               {% if p.sold %}{{ p.sold }} 件<div style="font-size:10.5px;font-weight:600;color:var(--ink-400)">¥{{ p.sold_amount }}</div>{% else %}0{% endif %}
@@ -173,14 +173,6 @@
           <div class="field"><label>SKU 名 <span class="fld-hint">≤12 字 · 禁 &amp;</span></label><input name="sku_name" maxlength="12" placeholder="如：SVG全量版" required></div>
           <div class="field"><label>价格 <span class="fld-hint">整数 ≥5 元</span></label><input name="price" type="number" min="5" step="1" placeholder="如：18" required></div>
         </div>
-
-        {% if is_admin %}
-        <div id="recharge-tip" class="box" style="display:none;background:var(--brand-50);border-color:var(--brand-200)">
-          <div style="font-size:12px;font-weight:700;color:var(--brand-700)"><morph-icon data-name="zap" size="13"></morph-icon> 自动识别为「API 充值商品」</div>
-          <div class="fld-hint" style="margin:4px 0 10px">充值类商品已随单店模式下线；如库中仍有历史充值商品，它们不会出现在前台店铺。</div>
-          <div class="field"><label>支付成功到账金额 <span class="fld-hint">元 · 留空按售价 1:1</span></label><input name="recharge_grant" type="number" min="0" step="0.5" placeholder="留空按售价 1:1"></div>
-        </div>
-        {% endif %}
 
         <div class="box">
           <div class="box-t">发货设置</div>
@@ -325,7 +317,6 @@ function toggleCat(head){
   var blocks=document.querySelectorAll('.cat-block');
   for(var i=0;i<blocks.length;i++){ var c=blocks[i].getAttribute('data-cat')||''; if(st[c]){ blocks[i].classList.add('collapsed'); } }
 })();
-if ({{ products|length }} > 0) { try { localStorage.setItem('afp_hasprod','1'); } catch(e){} }
 (function(){
   function saveOrder(){ var ids=[]; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ ids.push(tr.getAttribute('data-id')); }); localStorage.setItem('afp_porder', JSON.stringify(ids)); }
   function loadOrder(){ try{ var ord=JSON.parse(localStorage.getItem('afp_porder')||'[]'); if(!ord.length) return; var map={}; document.querySelectorAll('tbody tr.prow').forEach(function(tr){ map[tr.getAttribute('data-id')]=tr; }); var frag=document.createDocumentFragment(); ord.forEach(function(id){ if(map[id]){ frag.appendChild(map[id]); delete map[id]; } }); Object.keys(map).forEach(function(id){ frag.appendChild(map[id]); }); var tb=document.querySelector('tbody'); if(tb) tb.appendChild(frag); }catch(e){} }
@@ -359,12 +350,11 @@ var _sall_t = null;
     window.saveAll();
   }
 })();
-const isAdmin = {{ 'true' if is_admin else 'false' }};
 const form = document.getElementById('p-form');
 function openForm(p, presetCatId){
   form.reset(); form.id.value = p?p.id:0;
   document.getElementById('form-title').textContent = p?'编辑商品':'新增商品';
-  if(p){ form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; if(form.recharge_grant) form.recharge_grant.value=(p.recharge_grant_cents/100)||''; }
+  if(p){ form.title.value=p.title; form.sku_name.value=p.sku_name; form.price.value=p.price; }
   // 所属分类:编辑时用商品原分类;从分类卡片「添加商品」进入时预选该分类
   var _wantCat = p ? p.category_id : (presetCatId || 0);
   if(_wantCat) form.category_id.value = _wantCat;
@@ -380,7 +370,7 @@ function openForm(p, presetCatId){
   window.__curPid = p ? p.id : 0;
   window.__curStock = p ? (p.stock||0) : 0;
   dvToggle();
-  updateTip(); openModal('form-modal');
+  openModal('form-modal');
 }
 /* 从分类卡片进入:在该分类下新建商品(分类已锁定,避免选错) */
 function addProduct(ev, cid){
@@ -562,17 +552,6 @@ async function delCat(){
     });
   }
 })();
-function pCatName(){
-  var sel=document.getElementById('p-cat');
-  if(!sel||!sel.selectedOptions||!sel.selectedOptions[0]) return '';
-  return (sel.selectedOptions[0].textContent||'').trim();
-}
-function updateTip(){
-  const tip=document.getElementById('recharge-tip');
-  if(tip) tip.style.display=(isAdmin&&pCatName()==='API充值')?'block':'none';
-}
-
-form.category_id.addEventListener('change',updateTip);
 
 form.addEventListener('submit',async e=>{
   e.preventDefault();

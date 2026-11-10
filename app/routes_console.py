@@ -6,7 +6,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import auth, config, settings
-from .db import (FeeLedger, Notice, Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
+from .db import (Notice, Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
 from .render import render
 from .services import afdian, afd_login, afd_live, categories, delivery, email_templates, mailer, pipeline, reconcile
 from .utils import has_amp
@@ -100,7 +100,6 @@ def products_page(request: Request):
             "category": (_cat_map.get(p.category_id).name if _cat_map.get(p.category_id) else ""),
             "category_icon_url": (_cat_map.get(p.category_id).icon_url if _cat_map.get(p.category_id) else ""),
             "title": p.title, "sku_name": p.sku_name, "price": p.price,
-            "is_recharge": 1 if p.is_recharge else 0, "recharge_grant_cents": p.recharge_grant_cents,
             "delivery_type": p.delivery_type or "merchant",
             "delivery_kind": p.delivery_kind or "",
             "delivery_link": p.delivery_link or "",
@@ -130,30 +129,27 @@ def orders_page(request: Request):
     return resp or render(request, "orders.html", {"scope": "mine", "title": "订单管理", "badge": ""})
 
 
-@router.get("/console/fees")
-def fees_page(request: Request):
-    me, resp = _need(request)
-    if resp:
-        return resp
+
+def _platform_ctx(request: Request) -> dict:
+    """平台配置页所需上下文(仅管理员使用)"""
     with SessionLocal() as db:
-        rows = (
-            db.query(FeeLedger)
-            .filter(FeeLedger.merchant_id == me.id)
-            .order_by(FeeLedger.created_at.desc(), FeeLedger.id.desc())
-            .limit(300)
-            .all()
-        )
-        items = [{
-            "created_at": r.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-            "delta_cents": r.delta_cents, "balance_after_cents": r.balance_after_cents,
-            "reason": r.reason, "note": r.note or "-",
-        } for r in rows]
-        income = sum(r.delta_cents for r in rows if r.delta_cents > 0)
-        expense = sum(-r.delta_cents for r in rows if r.delta_cents < 0)
-    return render(request, "fees.html", {
-        # 单店模式:不再有「API 余额」概念,balance 恒为 0;页面仅作为历史流水查看
-        "rows": items, "balance": 0, "income": income, "expense": expense,
-    })
+        s = platform_settings(db)
+        settings = {
+            "consumer_account": s.consumer_account,
+            "consumer_password": "******" if s.consumer_password else "",
+            "platform_logo_url": s.platform_logo_url,
+            "wechat_enabled": s.wechat_enabled, "wechat_disabled_note": s.wechat_disabled_note,
+            "wechat_max_yuan": int(s.wechat_max_yuan or 0),   # 微信单笔上限(元),0=不限制
+            "wechat_limit_on": bool(s.wechat_limit_on),       # 是否启用微信大额拦截(关掉=前台不置灰)
+            "alipay_enabled": s.alipay_enabled, "alipay_disabled_note": s.alipay_disabled_note,
+            # 平台对外域名:接口文档「基础地址」+ 重置链接 + 爱发电 Webhook 回调共用同一个域名
+            # (库里为空时回退当前访问域名,与模板里的「Webhook 地址」提示保持一致,避免锁死旧域名)
+            "webhook_base_url": s.webhook_base_url or s.app_base_url or str(request.base_url).rstrip("/"),
+            "smtp_host": s.smtp_host, "smtp_port": s.smtp_port,
+            "smtp_user": s.smtp_user, "smtp_from": s.smtp_from,
+        }
+        smtp_has_pass = bool(s.smtp_pass)
+    return {"settings": settings, "smtp_has_pass": smtp_has_pass}
 
 
 @router.get("/console/account")
@@ -161,28 +157,18 @@ def account_page(request: Request):
     me, resp = _need(request)
     if resp:
         return resp
-    settings = None
-    smtp_has_pass = False
-    if me.role == "admin":
-        with SessionLocal() as db:
-            s = platform_settings(db)
-            settings = {
-                "consumer_account": s.consumer_account,
-                "consumer_password": "******" if s.consumer_password else "",
-                "platform_logo_url": s.platform_logo_url,
-                "wechat_enabled": s.wechat_enabled, "wechat_disabled_note": s.wechat_disabled_note,
-                "wechat_max_yuan": int(s.wechat_max_yuan or 0),   # 微信单笔上限(元),0=不限制
-                "wechat_limit_on": bool(s.wechat_limit_on),       # 是否启用微信大额拦截(关掉=前台不置灰)
-                "alipay_enabled": s.alipay_enabled, "alipay_disabled_note": s.alipay_disabled_note,
-                "allowed_email_domains": s.allowed_email_domains,
-                # 平台对外域名:接口文档「基础地址」+ 重置链接 + 爱发电 Webhook 回调共用同一个域名
-                # (库里为空时回退当前访问域名,与模板里的「Webhook 地址」提示保持一致,避免锁死旧域名)
-                "webhook_base_url": s.webhook_base_url or s.app_base_url or str(request.base_url).rstrip("/"),
-                "smtp_host": s.smtp_host, "smtp_port": s.smtp_port,
-                "smtp_user": s.smtp_user, "smtp_from": s.smtp_from,
-            }
-            smtp_has_pass = bool(s.smtp_pass)
-    return render(request, "account.html", {"user": me, "settings": settings, "smtp_has_pass": smtp_has_pass})
+    return render(request, "account.html", {"user": me})
+
+
+@router.get("/console/platform")
+def platform_page(request: Request):
+    """平台配置(独立页,仅管理员)"""
+    me, resp = _need(request, admin=True)
+    if resp:
+        return resp
+    ctx = {"user": me}
+    ctx.update(_platform_ctx(request))
+    return render(request, "platform.html", ctx)
 
 
 @router.get("/console/webhook-history")
@@ -206,16 +192,6 @@ def webhook_history_page(request: Request):
         "scope": "mine", "title": "Webhook 记录", "badge": "", "records": recs,
     })
 
-
-@router.get("/console/tasks")
-def tasks_page(request: Request):
-    """新手任务清单页(自动识别完成状态)"""
-    me, resp = _need(request)
-    if resp:
-        return resp
-    with SessionLocal() as db:
-        product_count = db.query(Product).filter(Product.merchant_id == me.id).count()
-    return render(request, "tasks.html", {"product_count": product_count})
 
 
 
@@ -372,7 +348,6 @@ async def product_save(request: Request):
     title = str(b.get("title", "")).strip()
     sku = str(b.get("sku_name", "")).strip()
     price = b.get("price", "")
-    grant_yuan = str(b.get("recharge_grant", "")).strip()
     # 发货方式(SKU 级)
     delivery_type = str(b.get("delivery_type", "merchant") or "merchant").strip()
     delivery_kind = str(b.get("delivery_kind", "") or "").strip()
@@ -429,15 +404,9 @@ async def product_save(request: Request):
         if dup.first():
             return err("该店铺的分类下已存在同名 SKU(标题也需不同才可区分)")
 
-        # 单店模式:不再有「API 充值商品」概念,is_recharge 恒为 False。
-        # 历史充值商品保留在库里(前台仍过滤不展示),但新建商品一律当普通商品。
-        is_recharge = False
-        grant_cents = 0
-
         data = dict(
             merchant_id=me.id, category_id=category_id,
             title=title, sku_name=sku, price=price_i,
-            is_recharge=False, recharge_grant_cents=0,
             delivery_type=delivery_type, delivery_kind=delivery_kind,
             delivery_link=delivery_link, delivery_tip=delivery_tip,
             stock_limit=(0 if (delivery_type == "platform" and delivery_kind == "card") else stock_limit),
@@ -645,24 +614,11 @@ async def account_save(request: Request):
                     s.smtp_port = 465
             if b.get("smtp_pass") and str(b["smtp_pass"]) != "******":
                 s.smtp_pass = str(b["smtp_pass"])
-            # 注册允许邮箱域名(仅admin;分号分隔,白名单非空才限制)
-            if "allowed_email_domains" in b:
-                _dom = str(b["allowed_email_domains"]).strip().replace("，", ";").replace(",", ";")
-                _parts = [x.strip().lower().lstrip("@") for x in _dom.split(";") if x.strip()]
-                s.allowed_email_domains = ";".join(_parts)
             if "webhook_base_url" in b:
                 # 平台对外域名(与接口文档基础地址/重置链接共用):同时写两列,保证永远一致
                 _plat = str(b["webhook_base_url"] or "").strip().rstrip("/")
                 s.webhook_base_url = _plat
                 s.app_base_url = _plat
-            # 单次API费用(管理台可调;单位:元→存分)
-            if "api_fee_cents" in b:
-                try:
-                    _fc = int(round(float(str(b["api_fee_cents"]).strip() or 0) * 100))
-                    if _fc >= 1:
-                        s.api_fee_cents = _fc
-                except (ValueError, TypeError):
-                    pass
             db.commit()
     return {"ok": True, "message": "保存成功"}
 

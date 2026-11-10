@@ -7,16 +7,15 @@
     <a href="/console/dashboard{{ qs }}" data-nav="/console/dashboard"><morph-icon data-name="lineChart" size="15"></morph-icon> 数据预览</a>
     <a href="/console/products{{ qs }}" data-nav="/console/products"><morph-icon data-name="package" size="15"></morph-icon> 商品管理</a>
     <a href="/console/orders{{ qs }}" data-nav="/console/orders"><morph-icon data-name="receiptText" size="15"></morph-icon> 订单管理</a>
-    <a href="/console/fees{{ qs }}" data-nav="/console/fees"><morph-icon data-name="wallet" size="15"></morph-icon> API 费用</a>
     <a href="/console/account{{ qs }}" data-nav="/console/account"><morph-icon data-name="settings" size="15"></morph-icon> 个人中心</a>
     {% if me.role == 'admin' %}
     <div class="nav-group">平台</div>
+    <a href="/console/platform{{ qs }}" data-nav="/console/platform"><morph-icon data-name="shield" size="15"></morph-icon> 平台配置</a>
     <a href="/console/afdian-callback-logs{{ qs }}" data-nav="/console/afdian-callback-logs"><morph-icon data-name="inbox" size="15"></morph-icon> 回调记录</a>
     {% endif %}
     <div class="nav-group">资源</div>
     <a href="/guide{{ qs }}"><morph-icon data-name="bookOpen" size="15"></morph-icon> 使用说明</a>
     <a href="/api-docs{{ qs }}"><morph-icon data-name="keySquare" size="15"></morph-icon> 开放接口</a>
-    <a href="/console/tasks{{ qs }}"><morph-icon data-name="clipboardCopy" size="15"></morph-icon> 任务清单</a>
     <a href="/console/webhook-history{{ qs }}" data-nav="/console/webhook-history"><morph-icon data-name="inbox" size="15"></morph-icon> Webhook 记录</a>
   </nav>
   <div class="foot">
@@ -35,11 +34,6 @@
       <span>{{ me.shop_name }}</span>
       {% if me.email %}<span class="badge badge-neutral" data-tip="登录邮箱" style="cursor:default;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ me.email }}</span>{% endif %}
       {% if me.role == 'admin' %}<span class="badge badge-brand">管理员</span>{% endif %}
-    </div>
-    <div style="display:flex;align-items:center;gap:8px">
-      {% if me.role != 'admin' %}<button type="button" class="btn btn-outline btn-sm" onclick="startTour()" id="tour-btn"><morph-icon data-name="bookOpen" size="13"></morph-icon> 导览</button>{% endif %}
-      {% if me.role != 'admin' and request.url.path in ['/console/dashboard','/console/products','/console/orders','/console/fees','/console/account'] %}<button type="button" class="btn btn-outline btn-sm" onclick="startPageTour()" data-tip="本页专属导览"><morph-icon data-name="map" size="13"></morph-icon> 本页导览</button>{% endif %}
-      <a href="/console/tasks{{ qs }}" class="btn btn-outline btn-sm" id="task-menu-btn"><morph-icon data-name="clipboardCopy" size="13"></morph-icon> 任务清单</a>
     </div>
   </header>
   <main class="console-content fade-up" style="position:relative">
@@ -64,131 +58,6 @@ document.querySelectorAll('[data-nav]').forEach(a => {
   document.addEventListener('keydown', lockKey, true);
   document.addEventListener('keyup', lockKey, true);
   document.addEventListener('contextmenu', function(e){ e.preventDefault(); return false; }, true);
-})();
-/* ── 新手任务:全部完成时任务清单按钮变绿 ── */
-(function(){
-  function loc(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
-  var m = { sn: {{ (me.shop_name or '')|tojson|safe }}, bio: {{ (me.bio or '')|tojson|safe }}, qq: {{ (me.qq or '')|tojson|safe }}, wx: {{ (me.wechat or '')|tojson|safe }}, aff: {{ (me.afdian_user_id or '')|tojson|safe }}, wu: {{ (me.webhook_url or '')|tojson|safe }}, em: {{ 'true' if me.email_notify else 'false' }} };
-  var done = (!m.sn ? false : !!(m.bio||m.qq||m.wx)) + 0;
-  done += (!!m.aff) ? 1 : 0;
-  done += (!!(m.wu||m.em)) ? 1 : 0;
-  done += (loc('afp_hasprod')==='1') ? 1 : 0;
-  done += (!!m.aff && loc('afp_shopvis_'+m.aff)==='1') ? 1 : 0;
-  done += (loc('afp_fees')==='1') ? 1 : 0;
-
-  done += (loc('afp_tour_'+{{ me.id }})==='1') ? 1 : 0;
-  if (done >= 7) { var btn=document.getElementById('task-menu-btn'); if (btn) btn.classList.add('all-done'); }
-})();
-
-/* ── 产品导览(轻量,无外部依赖) ── */
-var TOUR_STEPS = [
-  { el: '[data-nav="/console/dashboard"]', t: '数据预览', d: '查看你的店铺经营数据:创建/支付订单、金额趋势、商品销量。' },
-  { el: '[data-nav="/console/products"]', t: '商品管理', d: '新增/编辑/删除商品与分类,可拖拽排序。' },
-  { el: '[data-nav="/console/orders"]', t: '订单管理', d: '管理订单(含待支付与已付款):搜索、按渠道筛选、查看回调留言。' },
-  { el: '[data-nav="/console/fees"]', t: '历史费用流水', d: '查看历史流水记录（旧版按单扣费时代的留档，单店模式已不再计费）。' },
-  { el: '[data-nav="/console/account"]', t: '个人中心', d: '维护店铺信息、绑定爱发电、配置通知/Webhook、修改密码。' },
-  { el: '[href="/console/tasks"]', t: '任务清单', d: '按清单逐项确认店铺配置完成情况。' },
-];
-var PAGE_TOURS = {
-  '/console/dashboard': [
-    { el: '#kpis', t: '经营指标', d: '顶部三个卡片:累计已支付订单数、累计流水与平均金额,一眼掌握经营概况。' },
-    { el: '#presets', t: '日期范围', d: '用「今天/本周/本月/近 7 天」等预设快速选择统计区间,也可点「自定义」用年/月/日分段。' },
-    { el: '#segFrom, #segTo', t: '自定义起止', d: '分别选择开始与结束日期,结束日期须不早于开始日期,选好后点击右侧「查询」。' },
-    { el: '#btnQuery', t: '查询', d: '点此按所选的日期范围刷新订单金额趋势与销量统计。' },
-    { el: '#chart', t: '金额趋势', d: '折线图展示区间内每日订单金额的变化。' },
-    { el: '#prod-table', t: '热销商品', d: '区间内销量 Top 商品的列表。' },
-  ],
-  '/console/products': [
-    { el: '.console-content h1', t: '商品管理', d: '在这里新增、编辑、删除商品,并对列表做排序(用箭头按钮上移/下移,改完自动保存)。' },
-    { el: 'button[onclick="openForm()"]', t: '新增商品', d: '点此打开表单创建新商品;价格须 ≥5 元正整数,最低 5 元是爱发电限制。' },
-    { el: 'tbody tr.prow:first-child td:last-child', t: '上移 / 下移', d: '每行右侧的箭头按钮可上移/下移调整展示顺序并保存。' },
-    { el: 'button[onclick^="openForm({\"id"]', t: '编辑 / 删除', d: '每行右侧的编辑、删除按钮用于维护该商品(注意别与右上角「新增商品」混淆)。' },
-  ],
-  '/console/orders': [
-    { el: '.console-content h1', t: '订单管理', d: '查看订单(含待支付与已付款);每笔成功付款自动触发回调通知。' },
-    { el: '.console-content input, .console-content .field input', t: '搜索', d: '按订单号等关键字搜索订单。' },
-    { el: '.console-content select, .console-content .chip', t: '渠道 / 筛选', d: '按支付渠道(微信/支付宝)等条件筛选订单。' },
-    { el: '.console-content table', t: '订单列表', d: '表格含订单号、支付时间、分类、商品、SKU、渠道、金额与留言。' },
-  ],
-  '/console/fees': [
-    { el: '.console-content h1', t: '历史费用流水', d: '旧版按单扣费时代的历史留档;单店模式已不再收服务费,不再新增流水。' },
-    { el: '.console-content .card', t: '汇总卡片', d: '历史累计的入账与出账合计。' },
-    { el: '.console-content table', t: '流水明细', d: '每条流水的发生时间、类型与金额变动。' },
-  ],
-  '/console/account': [
-    { el: '.console-content h1', t: '个人中心', d: '集中维护店铺信息、爱发电绑定、通知与 Webhook 以及密码安全。' },
-    { el: '#shop_name, #bio', t: '店铺信息', d: '设置店铺名、Logo 头像、店铺介绍与 QQ/微信,保存后前台店铺即展示。' },
-    { el: '#afdian_user_id, #afdian_token', t: '绑定爱发电', d: '填写你的爱发电 user_id 与 token,启用商品可售与收款。' },
-    { el: '#webhook_url', t: '订单通知 / Webhook', d: '配置回调地址、请求方法、编码与自定义请求头,并可按提示发送测试。' },
-    { el: '#platform-config-card', t: '平台配置', d: '平台 Logo、支付渠道与 SMTP 等设置(可折叠)。' },
-  ],
-};
-var CUR_STEPS = TOUR_STEPS;
-var tourIdx = -1, tourRoot = null;
-function tourBanner(){ return '<div style="position:fixed;inset:0;background:transparent;z-index:200"></div>'; }
-function tourBody(el, i){
-  var s = CUR_STEPS[i], r = el.getBoundingClientRect();
-  var b = document.createElement('div');
-  b.style.cssText = 'position:fixed;z-index:210;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;width:280px;box-shadow:0 16px 40px rgba(0,0,0,.25);box-sizing:border-box';
-  b.innerHTML = '<div style="font-weight:800;font-size:14px;margin-bottom:6px">' + s.t + '</div>' +
-    '<div style="font-size:12px;color:var(--ink-500);line-height:1.7;margin-bottom:12px">' + s.d + '</div>' +
-    '<div style="display:flex;gap:8px;justify-content:space-between;align-items:center">' +
-      '<button type="button" class="btn btn-ghost btn-sm" onclick="tourDone()">跳过</button>' +
-      '<span style="font-size:11px;color:var(--ink-300)">' + (i + 1) + ' / ' + CUR_STEPS.length + '</span>' +
-      (i < CUR_STEPS.length - 1 ? '<button type="button" class="btn btn-primary btn-sm" onclick="tourNext()">下一步</button>'
-        : '<button type="button" class="btn btn-primary btn-sm" onclick="tourDone()">完成</button>') +
-    '</div>';
-  // 定位到元素右侧(若空间不足则放下方)
-  var left = r.right + 12, top = r.top;
-  if (left + 300 > window.innerWidth) { left = Math.max(8, r.left - 292); }
-  if (top + 140 > window.innerHeight) { top = Math.max(8, window.innerHeight - 150); }
-  b.style.left = left + 'px'; b.style.top = top + 'px';
-  if(tourRoot) tourRoot.appendChild(b); else document.body.appendChild(b);
-}
-function tourShow(i){
-  if (tourRoot) tourRoot.remove();
-  if (i >= CUR_STEPS.length) { tourDone(); return; }
-  var s = CUR_STEPS[i], el = document.querySelector(s.el);
-  if (!el) { tourShow(i + 1); return; }
-  tourIdx = i;
-  tourRoot = document.createElement('div');
-  tourRoot.id = 'tour-root';
-  tourRoot.innerHTML = tourBanner();
-  // 把目标滚到可视区,保证高亮框落在屏幕上
-  try { el.scrollIntoView({ block: 'center' }); } catch(e){}
-  // 高亮元素框:自身镂空(亮),用超大外阴影把四周压暗 —— 即“高亮导览区域”
-  var hl = document.createElement('div'); hl.style.cssText = 'position:fixed;z-index:205;border:2px solid var(--brand);border-radius:10px;background:rgba(249,93,31,.06);box-shadow:0 0 0 9999px rgba(20,16,12,.55);pointer-events:none;box-sizing:border-box;transition:all .2s';
-  var r = el.getBoundingClientRect();
-  hl.style.left = (r.left - 4) + 'px'; hl.style.top = (r.top - 4) + 'px';
-  hl.style.width = (r.width + 8) + 'px'; hl.style.height = (r.height + 8) + 'px';
-  tourRoot.appendChild(hl);
-  document.body.appendChild(tourRoot);
-  tourBody(el, i);
-}
-function tourNext(){ tourShow(tourIdx + 1); }
-function tourDone(){ if (tourRoot) tourRoot.remove(); tourRoot = null; try { localStorage.setItem('afp_tour_' + {{ me.id }}, '1'); } catch(e){} window.afpProgressPush && afpProgressPush({ tours: { ['afp_tour_' + {{ me.id }}]: 1 } }); }
-function startTour(){ CUR_STEPS = TOUR_STEPS; tourShow(0); }
-function pTourKey(){ return 'afp_ptour_' + {{ me.id }} + '_' + (location.pathname.split('?')[0].replace(/[^a-zA-Z0-9]+/g, '_')); }
-function markPageTourSeen(){ try { localStorage.setItem(pTourKey(), '1'); } catch(e){} var _key=pTourKey(); window.afpProgressPush && afpProgressPush({ tours: { [_key]: 1 } }); }
-function startPageTour(){
-  var st = PAGE_TOURS[location.pathname.split('?')[0]];
-  if (!st || !st.length) { if (window.toast) toast('info', '本页暂无专属导览'); return; }
-  markPageTourSeen();
-  CUR_STEPS = st; tourShow(0);
-}
-/* 首次登录店主自动全局导览;之后首次访问某页自动本页导览(云端进度为准,跨设备不重复) */
-(function(){ if (!{{ me.id }} || {{ 'true' if me.role == 'admin' else 'false' }}) return;
-  var gk = 'afp_tour_' + {{ me.id }}, pk = pTourKey();
-  function lsGet(k){ try { return localStorage.getItem(k) || ''; } catch(e){ return ''; } }
-  function lsSet(k,v){ try { localStorage.setItem(k,v); } catch(e){} }
-  window.afpProgressLoad(function(G){ var all=(G&&G.tours)||{};
-    if (all[gk] === 1 && lsGet(gk) !== '1') lsSet(gk, '1');          // 别机已“完成全局导览”→本机也跳过
-    if (all[pk] === 1 && lsGet(pk) !== '1') lsSet(pk, '1');
-    var alreadyGlobal = lsGet(gk) === '1';
-    if (!alreadyGlobal) { setTimeout(startTour, 600); return; }        // 全局未完成才引导;其余走单页
-    var onRoute = !!PAGE_TOURS[location.pathname.split('?')[0]];
-    if (onRoute && lsGet(pk) !== '1') setTimeout(startPageTour, 600);
-  });
 })();
 </script>
 {% endblock %}

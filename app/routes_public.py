@@ -7,7 +7,7 @@ from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 
 from . import auth, config, settings
-from .db import FeeLedger, Order, PasswordReset, PlatformSetting, Product, ProductCategory, SessionLocal, User, platform_settings
+from .db import Order, PasswordReset, PlatformSetting, Product, ProductCategory, SessionLocal, User, platform_settings
 from .render import render
 from .services import afdian, afd_login, afd_live, delivery, mailer, email_templates, pipeline
 from .utils import shop_name_ok, valid_email, valid_shop_name
@@ -194,20 +194,7 @@ async def install_finish(request: Request):
                     db.add(admin)
                     db.commit()
                     db.refresh(admin)
-                    # 管理员默认充值商品:标题「充值倍率」,SKU「1：1」,售价 10 元 → 到账 10 元(=1000 分)
-                    try:
-                        _ac = ProductCategory(merchant_id=admin.id, name="API充值",
-                                              icon_url="", sort_order=0)
-                        db.add(_ac)
-                        db.flush()
-                        db.add(Product(
-                            merchant_id=admin.id, category_id=_ac.id,
-                            title="充值倍率", sku_name="1：1", price=10,
-                            is_recharge=True, recharge_grant_cents=1000, sort_order=0,
-                        ))
-                        db.commit()
-                    except Exception:  # noqa: BLE001
-                        db.rollback()
+                    # 单店模式:不再预置「API充值」分类与充值商品(余额体系已下线)
                     ps = platform_settings(db)
                     ps.installed = True
                     ps.app_base_url = str(f.get("app_base_url", "")).strip()

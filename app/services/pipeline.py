@@ -1,6 +1,6 @@
-"""支付成功流水线 + 余额规则
-① 充值订单:买家(充值商户)增加余额
-② 卖家扣 ¥0.20 服务费并写流水
+"""支付成功流水线
+① 平台发货:核销卡密 + 写发放记录(提货页幂等返回)
+② 订单统计(已支付笔数与金额)
 ③ Webhook 回调(JSON 键与约定一致)
 ④ 卡片式邮件通知
 """
@@ -12,25 +12,11 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
 
-from .. import config
-from .. import settings as _settings
 from ..db import Order, OrderStat, SessionLocal, User, WebhookSend
 from . import email_templates, mailer
 from . import delivery
 
 log = logging.getLogger("afdianpu.pipeline")
-FEE_PER_ORDER_CENTS = config.FEE_PER_ORDER_CENTS
-
-
-def fee_cents() -> int:
-    """[已废弃] 单店模式不再收服务费。
-
-    保留此函数仅为兼容可能存在的旧调用；新代码请勿使用。
-    """
-    try:
-        return _settings.api_fee_cents()
-    except Exception:
-        return int(config.FEE_PER_ORDER_CENTS)
 
 
 def bump_order_stat(merchant_id: int, created: int = 0, paid: int = 0, amount: int = 0):
@@ -80,11 +66,6 @@ def mark_order_paid(order_no: str):
                 order.delivered_at = paid_at
         except Exception:  # noqa: BLE001
             log.exception("delivery ensure failed: %s", order_no)
-
-        # ① 充值订单:单店模式已取消 API 余额体系,充值订单不再加余额。
-        #    （历史充值订单仍保留在 orders 表里作留档。）
-        if order.recharge_for_id and order.recharge_grant_cents:
-            log.info("[recharge] 单店模式已停用余额充值,订单 %s 跳过加余额", order_no)
 
         merchant = db.get(User, order.merchant_id)
         payload = {

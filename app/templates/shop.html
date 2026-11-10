@@ -315,9 +315,6 @@ let currentProduct = null, pollTimer = null;
   document.addEventListener('contextmenu', function(e){ if ({{ 'true' if shop_is_admin else 'false' }}) return; e.preventDefault(); return false; }, true);
 })();
 
-/* 记录访问店铺(供任务清单-访问店铺识别) */
-try { localStorage.setItem('afp_shopvis_{{ shop.afdian_user_id if shop else '' }}','1'); } catch(e){}
-
 /* 分类折叠 */
 document.addEventListener('click', function(e){
   var t = e.target.closest('.cat-toggle');

@@ -62,6 +62,7 @@ class PasswordReset(Base):
 
 
 class VerificationCode(Base):
+    """[已停用] 注册邮箱验证码。单店模式不再有注册，此表仅保留结构、不再读写。"""
     __tablename__ = "verification_codes"
     id = Column(Integer, primary_key=True, autoincrement=True)
     email = Column(String(120), nullable=False, index=True)
@@ -105,8 +106,8 @@ class Product(Base):
     title = Column(String(180), nullable=False)
     sku_name = Column(String(180), nullable=False)
     price = Column(Integer, nullable=False)  # 元,≥5
-    is_recharge = Column(Boolean, nullable=False, default=False)
-    recharge_grant_cents = Column(Integer, nullable=False, default=0)
+    is_recharge = Column(Boolean, nullable=False, default=False)  # [已停用] 充值商品标记;单店模式不再有充值商品
+    recharge_grant_cents = Column(Integer, nullable=False, default=0)  # [已停用] 充值到账金额(分)
     sort_order = Column(Integer, nullable=False, default=0)  # 后台拖拽排序(同分类内/全局)
     # 发货方式(SKU 级):merchant=商户自行发货(默认) | platform=平台发货
     delivery_type = Column(String(16), nullable=False, default="merchant")
@@ -144,6 +145,7 @@ class Order(Base):
 
 
 class FeeLedger(Base):
+    """[已停用] API 费用流水。单店模式不再有 API 余额与按单扣费，此表仅保留结构、不再读写。"""
     __tablename__ = "fee_ledger"
     id = Column(Integer, primary_key=True, autoincrement=True)
     merchant_id = Column(Integer, nullable=False, index=True)
@@ -183,14 +185,14 @@ class PlatformSetting(Base):
     smtp_user = Column(String(120), nullable=False, default="")
     smtp_pass = Column(String(255), nullable=False, default="")
     smtp_from = Column(String(120), nullable=False, default="")
-    api_fee_cents = Column(Integer, nullable=True, default=None)  # 单次API费用(分);NULL=用 .env FEE_PER_ORDER_CENTS
-    allowed_email_domains = Column(String(600), nullable=False, default="")  # 注册允许邮箱域名,;分隔(仅后端/个人中心维护),空=不限制
+    api_fee_cents = Column(Integer, nullable=True, default=None)  # [已停用] 单次API费用(分);单店模式不再计费,列保留不读不写
+    allowed_email_domains = Column(String(600), nullable=False, default="")  # [已停用] 注册邮箱域名白名单;注册已下线,列保留不读不写
     webhook_base_url = Column(String(300), nullable=False, default="")  # 爱发电 Webhook 平台外部域名,空=用当前访问域名;只作入口域名展示/拼接参考
     updated_at = Column(DateTime, nullable=False, default=datetime.now, onupdate=datetime.now)
 
 
 class Notice(Base):
-    """平台通知(管理员发布,商户控制台弹窗/铃铛查看)"""
+    """[已停用] 平台通知。单店模式没有需要通知的商户，此表仅保留结构、不再读写。"""
     __tablename__ = "notices"
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(200), nullable=False)

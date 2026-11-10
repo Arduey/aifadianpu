@@ -20,11 +20,10 @@
     <a href="#pay">5 · 收款与到账</a>
     <a href="#webhook">6 · 自动发货（Webhook）</a>
     <a href="#mail">7 · 邮件通知</a>
-    <a href="#balance">8 · 收款与费用</a>
-    <a href="#orders">9 · 订单管理</a>
-    <a href="#pickup">10 · 顾客自助提货</a>
-    <a href="#faq">11 · 常见问题</a>
-    <a href="#contact">12 · 联系与支持</a>
+    <a href="#orders">8 · 订单管理</a>
+    <a href="#pickup">9 · 顾客自助提货</a>
+    <a href="#faq">10 · 常见问题</a>
+    <a href="#contact">11 · 联系与支持</a>
   </aside>
 
   <main class="docs-main">
@@ -42,7 +41,7 @@
       <li><b>绑定爱发电</b>：在控制台个人中心填写爱发电 <code class="code">user_id</code> 与 <code class="code">token</code>（<u>必填</u>，否则无法创建和销售商品）。详见 <a href="#bind">第 4 节</a>。</li>
       <li><b>上架商品</b>：填 分类 / 标题 / SKU / 价格（规则见 <a href="#product">第 3 节</a>）。</li>
       <li><b>拿到店铺链接</b>：形如 <code class="code">/shop/你的爱发电user_id</code>（首页 <code class="code">/</code> 就是店铺），复制后分享给顾客。</li>
-      <li><b>顾客下单</b>：顾客选商品 → 扫码付款 → 平台每 5 秒确认到账 → 支付成功通知你；<b>平台发货</b>的商品会自动发货，顾客凭订单号到<b>提货页</b>自助领取（见 <a href="#pickup">第 10 节</a>）。</li>
+      <li><b>顾客下单</b>：顾客选商品 → 扫码付款 → 平台每 5 秒确认到账 → 支付成功通知你；<b>平台发货</b>的商品会自动发货，顾客凭订单号到<b>提货页</b>自助领取（见 <a href="#pickup">第 9 节</a>）。</li>
     </ol>
   </section>
 
@@ -159,19 +158,9 @@ Content-Type: application/json
     </ul>
   </section>
 
-  <!-- 8 -->
-  <section class="card fade-up doc-sec" id="balance">
-    <h2 class="doc-h"><morph-icon data-name="wallet" size="15"></morph-icon> 8 · 收款与费用</h2>
-    <ul class="doc-list">
-      <li><b>钱去哪了</b>：顾客付款直达<b>你自己的爱发电账号</b>，本店不经手资金，也<b>不收取任何服务费</b>。</li>
-      <li><b>有没有余额限制</b>：没有。本店是单店自营，不存在「平台余额」或「按单扣费」，下单不会被余额拦下。</li>
-      <li><b>提现</b>：在爱发电侧按官方规则提现，与本店无关。</li>
-    </ul>
-  </section>
-
   <!-- 9 -->
   <section class="card fade-up doc-sec" id="orders">
-    <h2 class="doc-h"><morph-icon data-name="receiptText" size="15"></morph-icon> 9 · 订单管理</h2>
+    <h2 class="doc-h"><morph-icon data-name="receiptText" size="15"></morph-icon> 8 · 订单管理</h2>
     <ul class="doc-list">
       <li><b>订单列表</b>：显示<b>已付款</b>与<b>待支付</b>订单，支持按关键词 / 付款方式筛选；<b>待支付超过 3 小时</b>的订单会被自动清理，不再保留。</li>
       <li><b>字段含义</b>：订单号、下单时间、商品分类 / 标题 / SKU、金额、付款方式、卖家（爱发电 user_id）。</li>
@@ -182,7 +171,7 @@ Content-Type: application/json
 
   <!-- 10 -->
   <section class="card fade-up doc-sec" id="pickup">
-    <h2 class="doc-h"><morph-icon data-name="package" size="15"></morph-icon> 10 · 顾客自助提货</h2>
+    <h2 class="doc-h"><morph-icon data-name="package" size="15"></morph-icon> 9 · 顾客自助提货</h2>
     <p class="doc-p">买家付款后，凭<b>订单号</b>即可在提货页自助取走卡密 / 链接，<b>无需登录</b>；同一订单可反复查询，每次返回的都是同一份内容。</p>
     <ul class="doc-list">
       <li><b>提货页地址</b>：<code class="code">/pickup</code>，店铺页右上角有「自助提货」入口；付款成功后页面上的「去自助提货」也会直接带上订单号跳过去。</li>
@@ -195,7 +184,7 @@ Content-Type: application/json
 
   <!-- 11 -->
   <section class="card fade-up doc-sec" id="faq">
-    <h2 class="doc-h"><morph-icon data-name="lifeBuoy" size="15"></morph-icon> 11 · 常见问题</h2>
+    <h2 class="doc-h"><morph-icon data-name="lifeBuoy" size="15"></morph-icon> 10 · 常见问题</h2>
     <dl class="doc-faq">
       
       <dt>顾客扫码后一直“等待支付”？</dt><dd>多为未真正完成付款；页面会每 5 秒自动确认，付款成功后自动转为已支付。</dd>
@@ -210,7 +199,7 @@ Content-Type: application/json
 
   <!-- 12 -->
   <section class="card fade-up doc-sec" id="contact">
-    <h2 class="doc-h"><morph-icon data-name="phone" size="15"></morph-icon> 12 · 联系与支持</h2>
+    <h2 class="doc-h"><morph-icon data-name="phone" size="15"></morph-icon> 11 · 联系与支持</h2>
     <p class="doc-p">遇到问题请联系店主客服邮箱：</p>
     <div class="doc-contact">
       <morph-icon data-name="mail" size="15"></morph-icon>

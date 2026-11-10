@@ -1,0 +1,165 @@
+{% extends "console.html" %}
+{% block content %}
+<h1 class="display" style="font-size:20px;margin-bottom:4px">平台配置</h1>
+<p class="muted" style="margin-bottom:16px">仅管理员可见 · 爱发电代下单账号、平台域名、Logo、付款方式与 SMTP 邮件服务</p>
+
+<div class="muted" style="background:var(--warn-100);border-radius:8px;padding:8px 12px;font-size:11px;margin:0 0 16px;color:var(--warn)">爱发电(消费者)账号用于本店代下单;<b>未配置前店铺页无法创建订单</b>。</div>
+
+<!-- 爱发电消费者账号 -->
+<div class="card" style="padding:20px;margin-bottom:16px">
+  <b style="font-size:13px">爱发电(消费者)账号</b>
+  <div class="muted" style="font-size:11px;margin:4px 0 10px">平台代下单使用;填好后点「登录测试」验证并持久化登录凭证。</div>
+  <table style="border:none;border-collapse:collapse;margin:0;border-spacing:0 4px;width:100%"><tbody><tr>
+  <td style="padding:0;padding-right:12px;vertical-align:bottom;width:50%;border:0 none !important;box-shadow:none !important">
+    <div class="field" style="margin:0"><label>爱发电(消费者)账号</label><input id="consumer_account" value="{{ settings.consumer_account }}" autocomplete="off" style="width:100%"></div>
+  </td>
+  <td style="padding:0;padding-right:12px;vertical-align:bottom;width:50%;border:0 none !important;box-shadow:none !important">
+    <div class="field" style="margin:0"><label>爱发电(消费者)密码</label><input id="consumer_password" type="password" placeholder="{{ '已设置(留空保持不变)' if settings.consumer_password else '消费者账号密码' }}" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="width:100%"></div>
+  </td>
+  <td style="padding:0;vertical-align:bottom;white-space:nowrap;border:0 none !important;box-shadow:none !important">
+    <div style="height:12px"></div><button type="button" class="btn btn-outline btn-sm" id="consumer-login-btn" onclick="loginConsumer()" style="box-sizing:border-box">登录测试</button>
+  </td>
+</tr></tbody></table>
+<div id="consumer-login-raw" style="display:none;margin-top:8px"></div>
+</div>
+
+<!-- 平台域名 -->
+<div class="card" style="padding:20px;margin-bottom:16px">
+  <b style="font-size:13px">平台域名</b>
+  <div class="muted" style="font-size:11px;margin:4px 0 8px">开放接口页的「基础地址」、密码重置链接、爱发电 Webhook 回调地址都用这一个域名;留空 = 跟随当前访问域名。</div>
+  <div class="field" style="margin:6px 0 0"><label>平台对外域名(不含末尾 /)</label>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+      <input id="webhook_base_url" value="{{ settings.webhook_base_url }}" placeholder="https://你的域名" style="flex:1;min-width:0">
+      <button type="button" class="btn btn-outline btn-sm" id="wh-copy-btn" onclick="copyWebhookUrl()" style="box-sizing:border-box">复制回调地址</button>
+    </div>
+    <div class="muted" id="afd-wh-hint" style="font-size:11px;line-height:1.7">在爱发电开发者后台填的 Webhook 地址是:<br><b id="afd-wh-full" style="color:var(--ink-700);word-break:break-all">{{ (settings.webhook_base_url or request.base_url|string).rstrip('/') }}/api/afdian/webhook</b></div>
+  </div>
+</div>
+
+<!-- 平台 Logo -->
+<div class="card" style="padding:20px;margin-bottom:16px">
+  <b style="font-size:13px">平台 Logo</b>
+  <div class="field" style="margin:6px 0 0"><label>平台 Logo 链接(实时预览,展示于店铺页顶栏)</label>
+    <div style="display:flex;gap:10px;align-items:center">
+      <input id="platform_logo_url" value="{{ settings.platform_logo_url }}">
+      <img id="plogo-prev" src="{{ settings.platform_logo_url }}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid var(--line);{% if not settings.platform_logo_url %}display:none{% endif %}" onerror="this.style.display='none'">
+    </div>
+  </div>
+</div>
+
+<!-- 付款方式控制 -->
+<div class="card" style="padding:20px;margin-bottom:16px">
+  <b style="font-size:13px">付款方式控制</b>
+  <div class="muted" style="font-size:11px;margin:4px 0 10px">关闭后前台依旧可见但不可点击;「说明」作为禁用提示展示给消费者。</div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+    <b style="font-size:12px;color:#1aad19;width:64px">● 微信支付</b>
+    <input type="checkbox" id="wechat_enabled" {% if settings.wechat_enabled %}checked{% endif %} style="width:18px;height:18px">
+    <input id="wechat_disabled_note" value="{{ settings.wechat_disabled_note }}" placeholder="禁用说明,如:微信支付维护中,请使用支付宝" style="flex:1;min-width:220px">
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <b style="font-size:12px;color:#1677ff;width:64px">● 支付宝</b>
+    <input type="checkbox" id="alipay_enabled" {% if settings.alipay_enabled %}checked{% endif %} style="width:18px;height:18px">
+    <input id="alipay_disabled_note" value="{{ settings.alipay_disabled_note }}" placeholder="禁用说明,如:支付宝通道暂停,请使用微信" style="flex:1;min-width:220px">
+  </div>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+    <b style="font-size:12px;color:#1aad19;width:64px">微信上限</b>
+    <input type="checkbox" id="wechat_limit_on" {% if settings.wechat_limit_on %}checked{% endif %} style="width:18px;height:18px">
+    <input id="wechat_max_yuan" type="number" min="0" step="1" value="{{ settings.wechat_max_yuan }}" placeholder="100" style="width:110px">
+    <span class="muted" style="font-size:11px">元 · 左侧开关 = <b>是否启用微信大额拦截</b>（关掉后前台不再置灰微信，等同不限制）；启用时，微信「发电」超过这个金额会被爱发电风控拒，前台会把微信按钮置灰并提示改用支付宝</span>
+  </div>
+</div>
+
+<!-- SMTP -->
+<div class="card" style="padding:20px;margin-bottom:16px">
+  <b style="font-size:13px">SMTP 邮件服务</b>
+  <div class="muted" style="font-size:11px;margin:4px 0 10px">配置后用于发送支付成功/找回密码等邮件;未配置则为演示模式(仅写日志)。</div>
+  <div class="grid g2" style="gap:18px">
+    <div style="min-width:0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)">SMTP 主机</label>
+        <input id="smtp_host" value="{{ settings.smtp_host }}" placeholder="smtp.qq.com" style="flex:1;min-width:0">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)">端口</label>
+        <input id="smtp_port" value="{{ settings.smtp_port or '465' }}" placeholder="465" style="flex:1;min-width:0">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)">SMTP 授权码</label>
+        <input id="smtp_pass" type="password" placeholder="{{ '已设置(留空保持不变)' if smtp_has_pass else 'QQ 邮箱授权码' }}" style="flex:1;min-width:0">
+      </div>
+    </div>
+    <div style="min-width:0">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+        <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)">邮箱账号</label>
+        <input id="smtp_user" value="{{ settings.smtp_user }}" placeholder="you@qq.com" style="flex:1;min-width:0">
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <label style="flex:0 0 104px;font-size:12px;font-weight:700;color:var(--ink-700)" data-tip="发件显示名;发件地址固定为上方邮箱账号(否则邮箱商可能判定伪造域)">发件昵称<span style="color:var(--ink-300);font-weight:400">(From)</span></label>
+        <input id="smtp_from" value="{{ settings.smtp_from or '爱发电铺' }}" placeholder="爱发电铺" data-tip="发件地址固定为上方邮箱账号" style="flex:1;min-width:0">
+      </div>
+    </div>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center;margin-top:4px;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--ink-400)">发送测试邮件将送到管理员邮箱{{ '（'+me.email+'）' if me.email }}</span>
+    <button class="btn btn-outline btn-sm" type="button" id="smtp-test-btn" onclick="testSmtp()">发送测试邮件</button>
+  </div>
+</div>
+
+<div style="text-align:right"><button class="btn btn-primary" onclick="savePlatform()">保存平台配置</button></div>
+{% endblock %}
+
+{% block script %}
+<script>
+function val(id){ var el=document.getElementById(id); return el ? el.value : ''; }
+function chk(id){ var el=document.getElementById(id); return el && el.checked ? 1 : 0; }
+async function post(url, data, msg){
+  try{ const d=await api(url,{method:'POST',body:JSON.stringify(data)}); toast('success',d.message||msg); return d; }
+  catch(e){ toast('error','保存失败',e.message); return null; }
+}
+function savePlatform(){ post('/console/api/account/save',{consumer_account:val('consumer_account'),consumer_password:val('consumer_password'),platform_logo_url:val('platform_logo_url'),wechat_enabled:chk('wechat_enabled'),wechat_disabled_note:val('wechat_disabled_note'),wechat_max_yuan:val('wechat_max_yuan')||0,wechat_limit_on:chk('wechat_limit_on'),alipay_enabled:chk('alipay_enabled'),alipay_disabled_note:val('alipay_disabled_note'),smtp_host:val('smtp_host'),smtp_port:val('smtp_port'),smtp_user:val('smtp_user'),smtp_from:val('smtp_from'),smtp_pass:val('smtp_pass')||'******',webhook_base_url:val('webhook_base_url')||''},'平台配置已保存'); }
+
+async function loginConsumer(){
+  var btn=document.getElementById('consumer-login-btn'), box=document.getElementById('consumer-login-raw');
+  if(btn){ btn.disabled=true; btn.textContent='登录中…'; }
+  if(box){ box.style.display='none'; }
+  try{
+    var d=await api('/console/api/account/login_consumer',{method:'POST',body:JSON.stringify({consumer_account:val('consumer_account'),consumer_password:val('consumer_password')})});
+    if(box){
+      var ok=!!(d&&d.ok&&d.saved); var pre='';
+      if(ok){ pre=(d&&d.message)||'登录成功,已写入数据库(失效后自动重新获取)'; }
+      else { pre='[失败] '+((d&&(d.em||d.message))||'登录测试失败'); }
+      var raw=(d&&d.raw)? ('\n\n爱发电原始返回:\n'+d.raw):'';
+      box.textContent=pre+raw; box.style.color=ok?'var(--good)':'var(--bad)';
+      box.style.borderColor=ok?'#BFE3CE':'#F1C4C1'; box.style.display='block';
+    }
+  }catch(e){
+    if(box){ box.textContent='[请求异常] '+((e&&e.message)||'登录测试出错'); box.style.color='var(--bad)'; box.style.borderColor='#F1C4C1'; box.style.display='block'; }
+  }finally{ if(btn){ btn.disabled=false; btn.textContent='登录测试'; } }
+}
+
+async function testSmtp(){
+  const to = {{ (me.email or '')|tojson }};
+  const btn = document.getElementById('smtp-test-btn');
+  if(to&&to.indexOf('@')<0){ toast('warn','收件邮箱格式不正确(留空则发到管理员邮箱)'); return; }
+  btn.disabled=true; btn.textContent='发送中…';
+  try{ const d=await api('/console/api/account/test_smtp',{method:'POST',body:JSON.stringify({to})}); toast('success',d.message||'测试邮件已发送'); }
+  catch(e){ toast('error','测试失败',e.message); }
+  finally{ btn.disabled=false; btn.textContent='发送测试邮件'; }
+}
+
+const WB_FALLBACK=location.origin;
+function afdWhFull(){ var base=(val('webhook_base_url')||'').trim().replace(/\/+$/,'').replace(/^\/+/,''); return ((base||WB_FALLBACK))+'/api/afdian/webhook'; }
+function paintWhHint(){ var el=document.getElementById('afd-wh-full'); if(el) el.textContent=afdWhFull(); }
+function copyWebhookUrl(){ navigator.clipboard?.writeText(afdWhFull()); toast('success','Webhook 回调地址已复制'); }
+(function(){ var inp=document.getElementById('webhook_base_url'); if(inp){ inp.addEventListener('input',paintWhHint); } paintWhHint(); })();
+
+/* 平台 Logo 实时预览 */
+(function(){
+  var el=document.getElementById('platform_logo_url'); if(!el) return;
+  el.addEventListener('input',function(){
+    var img=document.getElementById('plogo-prev'); if(!img) return;
+    img.src=el.value; img.style.display=el.value?'block':'none';
+  });
+})();
+</script>
+{% endblock %}

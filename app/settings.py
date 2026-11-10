@@ -8,19 +8,6 @@ def _row():
         return db.query(PlatformSetting).order_by(PlatformSetting.id).first()
 
 
-def allowed_email_domains() -> list:
-    """注册允许的邮箱域名(分号;分隔,空/不可用 = 不限制)。返回小写、无 @ 列表。"""
-    domains = []
-    try:
-        r = _row()
-        if r is not None and getattr(r, "allowed_email_domains", None):
-            raw = str(r.allowed_email_domains)
-            domains = [x.strip().lower().lstrip("@") for x in raw.replace("，", ";").replace(",", ";").split(";") if x.strip()]
-    except Exception:
-        domains = []
-    return domains
-
-
 def app_base_url() -> str:
     """对外访问地址(重置链接前缀):DB 已填则用 DB,否则 .env"""
     try:
@@ -77,14 +64,3 @@ def smtp() -> dict:
         "pass": config.SMTP_PASS,
         "from": config.SMTP_FROM,
     }
-
-
-def api_fee_cents() -> int:
-    """单次 API 费用(分):DB 可调(管理台),否则 .env 默认"""
-    try:
-        r = _row()
-        if r is not None and getattr(r, "api_fee_cents", None) is not None:
-            return int(r.api_fee_cents)
-    except Exception:
-        pass
-    return int(config.FEE_PER_ORDER_CENTS)

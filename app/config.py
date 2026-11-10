@@ -40,5 +40,3 @@ SMTP_PORT = int(os.getenv("SMTP_PORT", "465"))
 SMTP_USER = os.getenv("SMTP_USER", "")
 SMTP_PASS = os.getenv("SMTP_PASS", "")
 SMTP_FROM = os.getenv("SMTP_FROM", "爱发电铺")
-
-FEE_PER_ORDER_CENTS = 20  # 每笔成功订单扣 ¥0.20

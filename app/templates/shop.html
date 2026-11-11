@@ -13,18 +13,18 @@ html,body{height:100%}
   .cat-grid>button{flex-basis:calc(33.333% - 8px);width:calc(33.333% - 8px)}
 }
 /* 商品卡:样式集中在此,模板只写类名 */
-.p-card{padding:16px;text-align:left;transition:transform .3s,box-shadow .3s;cursor:pointer}
-.p-card:hover{transform:translateY(-3px)}
+.p-card{padding:16px;text-align:left;transition:border-color .16s,background-color .16s;cursor:pointer}
+.p-card:hover{border-color:var(--ink-300)}
 .p-info{min-width:0}
 .p-title{font-size:13px}
 .p-titlerow{display:flex;align-items:center;gap:8px;justify-content:space-between}
-.p-stock{font-size:11px;font-weight:700;color:var(--ink-400);white-space:nowrap;flex-shrink:0}
+.p-stock{font-size:11px;font-weight:600;color:var(--ink-400);white-space:nowrap;flex-shrink:0}
 .p-stock-out{color:var(--bad)}
 .p-card.p-out{opacity:.55;cursor:not-allowed}
 .p-card.p-out:hover{transform:none}
 .p-sku{margin-top:8px;font-size:13px}
 .p-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-.p-price{font-size:18px;color:var(--brand)}
+.p-price{font-size:18px;color:var(--brand);font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;font-weight:500}
 .p-cart{background:var(--brand-50);color:var(--brand);border-radius:8px;padding:8px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center}
 /* 商品区滚动条美化 */
 #shop-prods{scrollbar-width:thin;scrollbar-color:var(--line-dark) transparent}
@@ -34,8 +34,8 @@ html,body{height:100%}
 #shop-prods::-webkit-scrollbar-thumb:hover{background:var(--brand-200);background-clip:content-box}
 /* 二维码图片防溢出(支付宝 URL 长,手机上等比缩到容器内) */
 #qr-img img,#r-qr img{max-width:100%;height:auto;display:block}
-/* 手机端分类下拉(自定义):桌面隐藏 */
-.cat-dd{display:none}
+/* 手机端分类条(自定义):桌面隐藏 */
+.cat-scroll{display:none}
 /* 手机端适配 */
 @media (max-width:640px){
   main{padding:18px 12px !important}
@@ -44,19 +44,20 @@ html,body{height:100%}
   .shop-head{gap:12px !important;margin-bottom:18px !important}
   .shop-head>div:last-child{width:100%}
   .shop-head>div:last-child>div{width:100%;box-sizing:border-box}
-  .cat-dd{display:block !important;position:relative;margin-bottom:12px}
-  .cat-dd-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-900);cursor:pointer}
-  .cat-dd-btn svg{flex:none;color:var(--ink-400)}
-  .cat-dd-menu{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:60;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 40px -12px rgba(30,41,59,.28);padding:6px;max-height:260px;overflow-y:auto}
-  .cat-dd-item{display:flex;align-items:center;gap:8px;width:100%;box-sizing:border-box;padding:9px 11px;border:0;background:transparent;border-radius:9px;font-family:inherit;font-size:13px;font-weight:500;color:var(--ink-800);text-align:left;cursor:pointer}
-  .cat-dd-item:hover,.cat-dd-item.is-on{background:#FFF3EC;color:var(--brand)}
+  /* 分类条:横向可滚动,所有分类平铺可见 —— 避免"以为只有默认分类" */
+  .cat-scroll{display:flex !important;gap:6px;overflow-x:auto;margin:0 0 12px;padding:2px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .cat-scroll::-webkit-scrollbar{display:none}
+  .cat-chip{flex:none;display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;background:var(--card);font-family:inherit;font-size:12.5px;font-weight:500;color:var(--ink-700);white-space:nowrap;cursor:pointer;transition:background-color .14s var(--spring),color .14s,border-color .14s}
+  .cat-chip .n{font-size:11px;font-weight:400;color:var(--ink-300);font-variant-numeric:tabular-nums}
+  .cat-chip.on{background:var(--ink-900);border-color:var(--ink-900);color:#fff}
+  .cat-chip.on .n{color:rgba(255,255,255,.65)}
   .modal{max-width:100% !important}
 }
 </style>{% endblock %}
 {% block body %}
 <div class="shop-page" style="min-height:100%;display:flex;flex-direction:column">
 <header class="topbar">
-  <div style="display:flex;align-items:center;gap:8px;font-weight:700">
+  <div style="display:flex;align-items:center;gap:8px;font-weight:600">
     <a href="/" style="display:flex;align-items:center;gap:6px"><span class="logo-box" style="width:28px;height:28px;overflow:hidden;padding:0;background:transparent{% if not shop_logo_ok %} !important{% endif %}">{% if shop_logo_ok %}<img src="{{ shop.shop_logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px">{% else %}<morph-icon data-name="zap" size="13"></morph-icon>{% endif %}</span></a>
     {% if not notFound %}<span style="color:var(--ink-300)">/</span><span style="color:var(--ink-700)">{{ shop.shop_name }}</span>{% endif %}
   </div>
@@ -72,7 +73,7 @@ html,body{height:100%}
   {% if notFound %}
   <div class="card fade-up" style="max-width:420px;margin:60px auto;padding:40px;text-align:center">
     <div style="font-size:30px"><morph-icon data-name="ban" size="30"></morph-icon></div>
-    <div style="font-weight:700;margin-top:8px">店铺不存在或地址已变更</div>
+    <div style="font-weight:600;margin-top:8px">店铺不存在或地址已变更</div>
     <div class="muted" style="margin-top:4px">店主可能更改了爱发电 user_id,请联系店主获取最新店铺链接</div>
     <a href="/" class="btn btn-primary btn-sm" style="margin-top:14px">返回店铺首页 →</a>
   </div>
@@ -96,7 +97,7 @@ html,body{height:100%}
     {% if adminEmail %}
     <div style="flex-shrink:0">
       <div style="display:inline-flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:12px;padding:10px 13px;background:var(--card);box-shadow:0 2px 10px rgba(0,0,0,.04)">
-        <div style="font-size:11px;font-weight:700;color:var(--ink-500);display:flex;align-items:center;gap:4px;white-space:nowrap"><morph-icon data-name="lifeBuoy" size="12"></morph-icon>平台客服</div>
+        <div style="font-size:11px;font-weight:600;color:var(--ink-500);display:flex;align-items:center;gap:4px;white-space:nowrap"><morph-icon data-name="lifeBuoy" size="12"></morph-icon>平台客服</div>
         <span class="badge badge-neutral" role="button" data-tip="点击复制客服邮箱" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px" onclick="copyContact('{{ adminEmail }}','客服邮箱')"><morph-icon data-name="mail" size="12"></morph-icon> {{ adminEmail }}</span>
       </div>
     </div>
@@ -105,23 +106,17 @@ html,body{height:100%}
 
   {% if disabled %}
   <div class="card fade-up" style="padding:40px;text-align:center;background:var(--warn-100);border-color:rgba(180,83,9,.25)">
-    <div style="font-weight:700;color:var(--warn)">店铺已停用</div>
+    <div style="font-weight:600;color:var(--warn)">店铺已停用</div>
     <div class="muted" style="margin-top:4px">店铺当前已停用,如需恢复请联系店主</div>
   </div>
   {% elif not groups %}
-  <div class="card" style="padding:48px;text-align:center;border-style:dashed"><morph-icon data-name="store" size="24"></morph-icon><div style="font-weight:700;color:var(--ink-500);margin-top:8px">店铺暂无商品</div></div>
+  <div class="card" style="padding:48px;text-align:center;border-style:dashed"><morph-icon data-name="store" size="24"></morph-icon><div style="font-weight:600;color:var(--ink-500);margin-top:8px">店铺暂无商品</div></div>
   {% else %}
-    <div class="cat-dd" id="cat-dd">
-      <button type="button" class="cat-dd-btn" onclick="catDDToggle(event)">
-        <span id="cat-dd-label">{{ groups[0][0] if groups else '分类' }}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
-      </button>
-      <div class="cat-dd-menu" id="cat-dd-menu" style="display:none">
-        {% for _cat, _its in groups %}<button type="button" class="cat-dd-item{% if loop.first %} is-on{% endif %}" data-ci="{{ loop.index0 }}" onclick="catDDPick({{ loop.index0 }})">{{ _cat }}</button>{% endfor %}
-      </div>
+    <div class="cat-scroll" id="cat-scroll" role="tablist" aria-label="商品分类">
+      {% for _cat, _its in groups %}<button type="button" role="tab" class="cat-chip{% if loop.first %} on{% endif %}" data-ci="{{ loop.index0 }}" aria-selected="{{ 'true' if loop.first else 'false' }}" onclick="catChipPick({{ loop.index0 }}, this)">{{ _cat }}<span class="n">{{ _its|length }}</span></button>{% endfor %}
     </div>
     <div class="shop-wrap" style="display:flex;gap:18px;align-items:flex-start">
-      <aside id="shop-catbar" role="navigation" aria-label="商品分类" style="flex:0 0 184px;position:sticky;top:20px;max-height:70vh;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;box-shadow:0 2px 10px rgba(0,0,0,.04)"><div style="font-size:11px;font-weight:800;color:var(--ink-500);letter-spacing:.4px;padding:2px 6px 10px">分类目录</div>
+      <aside id="shop-catbar" role="navigation" aria-label="商品分类" style="flex:0 0 184px;position:sticky;top:20px;max-height:70vh;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;box-shadow:0 2px 10px rgba(0,0,0,.04)"><div style="font-size:11px;font-weight:600;color:var(--ink-500);letter-spacing:.4px;padding:2px 6px 10px">分类目录</div>
       {% for _cat, _its in groups %}
       <button type="button" data-ci="{{ loop.index0 }}" style="display:flex;align-items:center;gap:7px;width:100%;box-sizing:border-box;border:1px solid transparent;background:transparent;color:var(--ink-800);text-align:left;padding:8px 6px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer" onclick="shopPick({{ loop.index0 }}, this)">
         {% set _ci = (cat_icon.get(_cat) if cat_icon else '') or (platformLogo or '') %}
@@ -223,13 +218,24 @@ function shopPick(i, btn){
   if (bar) {
     var all = bar.querySelectorAll('button');
     for (var k2 = 0; k2 < all.length; k2++) { all[k2].style.background = ''; all[k2].style.boxShadow = ''; }
-    if (btn) { btn.style.background = 'var(--brand-50)'; btn.style.boxShadow = 'inset 0 0 0 1px var(--brand)'; }
+    if (btn) { btn.style.background = 'var(--card)'; btn.style.boxShadow = 'inset 0 0 0 1.5px var(--ink-900)'; }
+  }
+  /* 手机端分类条与桌面目录保持同步 */
+  var chips = document.querySelectorAll('#cat-scroll .cat-chip');
+  for (var k3 = 0; k3 < chips.length; k3++) {
+    var on = (k3 === i);
+    chips[k3].classList.toggle('on', on);
+    chips[k3].setAttribute('aria-selected', on ? 'true' : 'false');
   }
 }
 function shopInitPick(){ var b0 = document.querySelector('#shop-catbar button[data-ci="0"]'); if (b0) shopPick(0, b0); }
-function catDDToggle(e){ if(e){ e.stopPropagation(); } var m=document.getElementById('cat-dd-menu'); if(m){ m.style.display = (m.style.display==='block')?'none':'block'; } }
-function catDDPick(i){ var lbl=document.getElementById('cat-dd-label'); var item=document.querySelector('#cat-dd-menu .cat-dd-item[data-ci="'+i+'"]'); if(lbl&&item){ lbl.textContent=item.textContent; } var all=document.querySelectorAll('#cat-dd-menu .cat-dd-item'); for(var k=0;k<all.length;k++){ all[k].classList.remove('is-on'); } if(item){ item.classList.add('is-on'); } var m=document.getElementById('cat-dd-menu'); if(m){ m.style.display='none'; } shopPick(i, null); }
-document.addEventListener('click', function(e){ var d=document.getElementById('cat-dd'); var m=document.getElementById('cat-dd-menu'); if(m&&d&&!d.contains(e.target)){ m.style.display='none'; } });
+/* 手机端分类条点击:同步高亮桌面目录并切分类,同时把点中的 chip 滚进可视区 */
+function catChipPick(i, el){
+  var bar = document.getElementById('shop-catbar');
+  var btn = bar ? bar.querySelector('button[data-ci="' + i + '"]') : null;
+  shopPick(i, btn);
+  if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { } }
+}
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', shopInitPick); else shopInitPick();
 window.copyContact=function(v,l){
   var t=String(v||'').trim(); if(!t) return;
@@ -251,37 +257,33 @@ window.copyContact=function(v,l){
           <label>收货邮箱 <span class="hint">选填 · 付款成功后自动把订单号与卡密/链接发送到该邮箱</span></label>
           <input id="buyer-email" type="email" placeholder="you@example.com（可不填）" autocomplete="off">
         </div>
-        <div style="font-size:12px;font-weight:700;color:var(--ink-700);margin-bottom:8px">选择付款方式</div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink-700);margin-bottom:8px">选择付款方式</div>
         <div class="grid g2">
           <button id="btn-wechat" class="btn btn-wechat btn-lg">微信支付</button>
           <button id="btn-alipay" class="btn btn-alipay btn-lg">支付宝</button>
         </div>
-        <div id="pay-note" style="font-size:10px;color:var(--warn);font-weight:700;margin-top:8px"></div>
+        <div id="pay-note" style="font-size:10px;color:var(--warn);font-weight:600;margin-top:8px"></div>
         <div class="muted" style="margin-top:10px;font-size:10px;line-height:1.6">留言格式:分类&标题&SKU名&价格 · 经爱发电自选发电 API 创建 · 支付后每 5 秒自动查询到账</div>
       </div>
       <div id="qr-section" style="display:none">
-        <style>@keyframes qrscan{0%{transform:translateY(-110%)}100%{transform:translateY(240%)}}</style>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 2px 12px">
-          <div style="font-size:15px;font-weight:700">等待支付</div>
-          <div style="flex:none;display:flex;align-items:center;gap:5px;padding:5px 10px;font-size:11px;font-weight:600;color:var(--brand);background:#FFF4EC;border:1px solid #FFD9C2;border-radius:999px"><span style="width:7px;height:7px;border-radius:50%;background:var(--brand);animation:pulse 1.6s infinite"></span> 每5秒自动查询</div>
+          <div style="font-size:15px;font-weight:600">等待支付</div>
+          <div style="flex:none;display:flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-400)"><span style="width:6px;height:6px;border-radius:50%;background:var(--good)"></span> 每 5 秒自动查询</div>
         </div>
-        <div style="text-align:center;margin-bottom:12px"><span id="qr-no" onclick="copyOrderNo('qr-no')" data-tip="点击复制订单号" style="font-size:12px;font-weight:700;color:var(--ink-700);cursor:pointer"></span></div>
+        <div style="text-align:center;margin-bottom:12px"><span id="qr-no" onclick="copyOrderNo('qr-no')" data-tip="点击复制订单号" style="font-family:ui-monospace,SFMono-Regular,'SF Mono',Menlo,monospace;font-size:12px;font-weight:500;letter-spacing:.01em;color:var(--ink-700);cursor:pointer;font-variant-numeric:tabular-nums"></span></div>
         <div style="display:flex;flex-direction:column;align-items:center">
-          <div style="padding:12px;border-radius:20px;border:1.5px solid transparent;background:linear-gradient(#fff,#fff) padding-box,linear-gradient(135deg,#FFB27A,#F95D1F) border-box;box-shadow:0 18px 34px -22px rgba(249,93,31,.85)">
+          <div style="padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--card);box-shadow:var(--shadow-2)">
             <div style="position:relative;display:inline-block;line-height:0">
               <div id="qr-img" style="display:block"></div>
-              <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none">
-                <div style="position:absolute;left:0;right:0;height:45%;background:linear-gradient(180deg,rgba(249,93,31,0),rgba(249,93,31,.18) 50%,rgba(249,93,31,0));animation:qrscan 2.8s ease-in-out infinite"></div>
-              </div>
             </div>
           </div>
-          <div style="margin-top:14px;font-size:12px;color:var(--ink-400)">请使用 <b id="qr-pay" style="color:var(--brand)">微信</b> 扫一扫完成支付</div>
+          <div style="margin-top:14px;font-size:12px;color:var(--ink-500)">请使用 <b id="qr-pay" style="color:var(--ink-900);font-weight:600">微信</b> 扫一扫完成支付</div>
         </div>
         <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost btn-sm" onclick="buyCancel()">取消付款</button></div>
       </div>
       <div id="done-section" style="display:none;text-align:center;padding:20px 0">
         <div style="width:60px;height:60px;border-radius:50%;background:var(--good-100);color:var(--good);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><morph-icon data-name="check" size="24"></morph-icon></div>
-        <div style="font-weight:700"><morph-icon data-name="partyPopper" size="15"></morph-icon> 支付成功</div>
+        <div style="font-weight:600"><morph-icon data-name="partyPopper" size="15"></morph-icon> 支付成功</div>
         <div class="muted" style="margin-top:6px" id="done-info"></div>
         <a class="btn btn-outline btn-block" id="done-pickup" href="/pickup" style="margin-top:12px"><morph-icon data-name="package" size="14"></morph-icon> 去自助提货（卡密 / 链接）</a>
         <button class="btn btn-primary btn-block" style="margin-top:8px" data-close-modal="buy-modal">完成</button>
@@ -292,7 +294,6 @@ window.copyContact=function(v,l){
 
 <footer style="border-top:1px solid var(--line);padding:20px;text-align:center;font-size:11px;color:var(--ink-300)"><morph-icon data-name="zap" size="12"></morph-icon> 由爱发电铺提供技术支持 · 依托爱发电开放平台接口</footer>
 </div><!-- /shop-page -->
-<style>@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(249,93,31,.35)}70%{box-shadow:0 0 0 10px rgba(249,93,31,0)}100%{box-shadow:0 0 0 0 rgba(249,93,31,0)}}</style>
 {% endblock %}
 {% block script %}
 <script src="/static/qrcode.js"></script>
@@ -330,10 +331,10 @@ function openBuy(p) {
   currentProduct = p;
   var _dv = '';
   if (p.is_card) {
-    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:' + (p.stock > 0 ? 'var(--good)' : 'var(--bad)') + '">'
+    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:600;color:' + (p.stock > 0 ? 'var(--good)' : 'var(--bad)') + '">'
         + (p.stock > 0 ? '自动发货 · 付款后可在提货页领取卡密（库存 ' + p.stock + '）' : '该商品已缺货') + '</div>';
   } else if (p.delivery_kind === 'link') {
-    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:700;color:var(--good)">自动发货 · 付款后可在提货页领取链接'
+    _dv = '<div style="margin-top:6px;font-size:11px;font-weight:600;color:var(--good)">自动发货 · 付款后可在提货页领取链接'
         + (p.is_limited ? '（剩余 ' + p.stock + ' 份）' : '') + '</div>';
   } else {
     _dv = '<div style="margin-top:6px;font-size:11px;color:var(--ink-400)">店主发货 · 付款后请联系店主领取'

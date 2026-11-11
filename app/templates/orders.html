@@ -4,7 +4,7 @@
 .console-content table td{padding:8px}
 .console-content table th{padding:8px 10px}
 /* 单店模式:不再有商户筛选 */
-.mch-link{color:var(--brand);font-weight:700;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
+.mch-link{color:var(--brand);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:3px}
 .mch-link:hover{text-decoration:underline}
 </style>{% endblock %}
 {% block content %}
@@ -49,7 +49,7 @@ async function load(){
     const rows=document.getElementById('rows');
     if(!d.orders.length){ rows.innerHTML='<tr><td colspan="8" style="padding:36px;text-align:center;color:var(--ink-400)"><morph-icon data-name="receiptText" size="15"></morph-icon> 没有符合条件的订单</td></tr>'; return; }
     rows.innerHTML=d.orders.map(o=>`<tr>
-      <td><span class="code" style="font-weight:700">${o.order_no}</span></td>
+      <td><span class="code" style="font-weight:600">${o.order_no}</span></td>
       <td class="muted">${fmtTime(o.created_at)}</td>
       <td class="muted">${fmtTime(o.paid_at)}</td>
       <td class="muted">${o.category_icon_url ? `<span style="display:inline-flex;align-items:center;gap:6px"><img src="${escAttr(o.category_icon_url)}" alt="" loading="lazy" style="width:16px;height:16px;object-fit:contain;border-radius:4px;flex-shrink:0" onerror="this.style.display='none'">${escAttr(o.category)}</span>` : escAttr(o.category)}</td>

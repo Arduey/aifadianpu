@@ -3,7 +3,7 @@
 {% block body %}
 <div style="min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:48px 16px">
   <div style="width:100%;max-width:520px">
-    <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:700;margin-bottom:20px">
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;font-size:18px;font-weight:600;margin-bottom:20px">
       <span class="logo-box" style="width:36px;height:36px"><morph-icon data-name="zap" size="17"></morph-icon></span> 爱发电铺 · 安装向导
     </div>
 
@@ -27,7 +27,7 @@
 
         {% if error %}<div class="field-error" style="margin-bottom:12px">{{ error }}</div>{% endif %}
 
-        <div style="font-size:12px;font-weight:700;color:var(--ink-700);margin:6px 0 10px">可选 · 平台配置(可后台修改)</div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink-700);margin:6px 0 10px">可选 · 平台配置(可后台修改)</div>
         <div class="field" style="margin-bottom:12px">
           <label>对外访问地址 <span class="hint">重置邮件链接前缀</span></label>
           <input name="app_base_url" value="{{ form.app_base_url }}" placeholder="https://你的域名">
@@ -45,7 +45,7 @@
           <input name="consumer_password" type="password" placeholder="消费者账号密码">
         </div>
 
-        <div style="font-size:12px;font-weight:700;color:var(--ink-700);margin:6px 0 10px">可选 · SMTP 邮件</div>
+        <div style="font-size:12px;font-weight:600;color:var(--ink-700);margin:6px 0 10px">可选 · SMTP 邮件</div>
         <div class="grid g2" style="gap:12px;margin-bottom:12px">
           <div class="field"><label>SMTP 主机</label><input name="smtp_host" value="{{ form.smtp_host }}" placeholder="smtp.qq.com"></div>
           <div class="field"><label>端口</label><input name="smtp_port" value="{{ form.smtp_port or '465' }}" placeholder="465"></div>

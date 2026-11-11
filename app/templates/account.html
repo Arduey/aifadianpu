@@ -69,7 +69,7 @@
         <div class="wh-builder" style="border:1px solid var(--line);border-radius:12px;overflow:hidden">
           <!-- URL 栏(常显;含收起/展开) -->
           <div style="display:flex;gap:6px;padding:10px 12px;background:var(--paper);border-bottom:1px solid var(--line);align-items:center;flex-wrap:wrap">
-            <select id="wh_method" style="width:auto;font-weight:700;border-color:var(--brand)">
+            <select id="wh_method" style="width:auto;font-weight:600;border-color:var(--brand)">
               <option value="post" {% if (user.webhook_method or 'post')=='post' %}selected{% endif %}>POST</option>
               <option value="get" {% if (user.webhook_method or 'post')=='get' %}selected{% endif %}>GET</option>
             </select>

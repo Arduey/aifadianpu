@@ -44,7 +44,7 @@
     .cat-block-body td.ops-col{white-space:nowrap;overflow:visible}
     /* 卡密统计胶囊 */
     .cards-stats{display:flex;gap:8px;flex-wrap:wrap}
-    .cs{font-size:11.5px;font-weight:700;border-radius:999px;padding:4px 11px;border:1px solid var(--line);background:var(--paper);color:var(--ink-600)}
+    .cs{font-size:11.5px;font-weight:600;border-radius:999px;padding:4px 11px;border:1px solid var(--line);background:var(--paper);color:var(--ink-600)}
     .cs-ok{color:var(--good);border-color:#BFE3CE;background:var(--good-100)}
     .cs-warn{color:var(--warn);border-color:#F2D08A;background:var(--warn-100)}
     .cs-dim{color:var(--ink-400)}
@@ -53,12 +53,12 @@
     .pform-row{display:grid;gap:14px}
     .pform-row.c2{grid-template-columns:1fr 1fr}
     .pform .field{margin:0}
-    .pform label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;font-weight:700;color:var(--ink-800);margin-bottom:6px;line-height:1.5}
+    .pform label{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;font-weight:600;color:var(--ink-800);margin-bottom:6px;line-height:1.5}
     .pform .hint,.pform .fld-hint{font-size:11px;font-weight:400;color:var(--ink-400);line-height:1.6}
     .pform input,.pform select,.pform textarea{width:100%;box-sizing:border-box;font-family:inherit}
     .pform textarea{resize:vertical;line-height:1.7}
     .pform .box{padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--paper)}
-    .pform .box>.box-t{font-size:11px;font-weight:800;color:var(--ink-400);margin-bottom:10px;letter-spacing:.03em}
+    .pform .box>.box-t{font-size:11px;font-weight:600;color:var(--ink-400);margin-bottom:10px;letter-spacing:.03em}
     .pform .sub{display:flex;flex-direction:column;gap:12px;margin-top:12px;padding-left:12px;border-left:2px solid var(--line)}
     .pform .act{display:flex;justify-content:flex-end;gap:8px;padding-top:4px;border-top:1px solid var(--line);margin-top:2px;padding-top:14px}
     /* 弹窗内滚动条美化 */
@@ -110,22 +110,22 @@
           <tr data-cat="{{ p.category }}" data-id="{{ p.id }}" class="prow">
             <td><b>{{ p.title }}</b></td>
             <td>{{ p.sku_name }}</td>
-            <td style="text-align:right;font-weight:700;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" data-tip="历史已付款：件数 / 金额">
+            <td style="text-align:right;font-weight:600;white-space:nowrap;{% if p.sold %}color:var(--good){% else %}color:var(--ink-300){% endif %}" data-tip="历史已付款：件数 / 金额">
               {% if p.sold %}{{ p.sold }} 件<div style="font-size:10.5px;font-weight:600;color:var(--ink-400)">¥{{ p.sold_amount }}</div>{% else %}0{% endif %}
             </td>
             <td class="dv-col">
               {% if p.delivery_type == 'platform' and p.delivery_kind == 'card' %}
                 <span class="badge badge-brand"><morph-icon data-name="key" size="11"></morph-icon> 卡密</span>
-                <span style="font-size:11px;font-weight:700;{% if p.stock <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">
+                <span style="font-size:11px;font-weight:600;{% if p.stock <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">
                   库存 {{ p.stock }}{% if p.stock_locked %} · 锁定 {{ p.stock_locked }}{% endif %}
                 </span>
                 <button class="btn btn-ghost btn-sm" style="padding:2px 6px" onclick='openCardsFor({{ p.id }}, {{ p.title|tojson }})'>管理</button>
               {% elif p.delivery_type == 'platform' and p.delivery_kind == 'link' %}
                 <span class="badge badge-good"{% if p.delivery_link %} data-tip="{{ p.delivery_link }}"{% endif %}><morph-icon data-name="link" size="11"></morph-icon> 链接</span>
-                {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
+                {% if p.is_limited %}<span style="font-size:11px;font-weight:600;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% else %}
                 <span class="muted" style="font-size:11px">手动发货</span>
-                {% if p.is_limited %}<span style="font-size:11px;font-weight:700;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
+                {% if p.is_limited %}<span style="font-size:11px;font-weight:600;{% if p.limited_left <= 0 %}color:var(--bad){% else %}color:var(--good){% endif %}">剩余 {{ p.limited_left }} / {{ p.stock_limit }}</span>{% endif %}
               {% endif %}
             </td>
             <td class="money" style="text-align:right">¥{{ p.price }}</td>

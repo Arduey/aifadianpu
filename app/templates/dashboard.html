@@ -184,8 +184,8 @@ box.querySelector('[data-k=today]').classList.add('active');
 load();
 function render(d){
   const kpis=[['创建订单数',d.createdCount,'含未支付'],['支付订单数',d.paidCount,'支付成功'],['付款总金额','¥'+d.paidAmount.toFixed(2),'元'],['订单平均金额','¥'+d.avgAmount.toFixed(2),'按支付订单']];
-  document.getElementById('kpis').innerHTML=kpis.map(([l,v,s])=>`<div class="card fade-up" style="padding:16px"><div class="muted" style="font-size:12px;font-weight:700">${l}</div><div class="display" style="font-size:26px;margin-top:6px">${v}</div><div style="font-size:11px;color:var(--ink-300);margin-top:4px">${s}</div></div>`).join('');
-  const rows=d.products.map(p=>`<tr><td><b>${p.title}</b><div class="muted">${p.category} · ${p.sku}</div></td><td style="text-align:right;font-weight:700">×${p.count}</td><td class="money" style="text-align:right">¥${p.amount.toFixed(2)}</td></tr>`).join('');
+  document.getElementById('kpis').innerHTML=kpis.map(([l,v,s])=>`<div class="card fade-up" style="padding:16px"><div class="muted" style="font-size:12px;font-weight:600">${l}</div><div class="display" style="font-size:26px;margin-top:6px">${v}</div><div style="font-size:11px;color:var(--ink-300);margin-top:4px">${s}</div></div>`).join('');
+  const rows=d.products.map(p=>`<tr><td><b>${p.title}</b><div class="muted">${p.category} · ${p.sku}</div></td><td style="text-align:right;font-weight:600">×${p.count}</td><td class="money" style="text-align:right">¥${p.amount.toFixed(2)}</td></tr>`).join('');
   document.getElementById('prod-table').innerHTML=d.products.length?'<thead><tr><th>商品</th><th style="text-align:right">销量</th><th style="text-align:right">金额</th></tr></thead><tbody>'+rows+'</tbody>':'<div style="text-align:center;padding:36px;color:var(--ink-400);font-size:12px">暂无销量数据</div>';
 }
 </script>

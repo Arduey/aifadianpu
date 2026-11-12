@@ -11,17 +11,9 @@
     <b><morph-icon data-name="store" size="15"></morph-icon> 店铺信息</b>
     <div style="margin-top:14px">
       <div style="display:flex;gap:14px;align-items:center;margin-bottom:14px">
-        <img id="ava-prev" src="{{ user.shop_logo_url }}" style="width:64px;height:64px;border-radius:10px;object-fit:cover;border:1px solid var(--line);{% if not user.shop_logo_url %}display:none{% endif %}" onerror="this.style.display='none'">
         <div style="flex:1;min-width:0">
           <div class="field" style="margin:0"><label>店铺名(唯一 · 汉字算2字符,上限12)</label><input id="shop_name" value="{{ user.shop_name }}"></div>
           <div class="muted" id="shop-name-hint" style="font-size:11px;margin-top:4px"></div>
-        </div>
-      </div>
-      <div class="field"><label>头像 / 店铺 Logo 链接(实时预览)</label>
-        <div style="display:flex;gap:10px;align-items:center">
-          <input id="shop_logo_url" value="{{ user.shop_logo_url }}" placeholder="https://…/logo.png" oninput="previewLogo()">
-          <img id="logo-prev" src="{{ user.shop_logo_url }}" style="width:44px;height:44px;border-radius:10px;object-fit:cover;border:1px solid var(--line);{% if not user.shop_logo_url %}display:none{% endif %}" onerror="this.style.display='none'">
-          <morph-icon data-name="user" size="22"></morph-icon>
         </div>
       </div>
       <div class="field"><label>店铺介绍文本 <span class="hint" id="bio-count">0/60 · 0/3 行</span></label><textarea id="bio" rows="3" maxlength="60" style="resize:vertical;width:100%;box-sizing:border-box" oninput="bioCount()">{{ user.bio }}</textarea><div class="muted" id="bio-hint" style="font-size:11px;margin-top:4px">最多 3 行、60 字符；回车换行。</div></div>
@@ -209,15 +201,14 @@ function shopWeight(n){ var w=0; for(var k=0;k<n.length;k++){ w+= n.charCodeAt(k
 function bioCount(){ var t=document.getElementById('bio'); if(!t) return; var c=Array.from(t.value||'').length; var lines=(t.value===''?1:(t.value.split('\n').length)); var h=document.getElementById('bio-count'); if(h) h.textContent=c+'/60 · '+lines+'/3 行'; var hh=document.getElementById('bio-hint'); if(hh){ if(lines>3){ hh.style.color='var(--bad)'; hh.textContent='最多 3 行，超出部分不会被保存'; } else { hh.style.color=''; hh.textContent='最多 3 行、60 字符；回车换行。'; } } }
 /* 简介最多 3 行:输入/粘贴超出时自动截断 */
 function bioClamp(){ var t=document.getElementById('bio'); if(!t) return; var v=t.value; if((v.match(/\n/g)||[]).length>=3){ t.value=v.replace(/\n/g,'').length ? v.split('\n').slice(0,3).join('\n') : v; } var parts=t.value.split('\n'); if(parts.length>3){ t.value=parts.slice(0,3).join('\n'); } bioCount(); }
-function previewLogo(){ var v=document.getElementById('shop_logo_url').value.trim(); var pv=document.getElementById('logo-prev'); var av=document.getElementById('ava-prev'); if(v){ pv.src=v; pv.style.display=''; av.src=v; av.style.display=''; } }
 function shopNameHint(){ var i=document.getElementById('shop_name'); var h=document.getElementById('shop-name-hint'); if(!i||!h) return; var v=i.value.trim(); if(!v){h.textContent='';return;} var w=shopWeight(v); h.textContent = (w>12||/[&@#%^*()=:;'"`<>{}[\]\\|/? ]/.test(v))? '不合规:汉字算2字符,上限12,禁特殊符号':'已用 '+w+'/12'; h.style.color = (w>12||/[&@#%^*()=:;'"`<>{}[\]\\|/? ]/.test(v))?'var(--bad)':'var(--ink-300)'; }
 function pwdCheck(){ var p=document.getElementById('pwd-next'), c=document.getElementById('pwd-confirm'); var h1=document.getElementById('pwd-next-hint'), h2=document.getElementById('pwd-confirm-hint'); if(p){ p.value=noCn(p.value); if(h1){ h1.textContent=(p.value.length>=8&&p.value.length<=20)||!p.value?'':'新密码需 8~20 位'; h1.style.color=(p.value.length>=8&&p.value.length<=20)?'var(--good)':'var(--bad)'; } } if(c){ c.value=noCn(c.value); if(h2){ if(!c.value){h2.textContent='';} else { h2.textContent=(c.value===p.value)?'':'与密码不一致'; h2.style.color=(c.value===p.value)?'var(--good)':'var(--bad)'; } } } }
-(function(){ var si=document.getElementById('shop_name'); if(si){ si.addEventListener('input',shopNameHint); shopNameHint(); } var st=document.getElementById('shop_logo_url'); if(st){ st.addEventListener('input',previewLogo); } var bt=document.getElementById('bio'); if(bt){ bt.addEventListener('input',bioClamp); bt.addEventListener('paste',function(){ setTimeout(bioClamp,0); }); } bioCount(); })();
+(function(){ var si=document.getElementById('shop_name'); if(si){ si.addEventListener('input',shopNameHint); shopNameHint(); } var bt=document.getElementById('bio'); if(bt){ bt.addEventListener('input',bioClamp); bt.addEventListener('paste',function(){ setTimeout(bioClamp,0); }); } bioCount(); })();
 async function post(url, data, msg){
   try{ const d=await api(url,{method:'POST',body:JSON.stringify(data)}); toast('success',d.message||msg); return d; }
   catch(e){ toast('error','保存失败',e.message); return null; }
 }
-function saveProfile(){ post('/console/api/account/save',{shop_name:val('shop_name'),shop_logo_url:val('shop_logo_url'),bio:val('bio'),qq:val('qq'),wechat:val('wechat')},'店铺信息已保存'); }
+function saveProfile(){ post('/console/api/account/save',{shop_name:val('shop_name'),bio:val('bio'),qq:val('qq'),wechat:val('wechat')},'店铺信息已保存'); }
 function copyBind(){ var uid=(val('afdian_user_id')||'').trim(); if(!uid) return; navigator.clipboard?.writeText(location.origin+'/shop/'+uid); toast('success','店铺链接已复制'); }
 function setAfdCfg(ok){ var c=document.getElementById('afd-cfg'); if(c){ c.className='badge '+(ok?'badge-good':'badge-bad'); c.textContent=ok?'已配置':'未配置'; } }
 function syncAfdView(){ var uid=(val('afdian_user_id')||'').trim(), row=document.getElementById('afd-shoprow'), link=document.getElementById('afd-shoplink'); var ok=!!uid; setAfdCfg(ok); if(row){ row.style.display=ok?'flex':'none'; } if(link){ link.textContent='/shop/'+uid; } }
@@ -298,10 +289,6 @@ async function savePwd(){
   if(d){ ['pwd-current','pwd-next','pwd-confirm'].forEach(i=>document.getElementById(i).value=''); }
 }
 function copyContact(v,l){ var t=String(v||'').trim(); if(!t) return; function done(){ if(window.toast){ try{ toast('success',(l||'内容')+': '+t,'已复制'); }catch(_){ } } } function fb(){ try{ var x=document.createElement('textarea'); x.value=t; x.style.cssText='position:fixed;opacity:0'; document.body.appendChild(x); x.select(); try{ document.execCommand('copy'); }catch(_){ } x.remove(); }catch(_){ } done(); } try{ if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(t).then(function(){ done(); }, function(){ fb(); }); } else { fb(); } }catch(e){ fb(); } }
-['shop_logo_url'].forEach(id=>{
-  const el=document.getElementById(id); if(!el) return;
-  el.addEventListener('input',()=>{ const img=document.getElementById('logo-prev'); if(!img) return; img.src=el.value; img.style.display=el.value?'block':'none'; });
-});
 
 </script>
 {% endblock %}

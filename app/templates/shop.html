@@ -66,7 +66,7 @@ html,body{height:100%}
 <header class="topbar">
   <div style="display:flex;align-items:center;gap:8px;font-weight:600">
     <a href="/" style="display:flex;align-items:center;gap:6px"><span class="logo-box" style="width:28px;height:28px;overflow:hidden;padding:0;background:transparent{% if not shop_logo_ok %} !important{% endif %}">{% if shop_logo_ok %}<img src="{{ shop.shop_logo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:8px">{% else %}<morph-icon data-name="zap" size="13"></morph-icon>{% endif %}</span></a>
-    {% if not notFound %}<span style="color:var(--ink-300)">/</span><span style="color:var(--ink-700)">{{ shop.shop_name }}</span>{% endif %}
+    {% if not notFound %}<span style="color:var(--ink-700)">{{ shop.shop_name }}的商店</span>{% endif %}
   </div>
   {% if not notFound %}
   <div style="display:flex;align-items:center;gap:8px">
@@ -86,12 +86,8 @@ html,body{height:100%}
   </div>
   {% else %}
   <div class="shop-head" style="display:flex;gap:16px;align-items:flex-start;margin-bottom:28px;flex-wrap:wrap">
-    <span class="logo-box" style="width:64px;height:64px;overflow:hidden;padding:0;background:transparent{% if not shop_logo_ok %} !important{% endif %}">
-      {% if shop_logo_ok %}<img src="{{ shop.shop_logo_url }}" alt="{{ shop.shop_name }}" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:10px">{% else %}{{ shop.shop_name[:3] }}{% endif %}
-    </span>
     <div style="flex:1;min-width:200px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <h1 class="display" style="font-size:24px;margin:0;line-height:1.3">{{ shop.shop_name }}</h1>
         <p class="muted shop-bio-inline">{{ shop.bio or '这家店铺还没有写介绍' }}</p>
       </div>
       <div style="display:flex;gap:8px;align-items:center;margin-top:6px;flex-wrap:wrap;font-size:14px">

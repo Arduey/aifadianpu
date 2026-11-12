@@ -6,7 +6,7 @@ html,body{height:100%}
 /* 商品栅格:从左到右、再换行(flex 行优先);手机两列 / PC(≥768)三列 */
 .cat-grid{display:flex !important;flex-wrap:wrap;align-content:flex-start;gap:12px;max-width:680px;margin-left:auto;margin-right:auto}
 /* 店铺简介(店铺名后面同行):垂直居中对齐店铺名,完整显示,保留换行 */
-.shop-bio-inline{flex:1;min-width:0;margin:0;white-space:pre-line;word-break:break-word;line-height:1.6;align-self:center}
+.shop-bio-inline{flex:1;min-width:0;margin:0;white-space:normal;word-break:break-word;line-height:1.6;align-self:center}
 .cat-grid>button{display:block;flex:0 0 calc(50% - 6px);width:calc(50% - 6px);box-sizing:border-box;margin:0 !important}
 @media (min-width:768px){
   .cat-grid{max-width:980px}

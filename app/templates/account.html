@@ -16,7 +16,7 @@
           <div class="muted" id="shop-name-hint" style="font-size:11px;margin-top:4px"></div>
         </div>
       </div>
-      <div class="field"><label>店铺介绍文本 <span class="hint" id="bio-count">0/60 · 0/3 行</span></label><textarea id="bio" rows="3" maxlength="60" style="resize:vertical;width:100%;box-sizing:border-box" oninput="bioCount()">{{ user.bio }}</textarea><div class="muted" id="bio-hint" style="font-size:11px;margin-top:4px">最多 3 行、60 字符；回车换行。</div></div>
+      <div class="field"><label>店铺介绍文本 <span class="hint" id="bio-count">0/30</span></label><input id="bio" maxlength="30" placeholder="一句话介绍你的店铺" oninput="bioCount()" style="width:100%;box-sizing:border-box" value="{{ user.bio }}"><div class="muted" id="bio-hint" style="font-size:11px;margin-top:4px">仅限一行，最多 30 字。</div></div>
       <div class="grid g2">
         <div class="field" style="margin:0"><label>QQ</label><input id="qq" value="{{ user.qq }}" placeholder="选填,展示于店铺" autocomplete="off"></div>
         <div class="field" style="margin:0"><label>微信</label><input id="wechat" value="{{ user.wechat }}" placeholder="选填,展示于店铺" autocomplete="off"></div>
@@ -198,9 +198,9 @@ function val(id){ return document.getElementById(id).value; }
 function chk(id){ return document.getElementById(id).checked ? 1 : 0; }
 function noCn(s){ return (s||'').replace(/[\u4e00-\u9fa5]/g,''); }
 function shopWeight(n){ var w=0; for(var k=0;k<n.length;k++){ w+= n.charCodeAt(k)>=0x4E00?2:1; } return w; }
-function bioCount(){ var t=document.getElementById('bio'); if(!t) return; var c=Array.from(t.value||'').length; var lines=(t.value===''?1:(t.value.split('\n').length)); var h=document.getElementById('bio-count'); if(h) h.textContent=c+'/60 · '+lines+'/3 行'; var hh=document.getElementById('bio-hint'); if(hh){ if(lines>3){ hh.style.color='var(--bad)'; hh.textContent='最多 3 行，超出部分不会被保存'; } else { hh.style.color=''; hh.textContent='最多 3 行、60 字符；回车换行。'; } } }
-/* 简介最多 3 行:输入/粘贴超出时自动截断 */
-function bioClamp(){ var t=document.getElementById('bio'); if(!t) return; var v=t.value; if((v.match(/\n/g)||[]).length>=3){ t.value=v.replace(/\n/g,'').length ? v.split('\n').slice(0,3).join('\n') : v; } var parts=t.value.split('\n'); if(parts.length>3){ t.value=parts.slice(0,3).join('\n'); } bioCount(); }
+function bioCount(){ var t=document.getElementById('bio'); if(!t) return; var c=Array.from(t.value||'').length; var h=document.getElementById('bio-count'); if(h) h.textContent=c+'/30'; var hh=document.getElementById('bio-hint'); if(hh){ if(c>30){ hh.style.color='var(--bad)'; hh.textContent='最多 30 字，超出部分不会被保存'; } else { hh.style.color=''; hh.textContent='仅限一行，最多 30 字。'; } } }
+/* 简介单行:去掉换行，超出 30 字截断（input 本身单行，此处兜底粘贴） */
+function bioClamp(){ var t=document.getElementById('bio'); if(!t) return; var v=String(t.value||'').replace(/[\r\n]+/g,' ').slice(0,30); if(v!==t.value){ t.value=v; } bioCount(); }
 function shopNameHint(){ var i=document.getElementById('shop_name'); var h=document.getElementById('shop-name-hint'); if(!i||!h) return; var v=i.value.trim(); if(!v){h.textContent='';return;} var w=shopWeight(v); h.textContent = (w>12||/[&@#%^*()=:;'"`<>{}[\]\\|/? ]/.test(v))? '不合规:汉字算2字符,上限12,禁特殊符号':'已用 '+w+'/12'; h.style.color = (w>12||/[&@#%^*()=:;'"`<>{}[\]\\|/? ]/.test(v))?'var(--bad)':'var(--ink-300)'; }
 function pwdCheck(){ var p=document.getElementById('pwd-next'), c=document.getElementById('pwd-confirm'); var h1=document.getElementById('pwd-next-hint'), h2=document.getElementById('pwd-confirm-hint'); if(p){ p.value=noCn(p.value); if(h1){ h1.textContent=(p.value.length>=8&&p.value.length<=20)||!p.value?'':'新密码需 8~20 位'; h1.style.color=(p.value.length>=8&&p.value.length<=20)?'var(--good)':'var(--bad)'; } } if(c){ c.value=noCn(c.value); if(h2){ if(!c.value){h2.textContent='';} else { h2.textContent=(c.value===p.value)?'':'与密码不一致'; h2.style.color=(c.value===p.value)?'var(--good)':'var(--bad)'; } } } }
 (function(){ var si=document.getElementById('shop_name'); if(si){ si.addEventListener('input',shopNameHint); shopNameHint(); } var bt=document.getElementById('bio'); if(bt){ bt.addEventListener('input',bioClamp); bt.addEventListener('paste',function(){ setTimeout(bioClamp,0); }); } bioCount(); })();

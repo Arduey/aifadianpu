@@ -550,10 +550,9 @@ async def account_save(request: Request):
                 return err("该店铺名已被占用")
             user.shop_name = name
         if "bio" in b:
-            _bio = str(b["bio"]).strip()
-            _lines = _bio.split("\n")[:3]      # 店铺介绍最多 3 行
-            _bio = "\n".join(_lines)[:60]      # 且不超过 60 字符(与 textarea maxlength 一致)
-            user.bio = _bio
+            # 店铺介绍：仅一行，最多 30 字（换行折成空格，再截断）
+            _bio = str(b["bio"]).replace("\r", " ").replace("\n", " ").strip()
+            user.bio = _bio[:30]
         for field in ("shop_logo_url", "afdian_user_id", "afdian_token", "qq", "wechat"):
             if field in b:
                 setattr(user, field, str(b[field]).strip())

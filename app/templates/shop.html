@@ -34,8 +34,8 @@ html,body{height:100%}
 #shop-prods::-webkit-scrollbar-thumb:hover{background:var(--brand-200);background-clip:content-box}
 /* 二维码图片防溢出(支付宝 URL 长,手机上等比缩到容器内) */
 #qr-img img,#r-qr img{max-width:100%;height:auto;display:block}
-/* 手机端分类条(自定义):桌面隐藏 */
-.cat-scroll{display:none}
+/* 手机端当前分类条(自定义):桌面隐藏 */
+.cat-cur{display:none}
 /* 手机端适配 */
 @media (max-width:640px){
   main{padding:18px 12px !important}
@@ -44,13 +44,20 @@ html,body{height:100%}
   .shop-head{gap:12px !important;margin-bottom:18px !important}
   .shop-head>div:last-child{width:100%}
   .shop-head>div:last-child>div{width:100%;box-sizing:border-box}
-  /* 分类条:横向可滚动,所有分类平铺可见 —— 避免"以为只有默认分类" */
-  .cat-scroll{display:flex !important;gap:6px;overflow-x:auto;margin:0 0 12px;padding:2px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  .cat-scroll::-webkit-scrollbar{display:none}
-  .cat-chip{flex:none;display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border:1px solid var(--line);border-radius:999px;background:var(--card);font-family:inherit;font-size:12.5px;font-weight:500;color:var(--ink-700);white-space:nowrap;cursor:pointer;transition:background-color .14s var(--spring),color .14s,border-color .14s}
-  .cat-chip .n{font-size:11px;font-weight:400;color:var(--ink-300);font-variant-numeric:tabular-nums}
-  .cat-chip.on{background:var(--ink-900);border-color:var(--ink-900);color:#fff}
-  .cat-chip.on .n{color:rgba(255,255,255,.65)}
+  /* 当前分类:左侧文案 + 右侧可点区域，点开弹窗选分类 */
+  .cat-cur{display:flex !important;align-items:center;gap:10px;margin:0 0 12px;padding:9px 12px;background:var(--card);border:1px solid var(--line);border-radius:10px}
+  .cat-cur-lbl{font-size:12px;color:var(--ink-400);flex:none}
+  .cat-cur-btn{flex:1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0;border:0;background:transparent;font-family:inherit;font-size:13.5px;font-weight:600;color:var(--ink-900);cursor:pointer;text-align:left}
+  .cat-cur-btn .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cat-cur-btn .n{font-size:11.5px;font-weight:400;color:var(--ink-300);flex:none;font-variant-numeric:tabular-nums}
+  .cat-cur-btn svg{flex:none;color:var(--ink-300)}
+  /* 分类选择弹窗内的列表项 */
+  .cat-opt{display:flex;align-items:center;gap:10px;width:100%;box-sizing:border-box;padding:12px 12px;border:0;border-radius:9px;background:transparent;font-family:inherit;font-size:13.5px;font-weight:500;color:var(--ink-800);text-align:left;cursor:pointer;transition:background-color .14s}
+  .cat-opt:active{background:rgba(31,27,22,.06)}
+  .cat-opt .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cat-opt .n{font-size:11.5px;font-weight:400;color:var(--ink-300);flex:none;font-variant-numeric:tabular-nums}
+  .cat-opt.on{background:var(--ink-900);color:#fff}
+  .cat-opt.on .n{color:rgba(255,255,255,.65)}
   .modal{max-width:100% !important}
 }
 </style>{% endblock %}
@@ -112,8 +119,13 @@ html,body{height:100%}
   {% elif not groups %}
   <div class="card" style="padding:48px;text-align:center;border-style:dashed"><morph-icon data-name="store" size="24"></morph-icon><div style="font-weight:600;color:var(--ink-500);margin-top:8px">店铺暂无商品</div></div>
   {% else %}
-    <div class="cat-scroll" id="cat-scroll" role="tablist" aria-label="商品分类">
-      {% for _cat, _its in groups %}<button type="button" role="tab" class="cat-chip{% if loop.first %} on{% endif %}" data-ci="{{ loop.index0 }}" aria-selected="{{ 'true' if loop.first else 'false' }}" onclick="catChipPick({{ loop.index0 }}, this)">{{ _cat }}<span class="n">{{ _its|length }}</span></button>{% endfor %}
+    <div class="cat-cur" id="cat-cur">
+      <span class="cat-cur-lbl">当前分类</span>
+      <button type="button" class="cat-cur-btn" id="cat-cur-btn" onclick="catPickOpen()" aria-haspopup="dialog" aria-label="切换商品分类">
+        <span class="nm" id="cat-cur-name">{{ groups[0][0] if groups else '全部分类' }}</span>
+        <span class="n" id="cat-cur-count">{{ (groups[0][1]|length) if groups else 0 }}</span>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
     </div>
     <div class="shop-wrap" style="display:flex;gap:18px;align-items:flex-start">
       <aside id="shop-catbar" role="navigation" aria-label="商品分类" style="flex:0 0 184px;position:sticky;top:20px;max-height:70vh;overflow-y:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 8px;box-shadow:0 2px 10px rgba(0,0,0,.04)"><div style="font-size:11px;font-weight:600;color:var(--ink-500);letter-spacing:.4px;padding:2px 6px 10px">分类目录</div>
@@ -220,21 +232,34 @@ function shopPick(i, btn){
     for (var k2 = 0; k2 < all.length; k2++) { all[k2].style.background = ''; all[k2].style.boxShadow = ''; }
     if (btn) { btn.style.background = 'var(--card)'; btn.style.boxShadow = 'inset 0 0 0 1.5px var(--ink-900)'; }
   }
-  /* 手机端分类条与桌面目录保持同步 */
-  var chips = document.querySelectorAll('#cat-scroll .cat-chip');
-  for (var k3 = 0; k3 < chips.length; k3++) {
+  /* 手机端「当前分类」文字与桌面目录保持同步 */
+  var nmEl = document.getElementById('cat-cur-name');
+  var ctEl = document.getElementById('cat-cur-count');
+  var chipOpts = document.querySelectorAll('#cat-pick-list .cat-opt');
+  var curName = '', curCount = '';
+  for (var k3 = 0; k3 < chipOpts.length; k3++) {
     var on = (k3 === i);
-    chips[k3].classList.toggle('on', on);
-    chips[k3].setAttribute('aria-selected', on ? 'true' : 'false');
+    chipOpts[k3].classList.toggle('on', on);
+    chipOpts[k3].setAttribute('aria-selected', on ? 'true' : 'false');
+    if (on) {
+      var nm = chipOpts[k3].querySelector('.nm');
+      var cn = chipOpts[k3].querySelector('.n');
+      curName = nm ? nm.textContent : '';
+      curCount = cn ? cn.textContent : '';
+    }
   }
+  if (nmEl && curName) { nmEl.textContent = curName; }
+  if (ctEl && curCount) { ctEl.textContent = curCount; }
 }
 function shopInitPick(){ var b0 = document.querySelector('#shop-catbar button[data-ci="0"]'); if (b0) shopPick(0, b0); }
-/* 手机端分类条点击:同步高亮桌面目录并切分类,同时把点中的 chip 滚进可视区 */
-function catChipPick(i, el){
+/* 手机端:点「当前分类」行 → 弹窗选分类 */
+function catPickOpen(){ openModal('cat-pick-modal'); }
+function catPickClose(){ closeModal('cat-pick-modal'); }
+function catPickChoose(i){
   var bar = document.getElementById('shop-catbar');
   var btn = bar ? bar.querySelector('button[data-ci="' + i + '"]') : null;
   shopPick(i, btn);
-  if (el && el.scrollIntoView) { try { el.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { } }
+  catPickClose();
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', shopInitPick); else shopInitPick();
 window.copyContact=function(v,l){
@@ -245,6 +270,16 @@ window.copyContact=function(v,l){
   function legacy(){ try{ var x=document.createElement('textarea'); x.value=t; x.style.cssText='position:fixed;opacity:0'; document.body.appendChild(x); x.focus(); x.select(); document.execCommand('copy'); x.remove(); }catch(_){} done(); }
 };
 </script>
+
+<!-- 分类选择弹窗（手机端「当前分类」点开） -->
+<div class="modal-mask" id="cat-pick-modal" style="display:none" onclick="if(event.target===this)catPickClose()">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-head"><span>选择商品分类</span><button style="font-size:16px;color:var(--ink-400)" onclick="catPickClose()"><morph-icon data-name="x" size="14"></morph-icon></button></div>
+    <div class="modal-body" style="padding:8px" id="cat-pick-list" role="listbox" aria-label="商品分类">
+      {% for _cat, _its in groups %}<button type="button" role="option" class="cat-opt{% if loop.first %} on{% endif %}" data-ci="{{ loop.index0 }}" aria-selected="{{ 'true' if loop.first else 'false' }}" onclick="catPickChoose({{ loop.index0 }})"><span class="nm">{{ _cat }}</span><span class="n">{{ _its|length }}</span></button>{% endfor %}
+    </div>
+  </div>
+</div>
 
 <!-- 购买弹窗 -->
 <div class="modal-mask" id="buy-modal" style="display:none">

@@ -123,12 +123,6 @@ def random_token(length: int = 28) -> str:
     return secrets.token_hex((length + 1) // 2)[:length]
 
 
-def first_admin_email() -> str | None:
-    with SessionLocal() as db:
-        email = db.query(User.email).filter(User.role == "admin").order_by(User.id).first()
-        return email[0] if email else None
-
-
 def is_installed() -> bool:
     """平台是否已完成安装向导(platform_settings.installed)"""
     try:

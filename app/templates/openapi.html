@@ -16,7 +16,6 @@
     <nav id="api-nav">
       <div class="nav-group">
         <div class="nav-g-title">店铺信息 · 公开</div>
-        <a class="nav-item" href="#e-support" data-k="get /api/support 客服邮箱">店主客服邮箱</a>
         <a class="nav-item" href="#e-products" data-k="get /api/products 商品列表 product_id">商品列表（拿 product_id）</a>
       </div>
       <div class="nav-group">
@@ -42,13 +41,6 @@
 
     <section class="api-sec" id="sec-shop">
       <h2 class="sec-title">一、店铺信息（公开）</h2>
-
-      <article class="api-item" id="e-support">
-        <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/support"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
-        <p class="desc">店主客服邮箱。买家遇到问题时，可展示此联系方式。</p>
-        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/support"></span></pre></div>
-        <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{ "ok": true, "email": "admin@example.com" }</pre></div>
-      </article>
 
       <article class="api-item" id="e-products">
         <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/products"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>

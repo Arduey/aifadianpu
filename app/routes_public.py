@@ -337,7 +337,6 @@ async def reset(request: Request, token: str):
 
 @router.get("/guide")
 def guide(request: Request):
-    admin_email = auth.first_admin_email() or ""
     preview_uid = ""
     try:
         with SessionLocal() as db:
@@ -346,7 +345,7 @@ def guide(request: Request):
                 preview_uid = (adm.afdian_user_id or "").strip()
     except Exception:
         preview_uid = ""
-    return render(request, "docs.html", {"adminEmail": admin_email, "previewShopUid": preview_uid})
+    return render(request, "docs.html", {"previewShopUid": preview_uid})
 
 
 @router.get("/api-docs")
@@ -429,7 +428,6 @@ def api_pickup(request: Request):
                 "tip_now": info.get("tip_now") or "",
                 "needs_manual": bool(info.get("needs_manual")),
             },
-            "contact": (auth.first_admin_email() or ""),
             "merchant_email": (merchant.email if merchant else "") or "",
         }
 
@@ -466,11 +464,6 @@ def api_order_query(request: Request):
             "seller": u.afdian_user_id or str(u.id),
         }
     return {"ok": True, "data": data}
-
-
-@router.get("/api/support")
-def support():
-    return {"ok": True, "email": auth.first_admin_email()}
 
 
 @router.get("/api/products")
@@ -520,12 +513,10 @@ def _render_shop(request: Request, db, merchant) -> object:
         return render(request, "shop.html", {"notFound": True})
     s = platform_settings(db)
     _me = getattr(request.state, "me", None)
-    _admin_email = auth.first_admin_email() or ""
     ctx = {
         "notFound": False,
         "shop": merchant,
         "isOwner": bool(_me and _me.id == merchant.id),
-        "adminEmail": _admin_email,
         "shop_logo_ok": bool((merchant.shop_logo_url or "").strip()),
         "disabled": merchant.status != "active",
         "platformLogo": s.platform_logo_url,

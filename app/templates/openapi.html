@@ -45,13 +45,10 @@
       <article class="api-item" id="e-products">
         <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/products"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
         <p class="desc">获取店铺在售商品列表——这就是下单要用的 <code class="code">product_id</code> 的来源。先调它拿到 id，再传给 <code class="code">/shop/buy</code>。</p>
-        <div class="api-params"><div class="pp-t">查询参数（uid / shop / email 三选一）</div>
-          <table class="pp"><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
-          <tr><td>uid</td><td>string</td><td>三选一</td><td>店铺的爱发电 user_id</td></tr>
-          <tr><td>shop</td><td>string</td><td>三选一</td><td>店铺名</td></tr>
-          <tr><td>email</td><td>string</td><td>三选一</td><td>店主邮箱（登录控制台用的邮箱）</td></tr></table>
+        <div class="api-params"><div class="pp-t">无需任何参数</div>
+          <p class="doc-p" style="margin:8px 0 0">本站只有一家店铺，直接调用即可，不需要传 uid / shop / email。</p>
         </div>
-        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/products"></span>?email=merchant@example.com</pre></div>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/products"></span></pre></div>
         <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{
   "ok": true,
   "shop_name": "PixelLab",
@@ -96,13 +93,12 @@ Content-Type: application/json
 
       <article class="api-item" id="e-query">
         <div class="api-head"><span class="mth get">GET</span><code class="path" data-p="/api/order/query"></code><span class="tag">公开</span><button type="button" class="api-copy" onclick="copyApi(this)">复制</button></div>
-        <p class="desc">凭店主邮箱 + 订单号核对这笔订单是否已支付（发货前核验、售后对账用）。仅返回已支付订单。</p>
+        <p class="desc">凭订单号核对这笔订单是否已支付（发货前核验、售后对账用）。仅返回已支付订单。</p>
         <div class="api-params"><div class="pp-t">查询参数</div>
           <table class="pp"><tr><th>参数</th><th>类型</th><th>必填</th><th>说明</th></tr>
-          <tr><td>email</td><td>string</td><td>是</td><td>店主邮箱（登录控制台用的邮箱）</td></tr>
           <tr><td>order_no</td><td>string</td><td>是</td><td>订单号</td></tr></table>
         </div>
-        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/order/query"></span>?email=merchant@example.com&amp;order_no=AFD2026021400001</pre></div>
+        <div class="api-ex"><div class="ex-t">请求示例</div><pre class="code">GET <span data-exbase="/api/order/query"></span>?order_no=AFD2026021400001</pre></div>
         <div class="api-ex"><div class="ex-t">响应示例</div><pre class="code">{
   "ok": true,
   "data": {

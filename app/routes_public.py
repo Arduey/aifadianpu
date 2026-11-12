@@ -434,17 +434,14 @@ def api_pickup(request: Request):
 
 @router.get("/api/order/query")
 def api_order_query(request: Request):
-    """商户查询订单数据(供外部程序发放权益):传 商户邮箱 + 订单号,仅返回已支付订单。
+    """核对订单是否已支付(供外部程序发放权益):只需订单号,仅返回已支付订单。
+    单店模式:全站只有一家店,不需要再传商户邮箱。
     返回 {ok, data:{order_id, creat_time, type, title, sku, total, seller}}。"""
-    email = (request.query_params.get("email") or "").strip().lower()
     order_no = (request.query_params.get("order_no") or "").strip()
-    if not email or not order_no:
-        return err("缺少参数 email / order_no")
+    if not order_no:
+        return err("缺少参数 order_no")
     with SessionLocal() as db:
-        u = db.query(User).filter(User.email == email).first()
-        if not u:
-            return err("商户不存在", 404)
-        order = db.query(Order).filter(Order.order_no == order_no, Order.merchant_id == u.id).first()
+        order = db.query(Order).filter(Order.order_no == order_no).first()
         if not order:
             return err("订单不存在", 404)
         if order.status != "paid":
@@ -454,6 +451,7 @@ def api_order_query(request: Request):
             _paid = order.paid_at.strftime("%Y-%m-%d %H:%M:%S")
         elif order.created_at:
             _paid = order.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        merchant = db.get(User, order.merchant_id) if order.merchant_id else None
         data = {
             "order_id": order.order_no,
             "creat_time": _paid,
@@ -461,31 +459,19 @@ def api_order_query(request: Request):
             "title": order.title,
             "sku": order.sku,
             "total": order.total,
-            "seller": u.afdian_user_id or str(u.id),
+            "seller": (merchant.afdian_user_id or str(merchant.id)) if merchant else "",
         }
     return {"ok": True, "data": data}
 
 
 @router.get("/api/products")
-def api_products(request: Request):
-    """在售商品列表(供外部程序获取 product_id)。传 uid(爱发电 user_id) / shop(店铺名) / email(商户邮箱) 三选一。
+def api_products():
+    """在售商品列表(供外部程序获取 product_id)。单店模式:无需任何参数。
     返回 {ok, shop_name, afdian_user_id, products:[{id, category, title, sku_name, price}]}。"""
-    uid = (request.query_params.get("uid") or "").strip()
-    shop = (request.query_params.get("shop") or "").strip()
-    email = (request.query_params.get("email") or "").strip().lower()
-    if not uid and not shop and not email:
-        return err("缺少参数: uid(爱发电 user_id) / shop(店铺名) / email(商户邮箱),三选一")
     with SessionLocal() as db:
-        q = db.query(User).filter(User.status == "active")
-        if uid:
-            q = q.filter(User.afdian_user_id == uid)
-        elif shop:
-            q = q.filter(User.shop_name == shop)
-        else:
-            q = q.filter(User.email == email)
-        u = q.first()
+        u = _shop_merchant(db)
         if not u:
-            return err("未找到该店铺(需已绑定爱发电且状态正常)", 404)
+            return err("店铺未初始化", 404)
         rows = (
             db.query(Product, ProductCategory)
             .outerjoin(ProductCategory, ProductCategory.id == Product.category_id)
@@ -498,7 +484,8 @@ def api_products(request: Request):
              "sku_name": p.sku_name, "price": p.price}
             for p, c in rows
         ]
-    return {"ok": True, "shop_name": u.shop_name, "afdian_user_id": u.afdian_user_id, "products": items}
+        shop_name, afdian_user_id = u.shop_name, u.afdian_user_id
+    return {"ok": True, "shop_name": shop_name, "afdian_user_id": afdian_user_id, "products": items}
 
 
 # ── 消费者店铺页 ──

@@ -139,6 +139,7 @@ CREATE TABLE IF NOT EXISTS `orders` (
   `delivery_tip` VARCHAR(500) NOT NULL DEFAULT '' COMMENT '下单时的提货说明快照',
   `recharge_for_id` INT NULL COMMENT '充值订单:充值商户(买家)',
   `recharge_grant_cents` INT NULL COMMENT '充值到账金额(分)',
+  `is_test` BOOL NOT NULL DEFAULT false COMMENT '测试订单:1=店铺管理里生成的虚拟订单,不计销量/不占库存',
   `created_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `ix_orders_order_no` (`order_no`),

@@ -83,7 +83,9 @@ def mark_order_paid(order_no: str):
             # 历史 fee_ledger 的 order_fee 流水留在库里仅作留档,不再新增。
 
             # 统计:已支付笔数与金额(独立于 orders 表,未付单被清理也不影响创建数)
-            bump_order_stat(_stat_merchant, paid=1, amount=_stat_amount)
+            # 测试订单(is_test)不计入,避免污染真实销量与金额看板。
+            if not getattr(order, "is_test", False):
+                bump_order_stat(_stat_merchant, paid=1, amount=_stat_amount)
 
             # ③ Webhook(自定义回调:body_template+请求头+查询参数;模板空则发整单 JSON)
             if merchant.webhook_url:

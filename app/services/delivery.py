@@ -44,11 +44,15 @@ def is_limited(p: Product) -> bool:
 
 
 def limited_sold(db, product_id: int) -> int:
-    """限购类商品的已售数量(已付款订单数)"""
+    """限购类商品的已售数量(已付款订单数)。测试订单(is_test)不计入。"""
     if not product_id:
         return 0
     return int(
-        db.query(Order).filter(Order.product_id == product_id, Order.status == "paid").count()
+        db.query(Order).filter(
+            Order.product_id == product_id,
+            Order.status == "paid",
+            Order.is_test.is_(False),
+        ).count()
     )
 
 
@@ -72,7 +76,7 @@ def limited_left_map(db, products) -> dict:
         return out
     rows = (
         db.query(Order.product_id)
-        .filter(Order.product_id.in_(ids), Order.status == "paid")
+        .filter(Order.product_id.in_(ids), Order.status == "paid", Order.is_test.is_(False))
         .all()
     )
     for (pid,) in rows:
@@ -304,6 +308,20 @@ def ensure_delivery(db, order) -> dict:
     order_no = getattr(order, "order_no", "") or ""
     if not order_no:
         return {"kind": "", "content": "", "tip": "", "tip_now": "", "needs_manual": True}
+
+    # 测试订单:返回示例内容,绝不占用真实卡密、不写发放记录。
+    # 目的是让第三方把「下单 → 支付 → 提货」整条链路跑通,又不影响真实库存。
+    if getattr(order, "is_test", False):
+        p_t = db.get(Product, order.product_id) if getattr(order, "product_id", None) else None
+        _tip_now_t = (getattr(p_t, "delivery_tip", "") or "") if p_t is not None else ""
+        _tip_t = getattr(order, "delivery_tip", "") or _tip_now_t
+        if p_t is not None and is_card_type(p_t):
+            return {"kind": "card", "content": "【测试卡密】这是一条测试订单返回的示例卡密，不会占用真实库存",
+                    "tip": _tip_t, "tip_now": _tip_now_t, "needs_manual": False}
+        if p_t is not None and is_link_type(p_t):
+            return {"kind": "link", "content": getattr(p_t, "delivery_link", "") or "【测试链接】",
+                    "tip": _tip_t, "tip_now": _tip_now_t, "needs_manual": False}
+        return {"kind": "", "content": "", "tip": _tip_t, "tip_now": _tip_now_t, "needs_manual": True}
 
     rec = db.query(DeliveryRecord).filter(DeliveryRecord.order_no == order_no).first()
     p = None

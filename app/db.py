@@ -141,6 +141,9 @@ class Order(Base):
     delivery_tip = Column(String(500), nullable=False, default="")  # 下单时的「提货说明」快照(商品日后改动不影响历史订单)
     recharge_for_id = Column(Integer, nullable=True)
     recharge_grant_cents = Column(Integer, nullable=True)
+    # 测试订单:店主在「商品管理」里为商品生成的虚拟订单,供第三方对接测试。
+    # 标记为 True 后不进销量/金额统计、不计限购已售、不消耗卡密库存、不发买家邮件。
+    is_test = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, nullable=False, default=datetime.now, index=True)
 
 

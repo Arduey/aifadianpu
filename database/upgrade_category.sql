@@ -25,21 +25,17 @@
 -- ─────────────────────────────────────────────────────────────
 -- 步骤 0/8  ★ 先跑这句「前置状态探查」（只读，不修改任何东西）
 --           它会告诉你当前库处于哪个阶段，据此决定从哪一步开始跑：
---             has_category     = 1 → products 还有旧列, 从步骤 1 开始
---             has_category_id  = 1 → 已加过新列, 可跳过步骤 3
---            （分类表是否存在/有几条，跑完步骤 1 后用这句看：
---               SELECT COUNT(*) FROM product_categories;  ）
+--             有结果 = products 还有旧列 category，从步骤 1 开始
+--             有结果 = 已加过新列 category_id，可跳过步骤 3
+--             product_categories 有结果 = 分类表已存在
+--
+-- ⚠️ 这里刻意用 SHOW，而不是查 information_schema：
+--    宝塔为站点建的库用户（如 'afd'）通常没有 information_schema 权限，
+--    查它会报 #1044 Access denied for user 'xxx'@'localhost' to database 'information_schema'。
 -- ─────────────────────────────────────────────────────────────
-SELECT
-  (SELECT COUNT(*) FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
-       AND COLUMN_NAME = 'category')            AS has_category,
-  (SELECT COUNT(*) FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'products'
-       AND COLUMN_NAME = 'category_id')         AS has_category_id,
-  (SELECT COUNT(*) FROM information_schema.TABLES
-     WHERE TABLE_SCHEMA = DATABASE()
-       AND TABLE_NAME = 'product_categories')   AS categories_table_exists;
+SHOW COLUMNS FROM `products` LIKE 'category';
+SHOW COLUMNS FROM `products` LIKE 'category_id';
+SHOW TABLES LIKE 'product_categories';
 
 
 -- ─────────────────────────────────────────────────────────────

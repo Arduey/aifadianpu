@@ -133,6 +133,7 @@
               <button class="btn btn-ghost btn-sm" data-tip="上移" onclick='moveRow(this,"up")'><morph-icon data-name="arrowUp" size="13"></morph-icon></button>
               <button class="btn btn-ghost btn-sm" data-tip="下移" onclick='moveRow(this,"down")'><morph-icon data-name="arrowDown" size="13"></morph-icon></button>
               <button class="btn btn-ghost btn-sm" onclick='openForm({{ p|tojson }})'><morph-icon data-name="pencil" size="13"></morph-icon> 编辑</button>
+              <button class="btn btn-ghost btn-sm" data-tip="生成一张测试订单，供第三方对接验证（不占库存、不计销量）" onclick="testOrder({{ p.id }}, this)"><morph-icon data-name="receiptText" size="13"></morph-icon></button>
               <button class="btn btn-ghost btn-sm" style="color:#e5484d" onclick="del({{ p.id }})"><morph-icon data-name="trash" size="13"></morph-icon></button>
             </td>
           </tr>
@@ -283,6 +284,43 @@
         <div style="max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px">
           <table style="margin:0"><tbody id="cards-rows"></tbody></table>
         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 测试订单结果弹窗 -->
+<div class="modal-mask" id="torder-modal" style="display:none" onclick="if(event.target===this)closeModal('torder-modal')">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-head"><span>测试订单已生成</span><button data-close-modal="torder-modal" style="color:var(--ink-400)"><morph-icon data-name="x" size="13"></morph-icon></button></div>
+    <div class="modal-body" style="padding:16px">
+      <div class="muted" style="font-size:12px;line-height:1.7;margin-bottom:12px">
+        这是一张<b>已支付</b>的测试订单，可直接用于验证第三方的查单与提货逻辑。
+        它<b>不占用</b>真实卡密库存，<b>不计入</b>销量与限购统计。
+      </div>
+      <div class="field" style="margin:0">
+        <label>订单号</label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <input id="torder-no" readonly style="flex:1;font-family:ui-monospace,Consolas,Menlo,monospace" onclick="this.select()">
+          <button type="button" class="btn btn-outline btn-sm" onclick="copyTest('no')"><morph-icon data-name="clipboardCopy" size="12"></morph-icon> 复制</button>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>查单接口 <span class="hint">确认是否已支付</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code class="code" id="torder-query" style="flex:1;font-size:11px;overflow-x:auto;white-space:nowrap;padding:7px 9px;background:var(--paper);border-radius:7px;border:1px solid var(--line)"></code>
+          <button type="button" class="btn btn-outline btn-sm" onclick="copyTest('query')"><morph-icon data-name="clipboardCopy" size="12"></morph-icon> 复制</button>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px">
+        <label>提货接口 <span class="hint">取得卡密 / 链接</span></label>
+        <div style="display:flex;gap:8px;align-items:center">
+          <code class="code" id="torder-pickup" style="flex:1;font-size:11px;overflow-x:auto;white-space:nowrap;padding:7px 9px;background:var(--paper);border-radius:7px;border:1px solid var(--line)"></code>
+          <button type="button" class="btn btn-outline btn-sm" onclick="copyTest('pickup')"><morph-icon data-name="clipboardCopy" size="12"></morph-icon> 复制</button>
+        </div>
+      </div>
+      <div style="text-align:right;margin-top:16px">
+        <button type="button" class="btn btn-primary" data-close-modal="torder-modal">完成</button>
       </div>
     </div>
   </div>
@@ -569,6 +607,49 @@ async function del(id){
   if(!ok) return;
   try{ await api('/console/api/product/delete',{method:'POST',body:JSON.stringify({id})}); toast('success','商品已删除'); setTimeout(()=>location.reload(),600); }
   catch(e){ toast('error','删除失败',e.message); }
+}
+
+/* 生成测试订单:供第三方对接验证。
+   订单直接是已支付状态,不占卡密库存、不计销量、不计限购、不发买家邮件。 */
+async function testOrder(pid, btn){
+  // 标题从所在行读取，避免把带引号的标题塞进 onclick 属性截断 HTML
+  var title = '';
+  try{
+    var tr = btn && btn.closest ? btn.closest('tr') : null;
+    var cell = tr ? tr.querySelector('td b') : null;
+    title = cell ? cell.textContent.trim() : '';
+  }catch(_){ title = ''; }
+  var ok = await appConfirm({
+    title: '生成测试订单',
+    message: '为「' + (title || '该商品') + '」生成一张测试订单？',
+    lines: ['订单直接为「已支付」状态，可用于验证查单与提货接口',
+            '不消耗真实卡密库存，不计入销量与限购',
+            '不发买家邮件；Webhook 会照常触发，便于验证回调'],
+    okText: '生成'
+  });
+  if(!ok) return;
+  try{
+    var d = await api('/console/api/product/test-order',{method:'POST',body:JSON.stringify({id:pid})});
+    showTestOrder(d.order_no);
+  }catch(e){ toast('error','生成失败',e.message); }
+}
+function showTestOrder(no){
+  document.getElementById('torder-no').textContent = no;
+  document.getElementById('torder-query').textContent = 'GET /api/order/query?order_no=' + no;
+  document.getElementById('torder-pickup').textContent = 'GET /api/pickup?order_no=' + no;
+  openModal('torder-modal');
+}
+function copyTest(suffix){
+  var no = document.getElementById('torder-no').textContent;
+  var base = location.origin;
+  var txt = suffix === 'query' ? (base + '/api/order/query?order_no=' + no)
+          : suffix === 'pickup' ? (base + '/api/pickup?order_no=' + no)
+          : no;
+  function done(){ toast('success','已复制', txt); }
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, function(){ done(); }); }
+    else { done(); }
+  }catch(e){ done(); }
 }
 </script>
 {% endblock %}

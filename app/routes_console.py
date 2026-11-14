@@ -71,7 +71,7 @@ def products_page(request: Request):
         _sold_key_amt = {}
         _orders = (
             db.query(Order.product_id, Order.title, Order.sku, Order.total)
-            .filter(Order.merchant_id == me.id, Order.status == "paid")
+            .filter(Order.merchant_id == me.id, Order.status == "paid", Order.is_test.is_(False))
             .all()
         )
         for _pid, _title, _sku, _total in _orders:
@@ -207,7 +207,7 @@ def stats(request: Request):
     to_s = request.query_params.get("to", "")
     with SessionLocal() as db:
         q = db.query(Order.merchant_id, Order.category, Order.title, Order.sku, Order.total, Order.status, Order.created_at)
-        q = q.filter(Order.merchant_id == me.id)
+        q = q.filter(Order.merchant_id == me.id, Order.is_test.is_(False))
         if from_s:
             try:
                 q = q.filter(Order.created_at >= datetime.fromisoformat(from_s.replace("Z", "+00:00")).replace(tzinfo=None))
@@ -321,6 +321,7 @@ def orders_list(request: Request):
             item = {
                 "order_no": o.order_no, "category": o.category, "title": o.title, "sku": o.sku,
                 "total": o.total, "channel": o.channel, "remark": o.remark, "status": o.status,
+                "is_test": bool(getattr(o, "is_test", False)),
                 "paid_at": o.paid_at.strftime("%Y-%m-%d %H:%M:%S") if o.paid_at else "",
                 "created_at": o.created_at.strftime("%Y-%m-%d %H:%M:%S") if o.created_at else "",
                 "category_icon_url": _cat_icon.get((o.merchant_id, o.category), "") or _plogo,
@@ -442,6 +443,55 @@ async def product_delete(request: Request):
         _cards = categories.delete_product_cascade(db, product)
         db.commit()
     return {"ok": True, "message": f"商品已删除（含 {_cards} 条卡密）" if _cards else "商品已删除"}
+
+
+# ═══════════════ JSON:测试订单(供第三方对接验证) ═══════════════
+
+@router.post("/console/api/product/test-order")
+async def product_test_order(request: Request):
+    """为某个商品生成一张虚拟订单，供第三方对接测试。
+
+    生成的订单直接是「已支付」状态，第三方可用订单号验证：
+      - GET /api/order/query?order_no=...   查单
+      - GET /api/pickup?order_no=...        提货
+    特点：不消耗真实卡密库存、不计入销量/金额统计、不计入限购已售、不发买家邮件。
+    """
+    me = _me(request)
+    if not me:
+        return err("未登录", 401)
+    b = await request.json()
+    pid = int(b.get("id", 0) or 0)
+    with SessionLocal() as db:
+        product = db.get(Product, pid)
+        if not product:
+            return err("商品不存在", 404)
+        if product.merchant_id != me.id:
+            return err("无权操作该商品", 403)
+        _cat = db.get(ProductCategory, product.category_id)
+        _cat_name = _cat.name if _cat else ""
+        # 订单号：TES 前缀 + 时间戳 + 随机，便于一眼识别是测试单，且与真实单号格式区分
+        import random as _random
+        order_no = ("TES" + datetime.now().strftime("%y%m%d%H%M%S")
+                    + str(_random.randint(1000, 9999)))
+        while db.query(Order).filter(Order.order_no == order_no).first():
+            order_no = ("TES" + datetime.now().strftime("%y%m%d%H%M%S")
+                        + str(_random.randint(1000, 9999)))
+        now = datetime.now()
+        db.add(Order(
+            order_no=order_no, product_id=product.id, merchant_id=me.id,
+            category=_cat_name, title=product.title, sku=product.sku_name,
+            total=product.price, channel="wechat", remark="测试订单",
+            buyer_account="", buyer_email="",
+            delivery_tip=product.delivery_tip or "",
+            status="paid", paid_at=now, created_at=now,
+            is_test=True,
+        ))
+        db.commit()
+    return JSONResponse({
+        "ok": True,
+        "message": f"测试订单已生成：{order_no}",
+        "order_no": order_no,
+    }, status_code=201)
 
 
 # ═══════════════ JSON:卡密库存(SKU 级) ═══════════════

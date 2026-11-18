@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from sqlalchemy import case, func
 
 from . import auth, settings
 from .db import (Order, OrderStat, Product, ProductCategory, SessionLocal, User, WebhookSend, _wh_pairs, platform_settings)
@@ -65,22 +66,29 @@ def products_page(request: Request):
             if p.delivery_type == "platform" and p.delivery_kind == "card":
                 _stats[p.id] = delivery.cards_stats(db, p.id)
         # 历史销量(仅已付款订单):按 product_id 匹配;历史单据缺 product_id 时按「标题+SKU」兜底
+        # 两处都用 SQL 聚合，而不是把全部已付款订单拉进内存再在 Python 里累加。
         _sold = {}       # product_id -> 件数
         _sold_amt = {}   # product_id -> 金额(元)
         _sold_key = {}   # "标题|SKU" -> 件数
         _sold_key_amt = {}
-        _orders = (
-            db.query(Order.product_id, Order.title, Order.sku, Order.total)
-            .filter(Order.merchant_id == me.id, Order.status == "paid", Order.is_test.is_(False))
+        _paid_filter = (Order.merchant_id == me.id, Order.status == "paid", Order.is_test.is_(False))
+        for _pid, _cnt, _amt in (
+            db.query(Order.product_id, func.count(Order.id), func.sum(Order.total))
+            .filter(*_paid_filter, Order.product_id.isnot(None))
+            .group_by(Order.product_id)
             .all()
-        )
-        for _pid, _title, _sku, _total in _orders:
+        ):
+            _sold[_pid] = int(_cnt or 0)
+            _sold_amt[_pid] = int(_amt or 0)
+        for _title, _sku, _cnt, _amt in (
+            db.query(Order.title, Order.sku, func.count(Order.id), func.sum(Order.total))
+            .filter(*_paid_filter)
+            .group_by(Order.title, Order.sku)
+            .all()
+        ):
             _k = f"{_title}|{_sku}"
-            _sold_key[_k] = _sold_key.get(_k, 0) + 1
-            _sold_key_amt[_k] = _sold_key_amt.get(_k, 0) + int(_total or 0)
-            if _pid:
-                _sold[_pid] = _sold.get(_pid, 0) + 1
-                _sold_amt[_pid] = _sold_amt.get(_pid, 0) + int(_total or 0)
+            _sold_key[_k] = int(_cnt or 0)
+            _sold_key_amt[_k] = int(_amt or 0)
         # 分类销量汇总(用于分类头部显示)
         _cat_sold = {}
         _cat_amount = {}
@@ -218,28 +226,46 @@ def stats(request: Request):
                 q = q.filter(Order.created_at < datetime.fromisoformat(to_s.replace("Z", "+00:00")).replace(tzinfo=None))
             except ValueError:
                 pass
-        rows = q.all()
+        # 在 SQL 里按时间桶聚合，避免把整张订单表拉进 Python 内存。
+        # 原来 rows = q.all() 会把每条订单都实例化成行对象，订单上万时单次请求
+        # 就能吃掉几十 MB 峰值内存。
+        long_range = not from_s or not to_s
+        _fmt = "%Y-%m" if long_range else "%Y-%m-%d"
+        _bucket = func.date_format(Order.created_at, _fmt)
         created_count = paid_count = paid_amount = 0
         daily: dict[str, dict] = {}
+        for _b, _c, _pc, _pa in (
+            q.with_entities(
+                _bucket.label("b"),
+                func.count(Order.id).label("created"),
+                func.sum(case((Order.status == "paid", 1), else_=0)).label("paid_cnt"),
+                func.sum(case((Order.status == "paid", Order.total), else_=0)).label("paid_amt"),
+            )
+            .group_by(_bucket)
+            .all()
+        ):
+            _key = str(_b or "")
+            _n_c, _n_p, _n_a = int(_c or 0), int(_pc or 0), int(_pa or 0)
+            daily[_key] = {"date": _key, "created": _n_c, "paid": _n_p, "amount": _n_a}
+            created_count += _n_c
+            paid_count += _n_p
+            paid_amount += _n_a
+        # 商品维度同样交给 SQL 聚合（只统计已付款单）
         product_map: dict[str, dict] = {}
-        long_range = not from_s or not to_s
-        for r in rows:
-            created_count += 1
-            key = r.created_at.strftime("%Y-%m" if long_range else "%Y-%m-%d")
-            d = daily.setdefault(key, {"date": key, "created": 0, "paid": 0, "amount": 0})
-            d["created"] += 1
-            if r.status == "paid":
-                paid_count += 1
-                paid_amount += r.total
-                d["paid"] += 1
-                d["amount"] += r.total
-                pk = f"{r.category}|{r.title}|{r.sku}"
-                p = product_map.get(pk)
-                if p is None:
-                    p = {"category": r.category, "title": r.title, "sku": r.sku, "count": 0, "amount": 0}
-                    product_map[pk] = p
-                p["count"] += 1
-                p["amount"] += r.total
+        for _cat, _title, _sku, _cnt, _amt in (
+            q.with_entities(
+                Order.category, Order.title, Order.sku,
+                func.count(Order.id).label("cnt"),
+                func.sum(Order.total).label("amt"),
+            )
+            .filter(Order.status == "paid")
+            .group_by(Order.category, Order.title, Order.sku)
+            .all()
+        ):
+            product_map[f"{_cat}|{_title}|{_sku}"] = {
+                "category": _cat, "title": _title, "sku": _sku,
+                "count": int(_cnt or 0), "amount": int(_amt or 0),
+            }
     products = sorted(product_map.values(), key=lambda x: -x["amount"])
     # 补正「创建订单数」:未支付订单超 3 小时会被物理清理,orders 表统计不到。
     # 用 order_stats 的累计创建数兜底(取二者较大值),并回填到 daily 序列。
@@ -1008,7 +1034,6 @@ async def product_sort(request: Request):
             clean.append(v)
     if not clean:
         return err("无效的排序数据")
-    from sqlalchemy import case
     with SessionLocal() as db:
         mine = {pid for (pid,) in db.query(Product.id).filter(Product.merchant_id == me.id).all()}
         # 先统一重置,未在本列表中的项排最后

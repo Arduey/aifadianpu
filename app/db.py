@@ -12,7 +12,17 @@ DATABASE_URL = (
     f"@{config.DB_HOST}:{config.DB_PORT}/{config.DB_NAME}?charset=utf8mb4"
 )
 
-engine = create_engine(DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
+# 连接池按「每 worker 一份」计算：默认 pool_size=5 + max_overflow=10 意味着
+# 单 worker 最多 15 条 MySQL 连接，多 worker 时连接数成倍膨胀，MySQL 端每条
+# 连接也要占内存。单店小站并发很低，压到 pool_size=2 + overflow=3 足够。
+engine = create_engine(
+    DATABASE_URL,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_size=2,
+    max_overflow=3,
+    pool_timeout=10,
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
